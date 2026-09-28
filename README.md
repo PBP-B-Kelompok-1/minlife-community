@@ -34,15 +34,15 @@ Setiap user akan disimpan di database dengan data seperti nama, link sosial medi
 
 Halaman profile akan memuat info-info publik user dan posting. Sebuah penanda tambahan muncul jika user tersebut adalah moderator.
 
-#### Badges (submodul)
-Submodule untuk users. Badges didapatkan dari setiap penyelesaian weekly challenge.
+##### Badges
+Badges didapatkan dari setiap penyelesaian weekly challenge dan ditampilkan di halaman profile.
 
 #### Posts
 Posts menjadi halaman utama dari website ini.
 
 Setiap pengguna dapat membuat post yang bebas diformat sebagai artikel, pertanyaan forum, maupun bentuk lainnya. Para pengguna dapat memberikan reply untuk memberikan tanggapan. Setiap post maupun reply dapat di-upvote maupun di-downvote. Upvote count diakumulasi di akun user.
 
-#### Tags (submodul)
+##### Tags
 Sebuah post juga dapat diberikan beberapa tag untuk mempermudah kategorisasi. Tag yang ada misalnya “question”, “article”, “poll”, dan “selling/giveaway”. Moderator dapat membuat tag kategori baru ketika diperlukan.
 
 Setiap user dapat mengedit dan menghapus post atau komentar yang ia post. Moderator mempunyai permissions yang sama.
@@ -73,9 +73,11 @@ User dapat submit challenge dengan mengirim foto bukti dan penjelasan dengan tex
 
 ## Public API yang dipakai
 
-**Firebase Authentication**: user accounts, login.
+~~- **Firebase Authentication**: user accounts, login.~~ gunakan saja Auth Django
 
-Notable libraries: `django-ckeditor` untuk textboxes
+- **Firebase Cloud Messaging (FCM)** Push notifications
+
+Notable libraries: `django-ckeditor` untuk textboxes, bootstrap?
 
 ## Peran user
 User terbagi menjadi dua kategori:
