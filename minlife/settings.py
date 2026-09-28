@@ -151,4 +151,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Other variables
 AUTH_USER_MODEL = "users.User"
-# LOGIN_URL = ...
+LOGIN_URL = "login"
