@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'users'
 ]
 
 MIDDLEWARE = [
@@ -149,5 +150,5 @@ WHITENOISE_USE_FINDERS = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Other variables
+AUTH_USER_MODEL = "users.User"
 # LOGIN_URL = ...
-# AUTH_USER_MODEL = ...
