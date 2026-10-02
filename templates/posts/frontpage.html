@@ -1,4 +1,56 @@
 {# search bar, latest announcement, list of posts (untuk sekarang post dulu) #}
 {% extends "base.html" %}
+{% load static %}
+{% block meta %}
+    <link href="{% static "posts/css/styles.css" %}" rel="stylesheet">
+    <title>Minlife Community - Embracing the Minimalist Life</title>
+{% endblock meta %}
 {% block content %}
+    <div class="container">
+        <section class="posts">
+            <article class="post shadow">
+                <div class="post__title">
+                    <h1>A template post</h1>
+                </div>
+                <div class="post__tags">
+                    <button class="post__tag button">
+                        Tag 1
+                    </button>
+                    <button class="post__tag button">
+                        Tag 2
+                    </button>
+                </div>
+                <div class="post__content">
+                    <p>Pirate ipsum arrgh bounty warp jack. Main pirate smartly bilged arr poop scourge 
+                        lubber road yarr. Execution hang lubber round cutlass fluke fluke lubber. 
+                        Of tender seas guns clipper nipper cutlass arr. Plate parrel buccaneer jack 
+                        lass shot keelhaul nipperkin jolly. </p>
+                    <img src="{% static "img/judge.jpg" %}" alt="Harr">
+                    <p>Pirate ipsum arrgh bounty warp jack. Main pirate smartly bilged arr poop scourge 
+                        lubber road yarr. Execution hang lubber round cutlass fluke fluke lubber. 
+                        Of tender seas guns clipper nipper cutlass arr. Plate parrel buccaneer jack 
+                        lass shot keelhaul nipperkin jolly. </p>
+                </div>
+                <div class="post__actions">
+                    <div class="post__actions--left">
+                        <div class="post__actions__vote button--no-hover button button--border">
+                            <a class="post__actions__upvote fa-solid fa-chevron-up"></a>
+                            <span class="post__actions__vote-count">592</span>
+                            <a class="post__actions__downvote fa-solid fa-chevron-down"></a>
+                        </div>
+                        <a class="post__actions__comment button button--border" href="#">
+                            <i class="fa-solid fa-comment"></i>
+                            <span class="post__actions__comment-count">5</span>
+                        </a>
+                    </div>
+                    <div class="post__actions--right">
+                        <a class="button post__actions__share" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
+                            <i class="fa-solid fa-link"></i>
+                            Share
+                        </a>
+                    </div>
+                </div>
+            </article>
+        </section>
+    </div>
 {% endblock content %}
