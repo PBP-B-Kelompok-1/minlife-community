@@ -23,6 +23,8 @@ urlpatterns = [
     path('', frontpage, name="frontpage"),
     path('admin/', admin.site.urls),
     path('user/', include("users.urls")),
+    path('journal/', include("journal.urls")),
+    path('weeklychallenge/', include("weeklychallenge.urls")),
     path('login', login_user, name="login"),
     path('register', register_user, name="register"),
 ]
