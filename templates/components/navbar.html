@@ -1,0 +1,13 @@
+<header>
+    <div id="navbar" class="navbar shadow">
+        <div class="navbar__title">
+            <a href="{% url "frontpage" %}"><strong>minlife</strong> community<a>
+        </div>
+        <nav class="navbar__nav">
+            <a href="{% url "frontpage" %}">home</a>
+            <a href="{% url "journal:show_journal" %}">journal</a>
+            <a href="{% url "weeklychallenge:show_weekly_challenge" %}">weekly challenge</a>
+            <a href="{% url "users:show_my_profile" %}">profile</a>
+        </nav>
+    </div>
+</header>
