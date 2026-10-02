@@ -1,0 +1,34 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    /* debug option */
+    /* border: 1px solid magenta !important; */
+}
+:root {
+    font-size: 16px;
+    
+    --paper: #FFFFFF;
+    --paper-dim: #F4F4F6;
+    --ink: #000000;
+    --secondary: #252537;
+    --accent: #7373A6;
+    --success: #52BE4F;
+    --danger: #C12E42;
+
+    --line: var(--accent);
+    --radius: 1.25rem;
+    
+    --container-max-width: 1080px;
+}
+
+body {
+    font-family: "Quicksand", Roboto, Helvetica, Arial, -apple-system, serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    color: var(--ink);
+    background: linear-gradient(to bottom, var(--paper) 0%, var(--paper-dim) 100%);
+    background-attachment: fixed;
+    line-height: 1.4;
+}
