@@ -17,9 +17,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from users.views import login_user, register_user
+from posts.views import frontpage
 
 urlpatterns = [
-    # path('', ) for frontpage
+    path('', frontpage, name="frontpage"),
     path('admin/', admin.site.urls),
     path('user/', include("users.urls")),
     path('login', login_user, name="login"),
