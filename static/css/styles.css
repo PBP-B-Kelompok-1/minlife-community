@@ -38,7 +38,7 @@ body {
 .container {
     display: flex;
     flex-direction: column;
-    margin: 2rem auto;
+    margin: 0 auto;
     padding: 0 1rem;
     width: min(100%, var(--container-max-width));
     gap: 1.5rem;
