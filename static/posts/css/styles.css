@@ -4,6 +4,11 @@
     gap: 1.5rem;
 }
 
+.posts__status {
+    color: var(--tertiary);
+    font-style: italic;
+}
+
 .post {
     display: flex;
     flex-direction: column;

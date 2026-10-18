@@ -13,21 +13,28 @@ def frontpage(request):
 
 def get_posts_json(request):
     page = request.GET.get("page", "").strip() # will this error? bc integer.
-    posts = Post.objects.prefetch_related("tags").all()
+    posts = Post.objects.prefetch_related("tags").prefetch_related("votes").prefetch_related("comments").all()
     data = []
     for post in posts:
         tags_data = [{
                 "id": str(tag.id),
                 "title": tag.title,
             } for tag in post.tags.all()]
-        data += {
+        vote_count = post.votes.count()
+        user_vote = post.votes.filter(user=request.user).first()
+        user_vote_value = user_vote.value if user_vote else 0
+        comment_count = post.comments.count()
+        data.append({
             "id": str(post.id),
             "title": post.title,
             "content": post.content,
             "tags": tags_data,
+            "vote_count": vote_count,
+            "user_vote_value": user_vote_value,
+            "comment_count": comment_count,
             "created_at": post.created_at,
             "updated_at": post.updated_at,
-        }
+        })
     payload = {
         "data": data,
     }
