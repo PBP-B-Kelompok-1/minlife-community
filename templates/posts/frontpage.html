@@ -7,16 +7,16 @@
 {% endblock meta %}
 {% block content %}
     <div class="container">
-        <section class="posts">
+        <section id="posts" class="posts">
             <article class="post shadow">
                 <div class="post__title">
                     <h1>A template post</h1>
                 </div>
                 <div class="post__tags">
-                    <button class="post__tag button">
+                    <button class="post__tag button button--small">
                         Tag 1
                     </button>
-                    <button class="post__tag button">
+                    <button class="post__tag button button--small">
                         Tag 2
                     </button>
                 </div>
@@ -33,18 +33,18 @@
                 </div>
                 <div class="post__actions">
                     <div class="post__actions--left">
-                        <div class="post__actions__vote button--no-hover button button--border">
+                        <div class="post__actions__vote button--no-hover button button--small button--border">
                             <a class="post__actions__upvote fa-solid fa-chevron-up"></a>
                             <span class="post__actions__vote-count">592</span>
                             <a class="post__actions__downvote fa-solid fa-chevron-down"></a>
                         </div>
-                        <a class="post__actions__comment button button--border" href="#">
+                        <a class="post__actions__comment button button--small button--border" href="#">
                             <i class="fa-solid fa-comment"></i>
                             <span class="post__actions__comment-count">5</span>
                         </a>
                     </div>
                     <div class="post__actions--right">
-                        <a class="button post__actions__share" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
+                        <a class="button button--small post__actions__share" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
                             <i class="fa-solid fa-link"></i>
                             Share
                         </a>
@@ -53,4 +53,13 @@
             </article>
         </section>
     </div>
+    <div class="sticky--bottom">
+        <a class="button button--create-post" href="{% url "posts:create_post" %}">
+            <i class="fa-solid fa-plus"></i>
+            Create
+        </a>
+    </div>
+    <script src="{% static 'posts/js/posts.js' %}" 
+        data-get-posts-endpoint="{% url 'posts:get_posts_json' %}"
+    ></script>
 {% endblock content %}
