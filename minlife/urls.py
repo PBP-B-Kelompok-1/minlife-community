@@ -25,6 +25,7 @@ from posts.views import frontpage
 urlpatterns = [
     path('', frontpage, name="frontpage"),
     path("ckeditor5/", include('django_ckeditor_5.urls')),
+    path("api/", include('minlife.urls_api')),
     path('admin/', admin.site.urls),
     path('user/', include("users.urls")),
     path('post/', include("posts.urls")),
