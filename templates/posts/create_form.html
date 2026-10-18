@@ -12,20 +12,8 @@
     <div class="container">
         <section class="post-form--create shadow">
             <h1 class="post-form__title">Make a new post</h1>
-            <form method="POST" action="{% url "posts:create_post" %}" class="post-form">
-                {% csrf_token %}
-                {% for field in form %}
-                    <div class="post-form__field">
-                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                        {{ field }}
-                        {{ field.errors }}
-                    </div>
-                {% endfor %}
-                <div class="post-form__actions">
-                    <button class="button" type="submit">Submit</button>
-                    <a href="" class="button button--border">Cancel</a>
-                </div>
-            </form>
+            {% url "posts:create_post" as post_create_endpoint %}
+            {% include "posts/components/__post_form.html" with form_action=post_create_endpoint form=form %}
         </section>
     </div>
     <script>
