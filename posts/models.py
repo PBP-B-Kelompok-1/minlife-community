@@ -57,8 +57,14 @@ class Vote(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "post", "comment"],
-                name="one_vote_per_user",
+                fields=["user", "post"],
+                condition=Q(post__isnull=False),
+                name="one_post_vote_per_user",
+            ),
+            models.UniqueConstraint(
+                fields=["user", "comment"],
+                condition=Q(comment__isnull=False),
+                name="one_comment_vote_per_user",
             ),
             models.CheckConstraint(
                 condition=(Q(post__isnull=True, comment__isnull=False)) 

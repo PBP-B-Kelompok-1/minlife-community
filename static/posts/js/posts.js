@@ -1,6 +1,10 @@
 // retrieve data embedded in referrer <script>
 const scriptElem = document.currentScript;
 const GET_POSTS_ENDPOINT = scriptElem.dataset.getPostsEndpoint;
+const VOTE_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.votePostEndpointTemplate;
+const LOGIN_URL = scriptElem.dataset.loginUrl;
+const CSRF_TOKEN = scriptElem.dataset.csrfToken;
+const POST_ID_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
 
 const postsContainer = document.getElementById("posts");
 const postsStatusElem = document.getElementById("posts__status");
@@ -60,6 +64,16 @@ function generatePostElem(post) {
     `;
 
     postElem.innerHTML = postInnerHtml;
+
+    postElem.querySelector(".post__actions__upvote").addEventListener("click", (e) => {
+        e.preventDefault();
+        vote(e.target, 1);
+    });
+    postElem.querySelector(".post__actions__downvote").addEventListener("click", (e) => {
+        e.preventDefault();
+        vote(e.target, -1);
+    });
+
     return postElem;
 }
 
@@ -75,6 +89,10 @@ async function getPosts() {
             signal: postsAbortController.signal,
         });
         const data = (await response.json()).data;
+        
+        if (!response.ok) {
+            throw new Error(`Get request failed with status ${response.status}`);
+        }
 
         if (data.length === 0) {
             postsStatusElem.innerText = "No posts were found... Come again later!";
@@ -90,6 +108,66 @@ async function getPosts() {
         console.error(`An error occured: ${error}`);
         postsStatusElem.innerText = "An error occured while fetching data...";
     }
+}
+
+// un-upvote still counts as 1
+async function vote(vote_button, vote_value) {
+    const post_id = vote_button.closest("article").id;
+    const vote_button_set = vote_button.closest(".post__actions__vote");
+    const vote_count_elem = vote_button_set.querySelector(".post__actions__vote-count");
+    if (vote_button_set.dataset.requestPending == "true") return;
+    if (vote_value != 1 && vote_value != -1) {
+        console.error("Error: You can't just vote 'neutral'!");
+        return;
+    }
+
+    // Loading state (immediate response, just in case the server goes slow for some reason)
+    // a bit ugly but i think it's necessary
+    const prev_vote_value = vote_count_elem.textContent;
+    vote_count_elem.textContent = "...";
+
+    vote_button_set.dataset.requestPending = "true";
+    vote_button_set.setAttribute("aria-busy", "true");
+
+    const endpoint = VOTE_POST_ENDPOINT_TEMPLATE.replace(POST_ID_PLACEHOLDER, post_id);
+    try {
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+                "Accept": "application/json",
+                "X-CSRFToken": CSRF_TOKEN || getCookie("csrftoken")
+            },
+            body: JSON.stringify({"vote_value": vote_value})
+        });
+        const data = await response.json();
+        
+        if (response.status === 401) {
+            const login_url = data.login_url || LOGIN_URL
+            // works the same way as login_required
+            window.location.assign(`${login_url}?next=${encodeURIComponent(window.location.href)}`);
+            return;
+        }
+        
+        if (!response.ok) {
+            throw new Error(`Vote request failed with status ${response.status}`);
+        }
+        
+        // renew status
+        vote_button_set.querySelector(".post__actions__upvote")
+            .classList.toggle("upvoted", data.vote_value === 1);
+        vote_button_set.querySelector(".post__actions__downvote")
+            .classList.toggle("downvoted", data.vote_value === -1);
+        vote_count_elem.textContent = data.vote_count;
+    } catch(error){
+        vote_count_elem.textContent = prev_vote_value;
+        console.error(`An error occured while voting: ${error}`)
+    } finally {
+        vote_button_set.dataset.requestPending = "false";
+        vote_button_set.removeAttribute("aria-busy");
+    }
+}
+
+function toggle_vote_html(vote_button_set, vote_value=0) {
 }
 
 getPosts()

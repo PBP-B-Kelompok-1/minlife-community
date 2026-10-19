@@ -50,16 +50,35 @@
     gap: .75rem;
 }
 
+.post__actions__vote {
+    padding: 0;
+    gap: .3rem;
+}
+
 .post__actions__vote a {
-    transition: color 0.2s ease;
+    border-radius: 100rem;
+    transition: all 0.2s ease;
+    width: fit-content;
+    padding: .5rem;
+    cursor: pointer;
+}
+
+.post__actions__upvote.upvoted {
+    color: var(--success);
 }
 
 .post__actions__upvote:hover {
     color: var(--success);
+    background-color: var(--accent);
+}
+
+.post__actions__downvote.downvoted {
+    color: var(--danger);
 }
 
 .post__actions__downvote:hover {
     color: var(--danger);
+    background-color: var(--accent);
 }
 
 /* === Forms === */
