@@ -16,15 +16,21 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+
 from users.views import login_user, register_user
 from posts.views import frontpage
 
 urlpatterns = [
     path('', frontpage, name="frontpage"),
+    path("ckeditor5/", include('django_ckeditor_5.urls')),
+    path("api/", include('minlife.urls_api')),
     path('admin/', admin.site.urls),
     path('user/', include("users.urls")),
+    path('post/', include("posts.urls")),
     path('journal/', include("journal.urls")),
     path('weeklychallenge/', include("weeklychallenge.urls")),
     path('login', login_user, name="login"),
     path('register', register_user, name="register"),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

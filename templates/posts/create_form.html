@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load static %}
+{% block meta %}
+    <link href="{% static "posts/css/styles.css" %}" rel="stylesheet">
+    <title>Minlife Community - Create Post</title>
+    {{ form.media }}
+    <!-- Choices: a JQuery-less selection tool -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@11.1.0/public/assets/styles/choices.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/choices.js@11.1.0/public/assets/scripts/choices.min.js"></script>
+{% endblock meta %}
+{% block content %}
+    <div class="container">
+        <section class="post-form--create shadow">
+            <h1 class="post-form__title">Make a new post</h1>
+            {% url "posts:create_post" as post_create_endpoint %}
+            {% include "posts/components/__post_form.html" with form_action=post_create_endpoint form=form %}
+        </section>
+    </div>
+    <script>
+        const choices = new Choices(document.querySelector("select"), {
+            removeItemButton: true,
+        });
+    </script>
+
+{% endblock content %}

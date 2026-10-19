@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_ckeditor_5',
     'users',
     'posts',
     'announcements',
@@ -147,6 +148,8 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [ BASE_DIR / "static" ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 WHITENOISE_USE_FINDERS = True
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -156,3 +159,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Other variables
 AUTH_USER_MODEL = "users.User"
 LOGIN_URL = "login"
+
+# Django CKEditor 5
+CKEDITOR_5_CONFIGS = {
+    'post': {
+        'toolbar': {
+            'items': ['heading', '|', 'bold', 'italic', 'link',
+                      'bulletedList', 'numberedList', 'blockQuote', 'imageUpload',
+                      '|', 'imageStyle:alignLeft', 'imageStyle:alignRight', 
+                      'imageStyle:alignCenter', 'imageStyle:side',  '|'],
+            'styles': [
+                'full',
+                'side',
+                'alignLeft',
+                'alignRight',
+                'alignCenter',
+            ]
+        }
+    },
+}
