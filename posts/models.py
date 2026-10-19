@@ -10,7 +10,7 @@ class Post(models.Model):
     author = models.ForeignKey(User, on_delete=CASCADE, null=False)
     title = models.CharField(max_length=255, blank=False, null=False)
     content = models.TextField(blank=True, null=False)
-    tags = models.ManyToManyField("Tag", blank=True, null=True, related_name="tagged_posts")
+    tags = models.ManyToManyField("Tag", blank=True, related_name="tagged_posts")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(blank=True, null=True, auto_now=True)
     
