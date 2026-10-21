@@ -4,22 +4,23 @@
 {% block meta %}
     <link href="{% static "posts/css/styles.css" %}" rel="stylesheet">
     <title>Minlife Community - Embracing the Minimalist Life</title>
-{% endblock meta %}
-{% block content %}
-    <div class="container">
-        <div id="posts__status" class="posts__status"></div>
-        <section id="posts" class="posts"></section>
-    </div>
-    <div class="sticky--bottom">
-        <a class="button button--create-post" href="{% url "posts:create_post" %}">
-            <i class="fa-solid fa-plus"></i>
-            Create
-        </a>
-    </div>
     <script src="{% static 'posts/js/posts.js' %}" 
         data-get-posts-endpoint="{% url 'api:get_posts_json' %}"
+        data-show-post-endpoint-template="{% url 'posts:show_post' post_id='00000000-0000-0000-0000-000000000000' %}"
         data-vote-post-endpoint-template="{% url 'api:vote_post' post_id='00000000-0000-0000-0000-000000000000' %}"
         data-login-url="{% url 'login' %}"
         data-csrf-token="{{ csrf_token }}"
     ></script>
+{% endblock meta %}
+{% block content %}
+    <div class="container">
+        <div id="posts__status" class="posts__status empty-state"></div>
+        <section id="posts" class="posts"></section>
+    </div>
+    <div class="sticky--bottom">
+        <a class="button button--create-post shadow" href="{% url "posts:create_post" %}">
+            <i class="fa-solid fa-plus"></i>
+            Create
+        </a>
+    </div>
 {% endblock content %}

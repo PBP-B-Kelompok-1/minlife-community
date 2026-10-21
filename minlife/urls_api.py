@@ -5,5 +5,6 @@ app_name = "api"
 
 urlpatterns = [
     path("posts", get_posts_json, name="get_posts_json"),
+    path("post/<uuid:post_id>", vote_post, name="get_post"),
     path("post/<uuid:post_id>/vote", vote_post, name="vote_post"),
 ]

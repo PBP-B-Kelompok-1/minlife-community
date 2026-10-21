@@ -18,8 +18,44 @@ def frontpage(request):
     return render(request, "posts/frontpage.html", context)
 
 @require_GET
+def show_post(request, post_id):
+    return
+
+@require_GET
+def get_post_json(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+
+    data = []
+    tags_data = [{
+            "id": str(tag.id),
+            "title": tag.title,
+        } for tag in post.tags.all()]
+    vote_count = post.votes.aggregate(sum=Sum("value"))["sum"] or 0
+    user_vote_value = 0
+    if request.user.is_authenticated:
+        user_vote = post.votes.filter(user=request.user).first()
+        user_vote_value = user_vote.value if user_vote else 0
+    comment_count = post.comments.count()
+    data.append({
+        "id": str(post.id),
+        "title": post.title,
+        "content": post.content,
+        "tags": tags_data,
+        "vote_count": vote_count,
+        "user_vote_value": user_vote_value,
+        "comment_count": comment_count,
+        "created_at": post.created_at,
+        "updated_at": post.updated_at,
+    })
+
+    payload = {
+        "data": data,
+    }
+    return JsonResponse(payload)
+
+@require_GET
 def get_posts_json(request):
-    page = request.GET.get("page", "").strip() # will this error? bc integer.
+    # page = request.GET.get("page", "").strip() # will this error? bc integer.
     posts = Post.objects.prefetch_related("tags").prefetch_related("votes").prefetch_related("comments").all()
     data = []
     for post in posts:
