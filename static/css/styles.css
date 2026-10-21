@@ -15,8 +15,8 @@
     --secondary: #252537;
     --tertiary: #8F8F99;
     --accent: #7373A6;
-    --success: #52BE4F;
-    --danger: #C12E42;
+    --success: #52DE4F;
+    --danger: #F12E42;
 
     --line: var(--accent);
     --radius: 1.25rem;
@@ -30,15 +30,15 @@ body {
     flex-direction: column;
     min-height: 100vh;
     color: var(--ink);
-    background: linear-gradient(to bottom, var(--paper) 0%, var(--paper-dim) 100%);
+    background: var(--paper-dim);
     background-attachment: fixed;
     line-height: 1.4;
-}    
+}
 
 .container {
     display: flex;
     flex-direction: column;
-    margin: 0 auto;
+    margin: .5rem auto;
     padding: 0 1rem;
     width: min(100%, var(--container-max-width));
     gap: 1.5rem;
@@ -56,9 +56,24 @@ button {
     cursor: pointer;
 }
 
+.hover--expand {
+    transition: all 0.4s ease;
+}
+
+/* use special hover rules (disables hover on non-mouse; uses js) 
+ * https://stackoverflow.com/a/30303898 */
+body.has-hover .hover--expand:hover {
+    transform: scale(1.02);
+}
+
 /* Typography */
 a {
     text-decoration: none;
+}
+
+.empty-state {
+    color: var(--tertiary);
+    font-style: italic;
 }
 
 /* general shadows */
@@ -82,7 +97,7 @@ a {
     transition: all 0.2s ease;
 }
 
-.button:hover {
+body.has-hover .button:hover {
     border-color: var(--accent);
     background-color: var(--accent);
 }

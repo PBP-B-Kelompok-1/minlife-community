@@ -1,18 +1,21 @@
+window.addEventListener('load', function() {
+    getPosts();
+});
+
 // retrieve data embedded in referrer <script>
 const scriptElem = document.currentScript;
 const GET_POSTS_ENDPOINT = scriptElem.dataset.getPostsEndpoint;
+const SHOW_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.showPostEndpointTemplate;
 const VOTE_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.votePostEndpointTemplate;
 const LOGIN_URL = scriptElem.dataset.loginUrl;
 const CSRF_TOKEN = scriptElem.dataset.csrfToken;
 const POST_ID_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
 
-const postsContainer = document.getElementById("posts");
-const postsStatusElem = document.getElementById("posts__status");
 let postsAbortController;
 function generatePostElem(post) {
     let postElem = document.createElement("article");
     postElem.id = post.id;
-    postElem.classList.add("post", "shadow");
+    postElem.classList.add("post", "shadow", "hover--expand");
     let postTitleHtml = `
         <div class="post__title">
             <h1>${post.title}</h1>
@@ -35,15 +38,16 @@ function generatePostElem(post) {
     let updootClass = post.user_vote_value == 1 ? ` upvoted` : ``;
     let downdootClass = post.user_vote_value == -1 ? ` downvoted` : ``;
     
+    const show_post_url = SHOW_POST_ENDPOINT_TEMPLATE.replace(POST_ID_PLACEHOLDER, post.id)
     let postActionsHtml = `
         <div class="post__actions">
             <div class="post__actions--left">
                 <div class="post__actions__vote button--no-hover button button--small button--border">
-                    <a class="post__actions__upvote fa-solid fa-chevron-up${updootClass}"></a>
+                    <button class="post__actions__upvote fa-solid fa-chevron-up${updootClass}"></button>
                     <span class="post__actions__vote-count">${post.vote_count}</span>
-                    <a class="post__actions__downvote fa-solid fa-chevron-down${downdootClass}"></a>
+                    <button class="post__actions__downvote fa-solid fa-chevron-down${downdootClass}"></button>
                 </div>
-                <a class="post__actions__comment button button--small button--border" href="#">
+                <a class="post__actions__comment button button--small button--border" href="${show_post_url}">
                     <i class="fa-solid fa-comment"></i>
                     <span class="post__actions__comment-count">${post.comment_count}</span>
                 </a>
@@ -57,6 +61,7 @@ function generatePostElem(post) {
         </div>`;
     
     const postInnerHtml = `
+        <a href="${show_post_url}" class="post__show-anchor">&#8203;</a>
         ${postTitleHtml}
         ${postTagsHtml}
         ${postContentHtml}
@@ -80,6 +85,9 @@ function generatePostElem(post) {
 async function getPosts() {
     if (postsAbortController) postsAbortController.abort();
     postsAbortController = new AbortController();
+
+    const postsContainer = document.getElementById("posts");
+    const postsStatusElem = document.getElementById("posts__status");
     try {
         postsContainer.innerHTML = "";
         postsStatusElem.innerText = "Loading...";
@@ -166,8 +174,3 @@ async function vote(vote_button, vote_value) {
         vote_button_set.removeAttribute("aria-busy");
     }
 }
-
-function toggle_vote_html(vote_button_set, vote_value=0) {
-}
-
-getPosts()

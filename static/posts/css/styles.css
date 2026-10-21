@@ -4,13 +4,13 @@
     gap: 1.5rem;
 }
 
-.posts__status {
-    color: var(--tertiary);
-    font-style: italic;
+.posts__status:empty {
+    display: none;
 }
 
 .post {
     display: flex;
+    position: relative;
     flex-direction: column;
     display: flex;
     padding: 1rem 1.25rem;
@@ -19,12 +19,29 @@
     border-radius: var(--radius);
 }
 
+/* quick overflow prevention */
+.post * {
+    max-width: 100%;
+    height: auto;
+}
+
+.post >:empty {
+    display: none;
+}
+
+ /* neat as hell trick (referenced reddit) clickable elems need position: relative */
+.post__show-anchor {
+    position: absolute;
+    inset: 0;
+}
+
 .post__title * {
     font-size: 1.75rem;
     font-weight: 700;
 }
 
 .post__tags {
+    position: relative;
     display: flex;
     gap: .375rem;
 }
@@ -46,6 +63,7 @@
 }
 
 .post__actions--left, .post__actions--right {
+    position: relative;
     display: flex;
     gap: .75rem;
 }
@@ -55,11 +73,13 @@
     gap: .3rem;
 }
 
-.post__actions__vote a {
+.post__actions__vote button {
+    border: none;
+    background-color: initial;
     border-radius: 100rem;
     transition: all 0.2s ease;
     width: fit-content;
-    padding: .5rem;
+    padding: .6rem;
     cursor: pointer;
 }
 
@@ -67,7 +87,7 @@
     color: var(--success);
 }
 
-.post__actions__upvote:hover {
+body.has-hover .post__actions__upvote:hover {
     color: var(--success);
     background-color: var(--accent);
 }
@@ -76,7 +96,7 @@
     color: var(--danger);
 }
 
-.post__actions__downvote:hover {
+body.has-hover .post__actions__downvote:hover {
     color: var(--danger);
     background-color: var(--accent);
 }
