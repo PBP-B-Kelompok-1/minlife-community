@@ -13,6 +13,7 @@
         data-show-post-endpoint-template="{% url 'posts:show_post' post_id='00000000-0000-0000-0000-000000000000' %}"
         data-vote-post-endpoint-template="{% url 'api:vote_post' post_id='00000000-0000-0000-0000-000000000000' %}"
         data-vote-comment-endpoint-template="{% url 'api:vote_comment' comment_id='00000000-0000-0000-0000-000000000000' %}"
+        data-user-profile-endpoint-template="{% url 'users:show_profile' user_id='00000000-0000-0000-0000-000000000000' %}"
         data-login-url="{% url 'login' %}"
         data-csrf-token="{{ csrf_token }}"
     ></script>

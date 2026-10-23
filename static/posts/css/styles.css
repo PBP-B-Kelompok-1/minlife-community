@@ -167,6 +167,26 @@ body.has-hover .comment__actions__downvote:hover {
     grid-template-columns:   fit-content(100%) minmax(0,1fr);
 }
 
+.comment:target {
+    -webkit-animation: highlight 1s linear forwards;
+    animation: highlight 1s linear forwards;
+}
+
+/*
+Source - https://stackoverflow.com/a/30125780
+Posted by Gildas.Tambo, modified by community. See post 'Timeline' for change history
+Retrieved 2026-10-23, License - CC BY-SA 3.0
+*/
+@-webkit-keyframes highlight {
+    0%,100% { background: var(--paper) }
+    50% { background: var(--accent) }
+}
+
+@keyframes highlight {
+    0%,100% { background: var(--paper) }
+    50% { background: var(--accent) }
+}
+
 .comment__pfp, .comment-form__pfp {
     display: flex;
     width: 2.8125rem;
@@ -226,16 +246,23 @@ body.has-hover .comment__actions__downvote:hover {
     font-weight: 400;
 }
 
+/* TOOD: clickable */
+.comment__body__username:hover, .comment__replies-to:hover {
+    color: var(--accent);
+}
+
 /* Special grid layout for replies */
 .comment__replies {
     display: flex;
     flex-direction: column;
-    grid-column: 1 / span 2;
     gap: 1rem;
+    padding-left: 2rem;
 }
 
-.comment__replies .comment {
-    border: 1px solid var(--accent);
+/* On a certain reply depth, stop padding reply's left side 
+ * bonkers idea but works */
+.comment__replies > .comment__replies > .comment__replies {
+    padding-left: 0;
 }
 
 .comment__replies .comment__replies-to {

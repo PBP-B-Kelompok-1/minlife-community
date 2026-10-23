@@ -156,6 +156,7 @@ def get_comments_recursive(comments, user):
             user_vote_value = user_vote.value if user_vote else 0
         data.append({
             "id": comment.id,
+            "user_id": comment.user.id,
             "username": comment.user.username,
             "content": comment.content,
             "user_vote_value": user_vote_value,
@@ -195,9 +196,10 @@ def create_comment(request, post_id):
     comment.post = post
     comment.replies_to_comment = reply_to
     comment.save()
-    return JsonResponse(
-        {"message": "Successfully posted comment!"},
-        status=201,
+    return JsonResponse({
+        "message": "Successfully posted comment!",
+        "comment_id": comment.id
+        }, status=201,
     )
 
 @require_POST
