@@ -44,6 +44,28 @@
             </div>
         </form>
 
+        <template id="reply-form-template">
+            <form method="POST" class="comment-form comment__reply-form shadow">
+                {% csrf_token %}
+                <img class="comment-form__pfp" src="{% static 'img/judge.jpg'%}" alt=""/>
+                <div class="comment-form__inputs">
+                    {% for field in reply_comment_form %}
+                        <div class="comment-form__field">
+                            {{ field }}
+                            {{ field.errors }}
+                        </div>
+                    {% endfor %}
+                    <input type="hidden" name="replies_to_comment">
+                </div>
+                <div class="comment-form__actions">
+                    <button class="button button--small" type="button">Cancel</button>
+                    <button class="button button--small" type="submit">
+                        <i class="fa-solid fa-up-long"></i>Upload
+                    </button>
+                </div>
+            </form>
+        </template>
+
         <div id="comments__status" class="comments__status empty-state"></div>
         <section id="comments" class="comments"></section>
     </div>

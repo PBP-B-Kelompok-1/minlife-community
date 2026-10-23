@@ -204,6 +204,19 @@ body.has-hover .comment__actions__downvote:hover {
     justify-content: flex-end;
 }
 
+.comment__reply-form {
+    grid-column: 1 / span 2;
+    margin-top: .25rem;
+    box-shadow: none;
+    border: 1px solid var(--accent);
+}
+
+.comment__reply-form textarea {
+    width: 100%;
+    min-height: 4rem;
+    resize: vertical;
+}
+
 .comment__body__username, .comment__replies-to {
     color: var(--tertiary, #8F8F99);
 
@@ -215,7 +228,14 @@ body.has-hover .comment__actions__downvote:hover {
 
 /* Special grid layout for replies */
 .comment__replies {
+    display: flex;
+    flex-direction: column;
     grid-column: 1 / span 2;
+    gap: 1rem;
+}
+
+.comment__replies .comment {
+    border: 1px solid var(--accent);
 }
 
 .comment__replies .comment__replies-to {
@@ -250,4 +270,3 @@ body.has-hover .comment__actions__downvote:hover {
     min-height: 4rem !important;
     max-height: 12rem;
 }
-

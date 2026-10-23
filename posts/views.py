@@ -20,7 +20,10 @@ def frontpage(request):
 def show_post(request, post_id):
     context = {
         "post_id": post_id,
-        "comment_form": CommentForm()
+        "comment_form": CommentForm(),
+        # This is kept in a template and copied for each reply button press.
+        # A different starting ID keeps it separate from the main comment editor.
+        "reply_comment_form": CommentForm(auto_id="id_reply_%s"),
     }
     return render(request, "posts/show_post.html", context)
 
@@ -180,11 +183,17 @@ def create_comment(request, post_id):
                 "errors": form.errors
             }, status=400)
     
-    # TODO: reply creation
     post = get_object_or_404(Post, id=post_id)
+    reply_to_id = request.POST.get("replies_to_comment")
+    reply_to = None
+    if reply_to_id:
+        # Make sure somebody cannot reply to a comment from a different post.
+        reply_to = get_object_or_404(Comment, id=reply_to_id, post=post)
+
     comment = form.save(commit=False)
     comment.user = request.user
     comment.post = post
+    comment.replies_to_comment = reply_to
     comment.save()
     return JsonResponse(
         {"message": "Successfully posted comment!"},
@@ -235,5 +244,3 @@ def vote_comment(request, comment_id):
         },
         status=200,
     )
-
-
