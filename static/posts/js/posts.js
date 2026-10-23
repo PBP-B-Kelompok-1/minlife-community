@@ -270,11 +270,12 @@ function generateCommentTree(comments, repliesToUser=null) {
     comments.forEach(comment => {
         let commentElem = document.createElement("article");
         commentElem.id = comment.id;
-        commentElem.classList.add("comment", "shadow", "hover--expand");
+        commentElem.classList.add("comment", "shadow");
+        if (!repliesToUser) commentElem.classList.add("hover--expand");
 
         let commentRepliesToHtml = repliesToUser
             ? `<div class="comment__replies-to">
-                    <i class="fa-solid fa-reply"></i>${repliesToUser}
+                    <i class="fa-solid fa-reply"></i> ${repliesToUser}
                 </div>`
             : ``;
     
@@ -304,9 +305,9 @@ function generateCommentTree(comments, repliesToUser=null) {
         if (comment.replies.length > 0) {
             const repliesElem = document.createElement("div");
             repliesElem.classList.add("comment__replies");
-            repliesElem.append(generateCommentTree(comment.replies, repliesToUser=comment.username));
+            repliesElem.append(generateCommentTree(comment.replies, comment.username));
 
-            commentTree.append(repliesElem);
+            commentElem.append(repliesElem);
         }
 
         commentElem.querySelector(".comment__actions__upvote").addEventListener("click", (e) => {
@@ -324,6 +325,7 @@ function generateCommentTree(comments, repliesToUser=null) {
 
 async function createComment() {
     const createCommentForm = document.getElementById("comment-form");
+    const ckeditorField = window.editors['id_content'];
     const createCommentSubmitButton = createCommentForm.querySelector("button[type='submit']");
     createCommentSubmitButton.disabled = true;
     try {
@@ -347,6 +349,7 @@ async function createComment() {
             throw new Error(`${errorMessages}`);
         } else {
             createCommentForm.reset();
+            if (ckeditorField) ckeditorField.setData(''); // special handling needed
             getComments();
         }
     } catch(error) {

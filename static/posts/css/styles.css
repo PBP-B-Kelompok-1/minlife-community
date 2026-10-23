@@ -190,20 +190,6 @@ body.has-hover .comment__actions__downvote:hover {
     justify-self: stretch;
 }
 
-/* Keep the comment editor within the form column instead of sizing to its
-   contents.  CKEditor adds its own wrapper around the textarea. */
-.comment-form__inputs,
-.comment-form__field,
-.comment-form__field .ck-editor {
-    width: 100%;
-    min-width: 0;
-}
-
-.comment-form__field .ck-editor__editable_inline {
-    min-height: 4rem !important;
-    max-height: 12rem;
-}
-
 .comment__actions, .comment-form__actions {
     display: flex;
     justify-content: flex-start;
@@ -218,7 +204,7 @@ body.has-hover .comment__actions__downvote:hover {
     justify-content: flex-end;
 }
 
-.comment__body__username, .comment__replies-to{
+.comment__body__username, .comment__replies-to {
     color: var(--tertiary, #8F8F99);
 
     /* text */
@@ -226,3 +212,42 @@ body.has-hover .comment__actions__downvote:hover {
     font-size: 1rem;
     font-weight: 400;
 }
+
+/* Special grid layout for replies */
+.comment__replies {
+    grid-column: 1 / span 2;
+}
+
+.comment__replies .comment__replies-to {
+    grid-row: 1 / span 1;
+    grid-column: 1 / span 2;
+}
+
+.comment__replies .comment__pfp {
+    grid-row: 2 / span 1;
+    grid-column: 1/ span 1;
+}
+
+.comment__replies .comment__body {
+    grid-row: 2 / span 1;
+    grid-column: 2/ span 1;
+}
+
+.comment__replies .comment__actions {
+    grid-row: 3 / span 1;
+    grid-column: 1/ span 2;
+}
+
+/* Keep the comment editor within the form column instead of sizing to its
+   contents.  CKEditor adds its own wrapper around the textarea. */
+.comment-form__inputs,
+.comment-form__field,
+.comment-form__field .ck-editor {
+    width: 100%;
+    min-width: 0;
+}
+.comment-form__field .ck-editor__editable_inline {
+    min-height: 4rem !important;
+    max-height: 12rem;
+}
+
