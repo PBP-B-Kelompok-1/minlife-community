@@ -1,18 +1,20 @@
-window.addEventListener('load', function() {
-    getPosts();
-});
-
 // retrieve data embedded in referrer <script>
 const scriptElem = document.currentScript;
-const GET_POSTS_ENDPOINT = scriptElem.dataset.getPostsEndpoint;
-const SHOW_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.showPostEndpointTemplate;
 const VOTE_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.votePostEndpointTemplate;
 const LOGIN_URL = scriptElem.dataset.loginUrl;
 const CSRF_TOKEN = scriptElem.dataset.csrfToken;
 const POST_ID_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
 
+// frontpage
+const SHOW_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.showPostEndpointTemplate;
+const GET_POSTS_ENDPOINT = scriptElem.dataset.getPostsEndpoint;
+// show_post (already has the page's postid)
+const GET_POST_ENDPOINT = scriptElem.dataset.getPostEndpoint;
+const GET_COMMENTS_ENDPOINT = scriptElem.dataset.getCommentsEndpoint;
+const CREATE_COMMENT_ENDPOINT = scriptElem.dataset.createCommentEndpoint;
+
 let postsAbortController;
-function generatePostElem(post) {
+function generatePostElem(post, show_links=true) {
     let postElem = document.createElement("article");
     postElem.id = post.id;
     postElem.classList.add("post", "shadow", "hover--expand");
@@ -39,6 +41,9 @@ function generatePostElem(post) {
     let downdootClass = post.user_vote_value == -1 ? ` downvoted` : ``;
     
     const show_post_url = SHOW_POST_ENDPOINT_TEMPLATE.replace(POST_ID_PLACEHOLDER, post.id)
+    const comment_href = show_links
+        ? `href="${show_post_url}"`
+        : ``;
     let postActionsHtml = `
         <div class="post__actions">
             <div class="post__actions--left">
@@ -47,7 +52,7 @@ function generatePostElem(post) {
                     <span class="post__actions__vote-count">${post.vote_count}</span>
                     <button class="post__actions__downvote fa-solid fa-chevron-down${downdootClass}"></button>
                 </div>
-                <a class="post__actions__comment button button--small button--border" href="${show_post_url}">
+                <a class="post__actions__comment button button--small button--border"${comment_href}>
                     <i class="fa-solid fa-comment"></i>
                     <span class="post__actions__comment-count">${post.comment_count}</span>
                 </a>
@@ -60,8 +65,12 @@ function generatePostElem(post) {
             </div>
         </div>`;
     
+    const postLink = show_links 
+        ? `<a href="${show_post_url}" class="post__show-anchor">&#8203;</a>`
+        : ``;
+
     const postInnerHtml = `
-        <a href="${show_post_url}" class="post__show-anchor">&#8203;</a>
+        ${postLink}
         ${postTitleHtml}
         ${postTagsHtml}
         ${postContentHtml}
@@ -82,6 +91,44 @@ function generatePostElem(post) {
     return postElem;
 }
 
+async function getPost() {
+    if (postsAbortController) postsAbortController.abort();
+    postsAbortController = new AbortController();
+
+    const postsContainer = document.getElementById("posts");
+    const postsStatusElem = document.getElementById("posts__status");
+    try {
+        postsContainer.innerHTML = "";
+        postsStatusElem.innerText = "Loading...";
+        const response = await fetch(GET_POST_ENDPOINT, {
+            method: "GET",
+            headers: { "Accept": "application/json" },
+            signal: postsAbortController.signal,
+        });
+        
+        if (response.status === 404) {
+            postsStatusElem.innerText = "Sorry, that post doesn't exist!";
+            throw new Error(`Get request failed with status ${response.status}`);
+        } else if (!response.ok) {
+            postsStatusElem.innerText = "An error occured while fetching data...";
+            throw new Error(`Get request failed with status ${response.status}`);
+        }
+        const data = (await response.json()).data;
+
+        if (data.length === 0) {
+            postsStatusElem.innerText = "Received an empty response... contact server admininstrators!";
+            throw new Error(`Received an empty response`);
+        } else {
+            postsStatusElem.innerText = "";
+            let postElem = generatePostElem(data, show_links=false);
+            postsContainer.append(postElem);
+        }
+    } catch (error) {
+        if (error.name == 'AbortError') return;
+        console.error(`An error occured: ${error}`);
+    }
+}
+
 async function getPosts() {
     if (postsAbortController) postsAbortController.abort();
     postsAbortController = new AbortController();
@@ -96,12 +143,12 @@ async function getPosts() {
             headers: { "Accept": "application/json" },
             signal: postsAbortController.signal,
         });
-        const data = (await response.json()).data;
         
         if (!response.ok) {
             throw new Error(`Get request failed with status ${response.status}`);
         }
 
+        const data = (await response.json()).data;
         if (data.length === 0) {
             postsStatusElem.innerText = "No posts were found... Come again later!";
         } else {
@@ -172,5 +219,124 @@ async function vote(vote_button, vote_value) {
     } finally {
         vote_button_set.dataset.requestPending = "false";
         vote_button_set.removeAttribute("aria-busy");
+    }
+}
+
+let commentsAbortController;
+async function getComments() {
+    if (commentsAbortController) commentsAbortController.abort();
+    commentsAbortController = new AbortController();
+
+    const commentsContainer = document.getElementById("comments");
+    const commentsStatusElem = document.getElementById("comments__status");
+    try {
+        commentsContainer.innerHTML = "";
+        commentsStatusElem.innerText = ""; 
+        const response = await fetch(GET_COMMENTS_ENDPOINT, {
+            method: "GET",
+            headers: { "Accept": "application/json" },
+            signal: commentsAbortController.signal,
+        });
+        
+        if (response.status === 404) {
+            commentsStatusElem.innerText = "Sorry, that comment doesn't exist!";
+            throw new Error(`Get request failed with status ${response.status}`);
+        } else if (!response.ok) {
+            commentsStatusElem.innerText = "An error occured while fetching data...";
+            throw new Error(`Get request failed with status ${response.status}`);
+        }
+        const data = (await response.json()).data;
+
+        if (data.length === 0) {
+            commentsStatusElem.innerText = "Received an empty response... contact server admininstrators!";
+            throw new Error(`Received an empty response`);
+        } else {
+            commentsStatusElem.innerText = "";
+            let commentElem = generateCommentTree(data);
+            commentsContainer.append(commentElem);
+        }
+    } catch (error) {
+        if (error.name == 'AbortError') return;
+        console.error(`An error occured: ${error}`);
+    }
+}
+
+// ai generated bc i got tired
+function generateCommentTree(comments, repliesToUser=null) {
+    const commentTree = document.createDocumentFragment();
+
+    comments.forEach(comment => {
+        let commentElem = document.createElement("article");
+        commentElem.id = comment.id;
+        commentElem.classList.add("comment", "shadow", "hover--expand");
+
+        let commentRepliesToHtml = repliesToUser
+            ? `<div class="comment__replies-to">
+                    <i class="fa-solid fa-reply"></i>${repliesToUser}
+                </div>`
+            : ``;
+
+        commentElem.innerHTML = `
+            <img class="comment__pfp" src="/static/img/judge.jpg" alt="">
+            ${commentRepliesToHtml}
+            <div class="comment__body">
+                <div class="comment__body__username">${comment.username}</div>
+                <div class="comment__body__content">${comment.content}</div>
+            </div>
+            <div class="comment__actions">
+                <div class="comment__actions__vote button button--small button--border button--no-hover">
+                    <button class="comment__actions__upvote fa-solid fa-chevron-up"></button>
+                    <span class="comment__actions__vote-count">${comment.vote_count}</span>
+                    <button class="comment__actions__downvote fa-solid fa-chevron-down"></button>
+                </div>
+                <button class="comment__actions__reply button button--border button--small">
+                    <i class="fa-solid fa-reply"></i>${comment.replies.length}
+                </button>
+            </div>`;
+
+        commentTree.append(commentElem);
+
+        if (comment.replies.length > 0) {
+            const repliesElem = document.createElement("div");
+            repliesElem.classList.add("comment__replies");
+            repliesElem.append(generateCommentTree(comment.replies, repliesToUser=comment.username));
+            commentTree.append(repliesElem);
+        }
+    });
+
+    return commentTree;
+}
+
+async function createComment() {
+    const createCommentForm = document.getElementById("comment-form");
+    const createCommentSubmitButton = createCommentForm.querySelector("button[type='submit']");
+    createCommentSubmitButton.disabled = true;
+    try {
+        const response = await fetch(CREATE_COMMENT_ENDPOINT, {
+            method: 'POST',
+            headers: { "X-CSRFToken": CSRF_TOKEN || getCookie("csrftoken") },
+            body: new FormData(createCommentForm)
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (response.status === 401) {
+            const login_url = data.login_url || LOGIN_URL
+            window.location.assign(`${login_url}?next=${encodeURIComponent(window.location.href)}`);
+            return;
+        }
+
+        if (!response.ok) {
+            const errorMessages = result.errors
+                ? Object.values(result.errors).flat().map(error => error.message)
+                : [result.message || `Something went wrong (status ${response.status}).`];
+            throw new Error(`${errorMessages}`);
+        } else {
+            createCommentForm.reset();
+            getComments();
+        }
+    } catch(error) {
+        console.error('Error adding comment:', error);
+    } finally {
+        createCommentSubmitButton.disabled = false;
     }
 }
