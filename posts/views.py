@@ -132,6 +132,7 @@ def vote_post(request, post_id):
         status=200,
     )
 
+# === COMMENTS ===
 @require_GET
 def get_comments_json(request, post_id):
     post = get_object_or_404(Post, id=post_id)
@@ -184,4 +185,50 @@ def create_comment(request, post_id):
         {"message": "Successfully posted comment!"},
         status=201,
     )
+
+@require_POST
+def vote_comment(request, comment_id):
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            data={
+                "message": "Please log in first!",
+                "login_url": reverse("login"),
+            },
+            status=401,
+        )
+
+    comment = get_object_or_404(Comment, pk=comment_id)
+    try:
+        payload = json.loads(request.body)
+        vote_value = payload["vote_value"]
+    except (json.JSONDecodeError, KeyError):
+        return JsonResponse({"error": "value is required"}, status=400)
+
+    if vote_value not in (1, -1):
+        return JsonResponse({"error": "value must be 1 or -1"}, status=400)
+
+    # yes this part was absolutely vibecoded. but thanks codex, now i know about transactions
+    with transaction.atomic():
+        get_user_model().objects.select_for_update().get(pk=request.user.pk)
+        vote = Vote.objects.filter(user=request.user, comment=comment).first()
+        if not vote:
+            Vote.objects.create(user=request.user, comment=comment, value=vote_value)
+        elif vote.value != vote_value:
+            vote.value = vote_value
+            vote.save()
+        elif vote.value == vote_value:
+            vote_value = 0
+            vote.delete()
+
+        vote_count = comment.votes.aggregate(sum=Sum("value"))["sum"] or 0
+
+    return JsonResponse(
+        data={
+            "message": "Upvoted successfully!",
+            "vote_value": vote_value,
+            "vote_count": vote_count,
+        },
+        status=200,
+    )
+
 
