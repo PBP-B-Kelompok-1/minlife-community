@@ -190,6 +190,20 @@ body.has-hover .comment__actions__downvote:hover {
     justify-self: stretch;
 }
 
+/* Keep the comment editor within the form column instead of sizing to its
+   contents.  CKEditor adds its own wrapper around the textarea. */
+.comment-form__inputs,
+.comment-form__field,
+.comment-form__field .ck-editor {
+    width: 100%;
+    min-width: 0;
+}
+
+.comment-form__field .ck-editor__editable_inline {
+    min-height: 4rem !important;
+    max-height: 12rem;
+}
+
 .comment__actions, .comment-form__actions {
     display: flex;
     justify-content: flex-start;

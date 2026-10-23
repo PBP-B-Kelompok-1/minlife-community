@@ -277,6 +277,9 @@ function generateCommentTree(comments, repliesToUser=null) {
                     <i class="fa-solid fa-reply"></i>${repliesToUser}
                 </div>`
             : ``;
+    
+        let updootClass = comment.user_vote_value == 1 ? ` upvoted` : ``;
+        let downdootClass = comment.user_vote_value == -1 ? ` downvoted` : ``;
 
         commentElem.innerHTML = `
             <img class="comment__pfp" src="/static/img/judge.jpg" alt="">
@@ -287,9 +290,9 @@ function generateCommentTree(comments, repliesToUser=null) {
             </div>
             <div class="comment__actions">
                 <div class="comment__actions__vote button button--small button--border button--no-hover">
-                    <button class="comment__actions__upvote fa-solid fa-chevron-up"></button>
+                    <button class="comment__actions__upvote fa-solid fa-chevron-up${updootClass}"></button>
                     <span class="comment__actions__vote-count">${comment.vote_count}</span>
-                    <button class="comment__actions__downvote fa-solid fa-chevron-down"></button>
+                    <button class="comment__actions__downvote fa-solid fa-chevron-down${downdootClass}"></button>
                 </div>
                 <button class="comment__actions__reply button button--border button--small">
                     <i class="fa-solid fa-reply"></i>${comment.replies.length}
