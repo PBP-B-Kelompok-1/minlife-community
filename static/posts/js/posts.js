@@ -3,7 +3,7 @@ const scriptElem = document.currentScript;
 const VOTE_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.votePostEndpointTemplate;
 const LOGIN_URL = scriptElem.dataset.loginUrl;
 const CSRF_TOKEN = scriptElem.dataset.csrfToken;
-const POST_ID_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
+const UUID4_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
 
 // frontpage
 const SHOW_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.showPostEndpointTemplate;
@@ -12,6 +12,7 @@ const GET_POSTS_ENDPOINT = scriptElem.dataset.getPostsEndpoint;
 const GET_POST_ENDPOINT = scriptElem.dataset.getPostEndpoint;
 const GET_COMMENTS_ENDPOINT = scriptElem.dataset.getCommentsEndpoint;
 const CREATE_COMMENT_ENDPOINT = scriptElem.dataset.createCommentEndpoint;
+const VOTE_COMMENT_ENDPOINT_TEMPLATE = scriptElem.dataset.voteCommentEndpointTemplate;
 
 let postsAbortController;
 function generatePostElem(post, show_links=true) {
@@ -40,7 +41,7 @@ function generatePostElem(post, show_links=true) {
     let updootClass = post.user_vote_value == 1 ? ` upvoted` : ``;
     let downdootClass = post.user_vote_value == -1 ? ` downvoted` : ``;
     
-    const show_post_url = SHOW_POST_ENDPOINT_TEMPLATE.replace(POST_ID_PLACEHOLDER, post.id)
+    const show_post_url = SHOW_POST_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, post.id)
     const comment_href = show_links
         ? `href="${show_post_url}"`
         : ``;
@@ -81,11 +82,11 @@ function generatePostElem(post, show_links=true) {
 
     postElem.querySelector(".post__actions__upvote").addEventListener("click", (e) => {
         e.preventDefault();
-        vote(e.target, 1);
+        vote_post(e.target, 1);
     });
     postElem.querySelector(".post__actions__downvote").addEventListener("click", (e) => {
         e.preventDefault();
-        vote(e.target, -1);
+        vote_post(e.target, -1);
     });
 
     return postElem;
@@ -166,7 +167,7 @@ async function getPosts() {
 }
 
 // un-upvote still counts as 1
-async function vote(vote_button, vote_value) {
+async function vote_post(vote_button, vote_value) {
     const post_id = vote_button.closest("article").id;
     const vote_button_set = vote_button.closest(".post__actions__vote");
     const vote_count_elem = vote_button_set.querySelector(".post__actions__vote-count");
@@ -184,7 +185,7 @@ async function vote(vote_button, vote_value) {
     vote_button_set.dataset.requestPending = "true";
     vote_button_set.setAttribute("aria-busy", "true");
 
-    const endpoint = VOTE_POST_ENDPOINT_TEMPLATE.replace(POST_ID_PLACEHOLDER, post_id);
+    const endpoint = VOTE_POST_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, post_id);
     try {
         const response = await fetch(endpoint, {
             method: "POST",
@@ -222,6 +223,7 @@ async function vote(vote_button, vote_value) {
     }
 }
 
+// === Comments ===
 let commentsAbortController;
 async function getComments() {
     if (commentsAbortController) commentsAbortController.abort();
@@ -300,8 +302,18 @@ function generateCommentTree(comments, repliesToUser=null) {
             const repliesElem = document.createElement("div");
             repliesElem.classList.add("comment__replies");
             repliesElem.append(generateCommentTree(comment.replies, repliesToUser=comment.username));
+
             commentTree.append(repliesElem);
         }
+
+        commentElem.querySelector(".comment__actions__upvote").addEventListener("click", (e) => {
+            e.preventDefault();
+            vote_comment(e.target, 1);
+        });
+        commentElem.querySelector(".comment__actions__downvote").addEventListener("click", (e) => {
+            e.preventDefault();
+            vote_comment(e.target, -1);
+        });
     });
 
     return commentTree;
@@ -338,5 +350,61 @@ async function createComment() {
         console.error('Error adding comment:', error);
     } finally {
         createCommentSubmitButton.disabled = false;
+    }
+}
+
+async function vote_comment(vote_button, vote_value) {
+    const comment_id = vote_button.closest("article").id;
+    const vote_button_set = vote_button.closest(".comment__actions__vote");
+    const vote_count_elem = vote_button_set.querySelector(".comment__actions__vote-count");
+    if (vote_button_set.dataset.requestPending == "true") return;
+    if (vote_value != 1 && vote_value != -1) {
+        console.error("Error: You can't just vote 'neutral'!");
+        return;
+    }
+
+    // Loading state (immediate response, just in case the server goes slow for some reason)
+    // a bit ugly but i think it's necessary
+    const prev_vote_value = vote_count_elem.textContent;
+    vote_count_elem.textContent = "...";
+
+    vote_button_set.dataset.requestPending = "true";
+    vote_button_set.setAttribute("aria-busy", "true");
+
+    const endpoint = VOTE_COMMENT_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, comment_id);
+    try {
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+                "Accept": "application/json",
+                "X-CSRFToken": CSRF_TOKEN || getCookie("csrftoken")
+            },
+            body: JSON.stringify({"vote_value": vote_value})
+        });
+        const data = await response.json();
+        
+        if (response.status === 401) {
+            const login_url = data.login_url || LOGIN_URL
+            // works the same way as login_required
+            window.location.assign(`${login_url}?next=${encodeURIComponent(window.location.href)}`);
+            return;
+        }
+        
+        if (!response.ok) {
+            throw new Error(`Vote request failed with status ${response.status}`);
+        }
+        
+        // renew status
+        vote_button_set.querySelector(".comment__actions__upvote")
+            .classList.toggle("upvoted", data.vote_value === 1);
+        vote_button_set.querySelector(".comment__actions__downvote")
+            .classList.toggle("downvoted", data.vote_value === -1);
+        vote_count_elem.textContent = data.vote_count;
+    } catch(error){
+        vote_count_elem.textContent = prev_vote_value;
+        console.error(`An error occured while voting: ${error}`)
+    } finally {
+        vote_button_set.dataset.requestPending = "false";
+        vote_button_set.removeAttribute("aria-busy");
     }
 }
