@@ -270,8 +270,8 @@ function generateCommentTree(comments, repliesToUser=null) {
     comments.forEach(comment => {
         let commentElem = document.createElement("article");
         commentElem.id = comment.id;
-        commentElem.classList.add("comment", "shadow");
-        if (!repliesToUser) commentElem.classList.add("hover--expand");
+        commentElem.classList.add("comment");
+        if (!repliesToUser) commentElem.classList.add("shadow", "hover--expand");
 
         let commentRepliesToHtml = repliesToUser
             ? `<div class="comment__replies-to">
@@ -318,14 +318,69 @@ function generateCommentTree(comments, repliesToUser=null) {
             e.preventDefault();
             vote_comment(e.target, -1);
         });
+        commentElem.querySelector(".comment__actions__reply").addEventListener("click", (e) => {
+            e.preventDefault();
+            toggleReplyForm(commentElem, comment.id);
+        });
     });
 
     return commentTree;
 }
 
-async function createComment() {
-    const createCommentForm = document.getElementById("comment-form");
-    const ckeditorField = window.editors['id_content'];
+function toggleReplyForm(commentElem, commentId) {
+    const oldReplyForm = commentElem.querySelector(".comment__reply-form");
+    if (oldReplyForm) {
+        oldReplyForm.remove();
+        return;
+    }
+
+    const replyFormTemplate = document.getElementById("reply-form-template");
+    const replyForm = replyFormTemplate.content.firstElementChild.cloneNode(true);
+    const contentField = replyForm.querySelector("textarea[name='content']");
+    const oldFieldId = contentField.id;
+    const replyFieldId = `${oldFieldId}-${commentId}`;
+
+    // The widget has a few elements based on its textarea ID. Rename all of
+    // them before adding the copy to the page, otherwise CKEditor sees them as
+    // the same editor as another reply form.
+    replyForm.querySelectorAll("[id], [for], [data-field-id]").forEach((elem) => {
+        ["id", "for", "data-field-id"].forEach((attribute) => {
+            if (elem.hasAttribute(attribute)) {
+                elem.setAttribute(attribute, elem.getAttribute(attribute).replaceAll(oldFieldId, replyFieldId));
+            }
+        });
+    });
+    replyForm.querySelector("input[name='replies_to_comment']").value = commentId;
+
+    // django-ckeditor-5 watches for the copied widget and creates the editor
+    // once it is inserted into the page. Register before inserting so we can
+    // grab its data when submitting the reply.
+    replyForm.editorPromise = new Promise((resolve) => {
+        window.ckeditorRegisterCallback(replyFieldId, resolve);
+    });
+
+    replyForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        createComment(replyForm);
+    });
+    replyForm.querySelector("button[type='button']").addEventListener("click", () => replyForm.remove());
+
+    const repliesElem = commentElem.querySelector(":scope > .comment__replies");
+    if (repliesElem) {
+        commentElem.insertBefore(replyForm, repliesElem);
+    } else {
+        commentElem.append(replyForm);
+    }
+}
+
+async function createComment(createCommentForm = document.getElementById("comment-form")) {
+    let ckeditorField = createCommentForm.id === "comment-form"
+        ? window.editors['id_content']
+        : null;
+    if (createCommentForm.editorPromise) {
+        ckeditorField = await createCommentForm.editorPromise;
+        createCommentForm.querySelector("textarea[name='content']").value = ckeditorField.getData();
+    }
     const createCommentSubmitButton = createCommentForm.querySelector("button[type='submit']");
     createCommentSubmitButton.disabled = true;
     try {
@@ -337,7 +392,7 @@ async function createComment() {
         const result = await response.json().catch(() => ({}));
 
         if (response.status === 401) {
-            const login_url = data.login_url || LOGIN_URL
+            const login_url = result.login_url || LOGIN_URL
             window.location.assign(`${login_url}?next=${encodeURIComponent(window.location.href)}`);
             return;
         }
@@ -350,6 +405,7 @@ async function createComment() {
         } else {
             createCommentForm.reset();
             if (ckeditorField) ckeditorField.setData(''); // special handling needed
+            if (createCommentForm.classList.contains("comment__reply-form")) createCommentForm.remove();
             getComments();
         }
     } catch(error) {
