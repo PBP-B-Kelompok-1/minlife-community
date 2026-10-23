@@ -149,6 +149,9 @@ def get_comments_recursive(comments, user):
     data = []
     for comment in comments:
         replies = get_comments_recursive(comment.replies.all(), user)
+        reply_count = 0
+        for reply in replies:
+            reply_count += 1 + reply["reply_count"]
         vote_count = comment.votes.aggregate(sum=Sum("value"))["sum"] or 0
         user_vote_value = 0
         if user.is_authenticated:
@@ -161,6 +164,7 @@ def get_comments_recursive(comments, user):
             "content": comment.content,
             "user_vote_value": user_vote_value,
             "replies": replies,
+            "reply_count": reply_count,
             "vote_count": vote_count,
         })
     return data

@@ -292,7 +292,7 @@ function generateCommentTree(comments, repliesToElemId=null, repliesToUser=null)
                     <button class="comment__actions__downvote fa-solid fa-chevron-down${downdootClass}"></button>
                 </div>
                 <button class="comment__actions__reply button button--border button--small">
-                    <i class="fa-solid fa-reply"></i>${comment.replies.length}
+                    <i class="fa-solid fa-reply"></i>${comment.reply_count}
                 </button>
             </div>`;
 
