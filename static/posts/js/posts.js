@@ -2,6 +2,7 @@
 const scriptElem = document.currentScript;
 const VOTE_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.votePostEndpointTemplate;
 const LOGIN_URL = scriptElem.dataset.loginUrl;
+const USER_PROFILE_ENDPOINT_TEMPLATE = scriptElem.dataset.userProfileEndpointTemplate;
 const CSRF_TOKEN = scriptElem.dataset.csrfToken;
 const UUID4_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
 
@@ -240,18 +241,14 @@ async function getComments() {
             signal: commentsAbortController.signal,
         });
         
-        if (response.status === 404) {
-            commentsStatusElem.innerText = "Sorry, that comment doesn't exist!";
-            throw new Error(`Get request failed with status ${response.status}`);
-        } else if (!response.ok) {
+        if (!response.ok) {
             commentsStatusElem.innerText = "An error occured while fetching data...";
             throw new Error(`Get request failed with status ${response.status}`);
         }
         const data = (await response.json()).data;
 
         if (data.length === 0) {
-            commentsStatusElem.innerText = "Received an empty response... contact server admininstrators!";
-            throw new Error(`Received an empty response`);
+            commentsStatusElem.innerText = "Be the first to comment on this post!";
         } else {
             commentsStatusElem.innerText = "";
             let commentElem = generateCommentTree(data);
@@ -263,30 +260,29 @@ async function getComments() {
     }
 }
 
-// ai generated bc i got tired
-function generateCommentTree(comments, repliesToUser=null) {
+function generateCommentTree(comments, repliesToElemId=null, repliesToUser=null) {
     const commentTree = document.createDocumentFragment();
 
     comments.forEach(comment => {
         let commentElem = document.createElement("article");
         commentElem.id = comment.id;
-        commentElem.classList.add("comment");
-        if (!repliesToUser) commentElem.classList.add("shadow", "hover--expand");
+        commentElem.classList.add("comment", "shadow", "hover--expand");
 
-        let commentRepliesToHtml = repliesToUser
-            ? `<div class="comment__replies-to">
+        let commentRepliesToHtml = repliesToElemId
+            ? `<a href="#${repliesToElemId}" class="comment__replies-to">
                     <i class="fa-solid fa-reply"></i> ${repliesToUser}
-                </div>`
+                </a>`
             : ``;
     
         let updootClass = comment.user_vote_value == 1 ? ` upvoted` : ``;
         let downdootClass = comment.user_vote_value == -1 ? ` downvoted` : ``;
 
+        const userProfilePage = USER_PROFILE_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, comment.user_id);
         commentElem.innerHTML = `
             <img class="comment__pfp" src="/static/img/judge.jpg" alt="">
             ${commentRepliesToHtml}
             <div class="comment__body">
-                <div class="comment__body__username">${comment.username}</div>
+                <a href="${userProfilePage}" class="comment__body__username">${comment.username}</a>
                 <div class="comment__body__content">${comment.content}</div>
             </div>
             <div class="comment__actions">
@@ -305,9 +301,9 @@ function generateCommentTree(comments, repliesToUser=null) {
         if (comment.replies.length > 0) {
             const repliesElem = document.createElement("div");
             repliesElem.classList.add("comment__replies");
-            repliesElem.append(generateCommentTree(comment.replies, comment.username));
+            repliesElem.append(generateCommentTree(comment.replies, comment.id, comment.username));
 
-            commentElem.append(repliesElem);
+            commentTree.append(repliesElem);
         }
 
         commentElem.querySelector(".comment__actions__upvote").addEventListener("click", (e) => {
@@ -406,7 +402,8 @@ async function createComment(createCommentForm = document.getElementById("commen
             createCommentForm.reset();
             if (ckeditorField) ckeditorField.setData(''); // special handling needed
             if (createCommentForm.classList.contains("comment__reply-form")) createCommentForm.remove();
-            getComments();
+            await getComments();
+            window.location.hash = result.comment_id;
         }
     } catch(error) {
         console.error('Error adding comment:', error);

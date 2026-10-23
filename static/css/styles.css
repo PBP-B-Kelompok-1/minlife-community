@@ -7,6 +7,8 @@
 }
 :root {
     font-size: 16px;
+    scroll-behavior: smooth;
+    scroll-padding-top: 8rem;
     
     --paper: #FFFFFF;
     --paper-dim: #F4F4F6;
