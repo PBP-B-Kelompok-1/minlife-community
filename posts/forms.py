@@ -25,5 +25,5 @@ class CommentForm(forms.ModelForm):
         model = Comment
         fields = [ "content" ]
         widgets = {
-            "content": CKEditor5Widget(config_name="post") # TODO: comment configs
+            "content": CKEditor5Widget(config_name="comment")
         }

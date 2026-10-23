@@ -138,19 +138,24 @@ def get_comments_json(request, post_id):
     post = get_object_or_404(Post, id=post_id)
     comments = Comment.objects.filter(post=post, replies_to_comment__isnull=True)
     payload = {
-        "data": get_comments_recursive(comments)
+        "data": get_comments_recursive(comments, request.user)
     }
     return JsonResponse(payload)
 
-def get_comments_recursive(comments):
+def get_comments_recursive(comments, user):
     data = []
     for comment in comments:
-        replies = get_comments_recursive(comment.replies.all()) # TODO: check again
+        replies = get_comments_recursive(comment.replies.all(), user)
         vote_count = comment.votes.aggregate(sum=Sum("value"))["sum"] or 0
+        user_vote_value = 0
+        if user.is_authenticated:
+            user_vote = comment.votes.filter(user=user).first()
+            user_vote_value = user_vote.value if user_vote else 0
         data.append({
             "id": comment.id,
             "username": comment.user.username,
             "content": comment.content,
+            "user_vote_value": user_vote_value,
             "replies": replies,
             "vote_count": vote_count,
         })
