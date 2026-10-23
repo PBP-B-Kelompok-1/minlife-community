@@ -1,0 +1,49 @@
+{# search bar, latest announcement, list of posts (untuk sekarang post dulu) #}
+{% extends "base.html" %}
+{% load static %}
+{% block meta %}
+    <link href="{% static "posts/css/styles.css" %}" rel="stylesheet">
+    <title>Minlife Community - Post</title>
+    {# TODO: tidy up elements (discard unused) #}
+    <script src="{% static 'posts/js/posts.js' %}" 
+        data-get-posts-endpoint="{% url 'api:get_posts_json' %}"
+        data-get-post-endpoint="{% url 'api:get_post_json' post_id=post_id %}"
+        data-get-comments-endpoint="{% url 'api:get_comments_json' post_id=post_id %}"
+        data-create-comment-endpoint="{% url 'api:create_comment' post_id=post_id %}"
+        data-show-post-endpoint-template="{% url 'posts:show_post' post_id='00000000-0000-0000-0000-000000000000' %}"
+        data-vote-post-endpoint-template="{% url 'api:vote_post' post_id='00000000-0000-0000-0000-000000000000' %}"
+        data-login-url="{% url 'login' %}"
+        data-csrf-token="{{ csrf_token }}"
+    ></script>
+    <script src="{% static 'posts/js/show_post.js' %}"></script>
+    {{ form.media }}
+{% endblock meta %}
+{% block content %}
+    <div class="container">
+        <div id="posts__status" class="posts__status empty-state"></div>
+        <section id="posts" class="posts"></section>
+
+        <h1 class="comment-section-title">Comments</h1>
+
+        <form method="POST" id="comment-form" class="comment-form shadow hover--expand">
+            {% csrf_token %}
+            <img class="comment-form__pfp" src="{% static 'img/judge.jpg'%}"/>
+            <div class="comment-form__inputs">
+                {% for field in comment_form %}
+                        <div class="comment-form__field">
+                        {{ field }}
+                        {{ field.errors }}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="comment-form__actions">
+                <button class="button button--small" type="submit">
+                    <i class="fa-solid fa-up-long"></i>Upload
+                </button>
+            </div>
+        </form>
+
+        <div id="comments__status" class="comments__status empty-state"></div>
+        <section id="comments" class="comments"></section>
+    </div>
+{% endblock content %}
