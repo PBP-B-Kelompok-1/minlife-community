@@ -399,6 +399,10 @@ async function createComment(createCommentForm = document.getElementById("commen
                 : [result.message || `Something went wrong (status ${response.status}).`];
             throw new Error(`${errorMessages}`);
         } else {
+            toast.fire({
+                icon: "success",
+                title: "Successfully posted the comment!"
+            });
             createCommentForm.reset();
             if (ckeditorField) ckeditorField.setData(''); // special handling needed
             if (createCommentForm.classList.contains("comment__reply-form")) createCommentForm.remove();
@@ -406,6 +410,10 @@ async function createComment(createCommentForm = document.getElementById("commen
             window.location.hash = result.comment_id;
         }
     } catch(error) {
+        toast.fire({
+            icon: "error",
+            title: "Something went wrong while uploading the comment..."
+        });
         console.error('Error adding comment:', error);
     } finally {
         createCommentSubmitButton.disabled = false;
