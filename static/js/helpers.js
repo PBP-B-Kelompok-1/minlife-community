@@ -35,4 +35,23 @@ function watchForHover() {
   enableHover()
 }
 
+/* Toast format that is used in every app */
+/* CARA PAKAI: lihat di bawah */
+const toast = Swal.mixin({
+  toast: true,
+  position: "top-end",
+  showConfirmButton: false,
+  timer: 3000,
+  timerProgressBar: true,
+  didOpen: (toast) => {
+    toast.onmouseenter = Swal.stopTimer;
+    toast.onmouseleave = Swal.resumeTimer;
+  }
+})
 
+/* CONTOH PEMAKAIAN
+toast.fire({
+  icon: "success|error|warning|info",
+  title: "Pesan"
+});
+*/
