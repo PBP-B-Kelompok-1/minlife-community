@@ -4,20 +4,32 @@ from .models import Follow, User
 from django.http import HttpResponseBadRequest
 from django.views.decorators.http import require_POST
 from django.contrib import messages
-from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
-from django.contrib.auth import login, logout
+from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth import login, logout, get_user_model
 from .forms import RegisterForm
 from django.http import HttpResponse
 
+
+User = get_user_model()
+
 def show_profile(request, user_id):
-    # TODO
-    user = get_object_or_404(User, pk=user_id)
-    return HttpResponse(f"Profile of {user.username}")
+    profile_user = get_object_or_404(User, id=user_id)
+    social_links = profile_user.sociallink_set.all()  # or your related_name
+
+    context = {
+        'profile_user': profile_user,
+        'social_links': social_links,
+    }
+    return render(request, 'users/profile.html', context)
     
 @login_required
 def show_my_profile(request):
-    # TODO
-    return HttpResponse(f"Logged in as {request.user.username}")
+    context = {
+        'profile_user': request.user,
+        'social_links': request.user.sociallink_set.all(),
+        'is_owner': True,
+    }
+    return render(request, 'users/profile.html', context)
 
 def login_user(request):
     form = AuthenticationForm(request, data=request.POST or None)
