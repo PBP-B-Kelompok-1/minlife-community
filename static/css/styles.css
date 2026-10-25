@@ -195,7 +195,7 @@ select, .choices{
 
     background-color: var(--paper);
     border-radius: var(--radius);
-    cursor: pointer;
+    cursor: pointerj
 }
 
 /* plugin input fields */
@@ -205,4 +205,11 @@ select, .choices{
 .choices .choices__list.choices__list--dropdown {
     border-radius: var(--radius) !important;
     border: 1px solid var(--accent);
+}
+
+/* ==========
+ * SWEETALERT
+ * ========*/
+.swal2-popup {
+    margin-top: 5rem;
 }
