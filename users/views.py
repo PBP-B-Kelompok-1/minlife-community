@@ -44,6 +44,10 @@ def register_user(request):
 
     return render(request, "register.html", {"form": form})
 
+# TODO: Update profile
+
+# TODO: Delete user ??
+
 @login_required
 @require_POST
 def toggle_follow(request, user_id):
