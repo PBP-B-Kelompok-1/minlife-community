@@ -238,3 +238,36 @@ class VotePostTests(PostsTestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+
+class CreateCommentTests(PostsTestCase):
+    def setUp(self):
+        super().setUp()
+        self.post = self.create_post()
+        self.url = reverse("api:create_comment", kwargs={"post_id": self.post.pk})
+
+    def test_creating_a_reply_sets_its_parent_comment(self):
+        parent = Comment.objects.create(post=self.post, user=self.author, content="Parent")
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.url, {
+            "content": "This is a reply",
+            "replies_to_comment": parent.pk,
+        })
+
+        self.assertEqual(response.status_code, 201)
+        reply = Comment.objects.get(content="This is a reply")
+        self.assertEqual(reply.replies_to_comment, parent)
+
+    def test_cannot_reply_to_a_comment_from_another_post(self):
+        other_post = self.create_post(title="Other")
+        parent = Comment.objects.create(post=other_post, user=self.author, content="Elsewhere")
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.url, {
+            "content": "This should not be created",
+            "replies_to_comment": parent.pk,
+        })
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(Comment.objects.filter(content="This should not be created").exists())

@@ -177,4 +177,11 @@ CKEDITOR_5_CONFIGS = {
             ]
         }
     },
+    'comment': {
+        'height': '6rem',
+        'toolbar': {
+            'items': ['bold', 'italic'],
+        }
+    },
+
 }

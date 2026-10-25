@@ -1,0 +1,38 @@
+{# json for passing django's messages into js #}
+{% if messages %}
+  <script id="django-messages" type="application/json">
+    [
+      {% for message in messages %}
+        {
+          "message": "{{ message|escapejs }}",
+          "tags": "{{ message.tags|default:'info' }}"
+        }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ]
+  </script>
+{% endif %}
+
+<script>
+    /* Automatic Toast when receiving Django messages */
+    window.addEventListener('load', function () {
+        const container = document.getElementById("django-messages");
+
+        if (!container) return;
+
+        const djangoMessages = JSON.parse(container.textContent);
+
+        djangoMessages.forEach(({ message, tags }) => {
+            toast.fire({
+                icon: getSwalIcon(tags),
+                title: message,
+            });
+        });
+    });
+
+    function getSwalIcon(tags) {
+        if (tags.includes("success")) return "success";
+        if (tags.includes("error")) return "error";
+        if (tags.includes("warning")) return "warning";
+        return "info";
+    }
+</script>
