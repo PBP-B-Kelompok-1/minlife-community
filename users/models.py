@@ -19,6 +19,8 @@ class User(AbstractUser):
     )
 
     bio = models.TextField(
+        blank=True,
+        default = "",
         max_length=160, 
         help_text="Short description of the User."
     )
@@ -28,8 +30,42 @@ class User(AbstractUser):
         editable=False,
         help_text="Upvote accumulation."
     )
-    # TODO: badges dari weekly challenge
+    
+    following = models.ManyToManyField(
+        "self",
+        through="Follow",
+        through_fields=("follower", "following"),
+        symmetrical=False,          # A following B does NOT mean B follows A
+        related_name="followers",
+        blank=True,
+    )
 
+class Follow(models.Model):
+    follower = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="following_links"
+    )
+    following = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="follower_links"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["follower", "following"],
+                name="unique_follow",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(follower=models.F("following")),  # Django 5.1+; use check= on older versions
+                name="no_self_follow",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.follower.username} → {self.following.username}"
+    
+# TODO: badges dari weekly challenge. Ini buat models baru karena relasi-nya n-to-m sama users
+    
 class SocialPlatform(models.TextChoices):
     """
     Example usage:
