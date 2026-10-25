@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login, logout, get_user_model
-from .forms import RegisterForm
+from .forms import RegisterForm, UpdateProfileForm
 from django.http import HttpResponse
 
 
@@ -57,6 +57,18 @@ def register_user(request):
     return render(request, "register.html", {"form": form})
 
 # TODO: Update profile
+@login_required
+def update_profile(request):
+    if request.method == 'POST':
+        form = UpdateProfileForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Profile updated.')
+            return redirect('users:show_my_profile')
+    else:
+        form = UpdateProfileForm(instance=request.user)
+
+    return render(request, 'users/update_profile.html', {'form': form})
 
 # TODO: Delete user ??
 
