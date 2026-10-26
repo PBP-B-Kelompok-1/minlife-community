@@ -2,7 +2,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% block meta %}
-    <link href="{% static "posts/css/styles.css" %}" rel="stylesheet">
+    {% include "posts/components/tailwind_styles.html" %}
     <title>Minlife Community - Post</title>
     {# TODO: tidy up elements (discard unused) #}
     <script src="{% static 'posts/js/posts.js' %}" 
