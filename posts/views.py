@@ -35,7 +35,6 @@ def get_post(post_id, user):
             "id": str(tag.id),
             "title": tag.title,
         } for tag in post.tags.all()]
-    vote_count = post.votes.aggregate(sum=Sum("value"))["sum"] or 0
     user_vote_value = 0
     if user.is_authenticated:
         user_vote = post.votes.filter(user=user).first()
@@ -46,7 +45,7 @@ def get_post(post_id, user):
         "title": post.title,
         "content": post.content,
         "tags": tags_data,
-        "vote_count": vote_count,
+        "vote_count": post.get_vote_count(),
         "user_vote_value": user_vote_value,
         "comment_count": comment_count,
         "created_at": post.created_at,
@@ -124,13 +123,11 @@ def vote_post(request, post_id):
             vote_value = 0
             vote.delete()
 
-        vote_count = post.votes.aggregate(sum=Sum("value"))["sum"] or 0
-
     return JsonResponse(
         data={
             "message": "Upvoted successfully!",
             "vote_value": vote_value,
-            "vote_count": vote_count,
+            "vote_count": post.get_vote_count(),
         },
         status=200,
     )
@@ -152,7 +149,6 @@ def get_comments_recursive(comments, user):
         reply_count = 0
         for reply in replies:
             reply_count += 1 + reply["reply_count"]
-        vote_count = comment.votes.aggregate(sum=Sum("value"))["sum"] or 0
         user_vote_value = 0
         if user.is_authenticated:
             user_vote = comment.votes.filter(user=user).first()
@@ -165,7 +161,7 @@ def get_comments_recursive(comments, user):
             "user_vote_value": user_vote_value,
             "replies": replies,
             "reply_count": reply_count,
-            "vote_count": vote_count,
+            "vote_count": comment.get_vote_count(),
         })
     return data
 
@@ -240,13 +236,11 @@ def vote_comment(request, comment_id):
             vote_value = 0
             vote.delete()
 
-        vote_count = comment.votes.aggregate(sum=Sum("value"))["sum"] or 0
-
     return JsonResponse(
         data={
             "message": "Upvoted successfully!",
             "vote_value": vote_value,
-            "vote_count": vote_count,
+            "vote_count": comment.get_vote_count(),
         },
         status=200,
     )
