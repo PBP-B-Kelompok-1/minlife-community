@@ -56,7 +56,7 @@ class Follow(models.Model):
                 name="unique_follow",
             ),
             models.CheckConstraint(
-                condition=~models.Q(follower=models.F("following")),  # Django 5.1+; use check= on older versions
+                condition=~models.Q(follower=models.F("following")),
                 name="no_self_follow",
             ),
         ]
@@ -112,3 +112,12 @@ class SocialLink(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.get_platform_display()}"
+    
+
+# class UserBadge(models.Model):
+#     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="user_badges")
+#     badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name="awards")
+#     earned_at = models.DateTimeField(auto_now_add=True)
+
+#     class Meta:
+#         constraints = [models.UniqueConstraint(fields=["user", "badge"], name="unique_badge_per_user")]

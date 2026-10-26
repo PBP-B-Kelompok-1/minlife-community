@@ -42,14 +42,14 @@ def login_user(request):
     if request.method == 'POST' and form.is_valid():
         user = form.get_user()
         login(request, user)
-        return redirect('users:show_my_profile') # TODO: Change to posts landing page once the url is set
+        return redirect('frontpage')
 
     return render(request, 'login.html', {'form': form})
 
 @require_POST
 def logout_user(request):
     logout(request)
-    return redirect('users:login') # TODO: Change to posts landing page
+    return redirect('frontpage')
 
 def register_user(request):
     form = RegisterForm(request.POST or None)
@@ -83,7 +83,7 @@ def delete_account(request):
         logout(request)
         user.delete()
         messages.success(request, 'Your account has been deleted.')
-        return redirect('users:show_my_profile')  # TODO: GANTI KE LANDING PAGE
+        return redirect('frontpage')
     return render(request, 'users/delete_account.html')
 
 
@@ -104,7 +104,6 @@ def toggle_follow(request, user_id):
 
     return redirect('users:show_profile', user_id=target.id)
 
-@login_required
 def following_list(request, user_id):
     # Anyone can see who a user follows.
     profile_user = get_object_or_404(User, pk=user_id)
@@ -118,3 +117,23 @@ def following_list(request, user_id):
         "people": [link.following for link in links],
         "list_type": "following",
     })
+
+@login_required
+def followers_list(request, user_id):
+    # Only the profile owner can see their own followers.
+    profile_user = get_object_or_404(User, pk=user_id)
+    if profile_user != request.user:
+        raise PermissionDenied
+
+    links = (
+        Follow.objects.filter(following=profile_user)
+        .select_related("follower")
+        .order_by("-created_at")
+    )
+    return render(request, "follow_list.html", {
+        "profile_user": profile_user,
+        "people": [link.follower for link in links],
+        "list_type": "followers",
+    })
+    
+# TODO: view badges that the user owns?
