@@ -34,27 +34,27 @@ def show_my_profile(request):
 def login_user(request):
     form = AuthenticationForm(request, data=request.POST or None)
 
-    if request.method == "POST" and form.is_valid():
+    if request.method == 'POST' and form.is_valid():
         user = form.get_user()
         login(request, user)
-        return redirect("users:show_my_profile") # TODO: Change to posts landing page once the url is set
+        return redirect('users:show_my_profile') # TODO: Change to posts landing page once the url is set
 
-    return render(request, "login.html", {"form": form})
+    return render(request, 'login.html', {'form': form})
 
 @require_POST
 def logout_user(request):
     logout(request)
-    return redirect("users:login") # TODO: Change to posts landing page
+    return redirect('users:login') # TODO: Change to posts landing page
 
 def register_user(request):
     form = RegisterForm(request.POST or None)
 
-    if request.method == "POST" and form.is_valid():
+    if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, "Account successfully made! Please login")
-        return redirect("users:login")
+        messages.success(request, 'Account successfully made! Please login')
+        return redirect('users:login')
 
-    return render(request, "register.html", {"form": form})
+    return render(request, 'register.html', {'form': form})
 
 # TODO: Update profile
 @login_required
@@ -71,13 +71,22 @@ def update_profile(request):
     return render(request, 'users/update_profile.html', {'form': form})
 
 # TODO: Delete user ??
+@login_required
+def delete_account(request):
+    if request.method == 'POST':
+        user = request.user
+        logout(request)
+        user.delete()
+        messages.success(request, 'Your account has been deleted.')
+        return redirect('users:show_my_profile')  # TODO: GANTI KE LANDING PAGE
+    return render(request, 'users/delete_account.html')
 
 @login_required
 @require_POST
 def toggle_follow(request, user_id):
     target = get_object_or_404(User, pk=user_id)
     if target == request.user:
-        return HttpResponseBadRequest("You cannot follow yourself.")
+        return HttpResponseBadRequest('You cannot follow yourself.')
 
     link, created = Follow.objects.get_or_create(
         follower=request.user, following=target
@@ -85,4 +94,4 @@ def toggle_follow(request, user_id):
     if not created:          # already following → this click means unfollow
         link.delete()
 
-    return redirect("users:show_profile", user_id=target.id)
+    return redirect('users:show_profile', user_id=target.id)
