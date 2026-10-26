@@ -8,9 +8,12 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login, logout, get_user_model
 from .forms import RegisterForm, UpdateProfileForm
 from django.http import HttpResponse
+from django.core.exceptions import PermissionDenied
 
 
 User = get_user_model()
+
+# Profile show
 
 def show_profile(request, user_id):
     profile_user = get_object_or_404(User, id=user_id)
@@ -30,6 +33,8 @@ def show_my_profile(request):
         'is_owner': True,
     }
     return render(request, 'users/profile.html', context)
+
+# Authentication
 
 def login_user(request):
     form = AuthenticationForm(request, data=request.POST or None)
@@ -56,7 +61,8 @@ def register_user(request):
 
     return render(request, 'register.html', {'form': form})
 
-# TODO: Update profile
+# Update/Edit, Delete Account
+
 @login_required
 def update_profile(request):
     if request.method == 'POST':
@@ -70,7 +76,6 @@ def update_profile(request):
 
     return render(request, 'users/update_profile.html', {'form': form})
 
-# TODO: Delete user ??
 @login_required
 def delete_account(request):
     if request.method == 'POST':
@@ -80,6 +85,9 @@ def delete_account(request):
         messages.success(request, 'Your account has been deleted.')
         return redirect('users:show_my_profile')  # TODO: GANTI KE LANDING PAGE
     return render(request, 'users/delete_account.html')
+
+
+# Following/Followers
 
 @login_required
 @require_POST
@@ -95,3 +103,22 @@ def toggle_follow(request, user_id):
         link.delete()
 
     return redirect('users:show_profile', user_id=target.id)
+
+@login_required
+def following_list(request, user_id):
+    # Anyone can see who a user follows.
+    profile_user = get_object_or_404(User, pk=user_id)
+    links = (
+        Follow.objects.filter(follower=profile_user)
+        .select_related("following")
+        .order_by("-created_at")
+    )
+    return render(request, "follow_list.html", {
+        "profile_user": profile_user,
+        "people": [link.following for link in links],
+        "list_type": "following",
+    })
+
+
+# TODO: following_list
+# def folowing_list(request, user_id):
