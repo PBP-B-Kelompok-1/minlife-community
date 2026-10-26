@@ -44,7 +44,7 @@ def login_user(request):
         login(request, user)
         return redirect('frontpage')
 
-    return render(request, 'login.html', {'form': form})
+    return render(request, 'users/login.html', {'form': form})
 
 @require_POST
 def logout_user(request):
@@ -59,7 +59,7 @@ def register_user(request):
         messages.success(request, 'Account successfully made! Please login')
         return redirect('users:login')
 
-    return render(request, 'register.html', {'form': form})
+    return render(request, 'users/register.html', {'form': form})
 
 # Update/Edit, Delete Account
 
@@ -112,7 +112,7 @@ def following_list(request, user_id):
         .select_related("following")
         .order_by("-created_at")
     )
-    return render(request, "follow_list.html", {
+    return render(request, "users/follow_list.html", {
         "profile_user": profile_user,
         "people": [link.following for link in links],
         "list_type": "following",
@@ -130,7 +130,7 @@ def followers_list(request, user_id):
         .select_related("follower")
         .order_by("-created_at")
     )
-    return render(request, "follow_list.html", {
+    return render(request, "users/follow_list.html", {
         "profile_user": profile_user,
         "people": [link.follower for link in links],
         "list_type": "followers",
