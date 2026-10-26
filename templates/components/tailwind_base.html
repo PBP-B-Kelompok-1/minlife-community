@@ -1,0 +1,53 @@
+<style type="text/tailwindcss">
+    @tailwind utilities;
+
+    * { @apply m-0 box-border p-0; }
+
+    :root {
+        font-size: 16px;
+        scroll-behavior: smooth;
+        scroll-padding-top: 8rem;
+        --paper: #FFFFFF;
+        --paper-dim: #F4F4F6;
+        --ink: #000000;
+        --ink-light: var(--paper);
+        --secondary: #252537;
+        --tertiary: #8F8F99;
+        --accent: #7373A6;
+        --success: #52DE4F;
+        --danger: #F12E42;
+        --line: var(--accent);
+        --radius: 1.25rem;
+        --container-max-width: 800px;
+    }
+
+    body { @apply flex min-h-screen flex-col bg-[var(--paper-dim)] text-[var(--ink)] bg-fixed leading-[1.4]; font-family: "Quicksand", Roboto, Helvetica, Arial, -apple-system, serif; }
+    .container { @apply mx-auto my-2 flex w-[min(100%,var(--container-max-width))] flex-col gap-6 px-4; }
+    .sticky--bottom { @apply sticky bottom-4 mx-4 text-right; }
+    button { @apply cursor-pointer; }
+    .hover--expand { @apply transition-all duration-[400ms] ease-in-out; }
+    body.has-hover .hover--expand:hover { @apply scale-[1.02]; }
+    a { @apply no-underline; }
+    .empty-state { @apply text-[var(--tertiary)] italic; }
+    .shadow { @apply shadow-[2px_2px_8px_2px_rgba(0,0,0,0.25)]; }
+
+    .button { @apply inline-flex items-center justify-center gap-2.5 rounded-[var(--radius)] border-2 border-[var(--secondary)] bg-[var(--secondary)] px-7 py-3 text-lg text-[var(--ink-light)] transition-all duration-200 ease-in-out; font-family: inherit; }
+    body.has-hover .button:hover { @apply border-[var(--accent)] bg-[var(--accent)]; }
+    .button--no-hover { border-color: initial !important; background-color: initial !important; }
+    .button--border { @apply bg-transparent text-[var(--secondary)]; }
+    .button--small { @apply px-3 py-[0.3rem] text-base; }
+
+    header { @apply sticky top-4 z-10 m-4; }
+    .navbar { @apply flex w-auto items-center justify-between rounded-[var(--radius)] bg-[var(--secondary)] px-6 py-4 text-[var(--ink-light)]; color: var(--ink-light) !important; }
+    .navbar__nav { @apply flex items-center justify-center gap-6; }
+    .navbar a { @apply border-b-[.1rem] border-transparent text-[var(--ink-light)] transition-all duration-200 ease-in-out; }
+    .navbar a:hover { @apply border-[var(--ink-light)]; }
+    @media (max-width: 600px) { .navbar__nav { @apply hidden; } }
+
+    input, textarea { @apply w-full rounded-[var(--radius)] border border-[var(--accent)] bg-[var(--paper)] p-[0.7rem] transition-[border-color,outline-color] duration-200 ease-in-out; font: inherit; }
+    input:focus, textarea:focus { @apply border-[var(--accent)] outline-2 outline-[var(--accent)]; }
+    select, .choices { @apply block rounded-[var(--radius)] border border-[var(--accent)] bg-[var(--paper)] leading-[1.1]; font-family: inherit; cursor: pointerj; }
+    .choices .choices__inner { border-radius: var(--radius) !important; }
+    .choices .choices__list.choices__list--dropdown { border-radius: var(--radius) !important; border: 1px solid var(--accent); }
+    .swal2-popup { @apply mt-20; }
+</style>
