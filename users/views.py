@@ -118,7 +118,3 @@ def following_list(request, user_id):
         "people": [link.following for link in links],
         "list_type": "following",
     })
-
-
-# TODO: following_list
-# def folowing_list(request, user_id):
