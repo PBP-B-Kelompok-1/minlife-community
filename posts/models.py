@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import CASCADE, Q
+from django.db.models import CASCADE, Q, Sum
 import uuid
 
 from users.models import User
@@ -17,6 +17,9 @@ class Post(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
+    def get_vote_count(self):
+        return self.votes.aggregate(sum=Sum("value"))["sum"] or 0
+
     def __str__(self):
         return self.title
 
@@ -32,6 +35,9 @@ class Comment(models.Model):
             on_delete=CASCADE, null=True, blank=True,
             related_name="replies", related_query_name="reply"
         )
+
+    def get_vote_count(self):
+        return self.votes.aggregate(sum=Sum("value"))["sum"] or 0
 
     def __str__(self):
         return self.content
