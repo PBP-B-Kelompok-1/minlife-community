@@ -23,6 +23,12 @@ class Post(models.Model):
     def get_vote_count(self):
         return self.votes.aggregate(sum=Sum("value"))["sum"] or 0
 
+    def get_user_vote_value(self, user):
+        user_vote = 0;
+        if user.is_authenticated:
+            user_vote = self.votes.filter(user=user).first()
+        return user_vote.value if user_vote else 0
+
     def __str__(self):
         return self.title
 
@@ -41,6 +47,12 @@ class Comment(models.Model):
 
     def get_vote_count(self):
         return self.votes.aggregate(sum=Sum("value"))["sum"] or 0
+
+    def get_user_vote_value(self, user):
+        user_vote = 0;
+        if user.is_authenticated:
+            user_vote = self.votes.filter(user=user).first()
+        return user_vote.value if user_vote else 0
 
     def __str__(self):
         return self.content

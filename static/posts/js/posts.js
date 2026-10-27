@@ -5,6 +5,7 @@ const LOGIN_URL = scriptElem.dataset.loginUrl;
 const USER_PROFILE_ENDPOINT_TEMPLATE = scriptElem.dataset.userProfileEndpointTemplate;
 const CSRF_TOKEN = scriptElem.dataset.csrfToken;
 const UUID4_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
+const FALLBACK_PFP = "/static/img/pfp.svg";
 
 // frontpage
 const SHOW_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.showPostEndpointTemplate;
@@ -20,6 +21,18 @@ function generatePostElem(post, show_links=true) {
     let postElem = document.createElement("article");
     postElem.id = post.id;
     postElem.classList.add("post", "shadow", "hover--expand");
+
+    const userProfilePage = USER_PROFILE_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, post.user_id);
+    // const pfp_url = 
+    let authorInfoHtml = `
+        <a href="${userProfilePage}" class="post__author">
+            <img class="post__author__pfp" 
+                src="${post.avatar_url}" 
+                onerror="this.onerror=null; this.src='${FALLBACK_PFP}';"
+                alt="${post.username}'s profile picture">
+            <span class="post__author__username">${post.username}</span>
+        </a>`;
+
     let postTitleHtml = `
         <div class="post__title">
             <h1>${post.title}</h1>
@@ -74,6 +87,7 @@ function generatePostElem(post, show_links=true) {
 
     const postInnerHtml = `
         ${postLink}
+        ${authorInfoHtml}
         ${postTitleHtml}
         ${postTagsHtml}
         ${postContentHtml}
@@ -284,7 +298,10 @@ function generateCommentTree(comments, repliesToElemId=null, repliesToUser=null)
 
         const userProfilePage = USER_PROFILE_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, comment.user_id);
         commentElem.innerHTML = `
-            <img class="comment__pfp" src="/static/img/judge.jpg" alt="">
+            <img class="comment__pfp" 
+                src="${comment.avatar_url}" 
+                onerror="this.onerror=null; this.src='${FALLBACK_PFP}';"
+                alt="${comment.username}'s profile picture">
             ${commentRepliesToHtml}
             <div class="comment__body">
                 <a href="${userProfilePage}" class="comment__body__username">${comment.username}</a>

@@ -7,6 +7,7 @@
         font-size: 16px;
         scroll-behavior: smooth;
         scroll-padding-top: 8rem;
+        overflow-wrap: break-word;
         --paper: #FFFFFF;
         --paper-dim: #F4F4F6;
         --ink: #000000;
@@ -22,7 +23,7 @@
         --container-max-width: 800px;
     }
 
-    body { @apply flex min-h-screen flex-col bg-[var(--paper-dim)] text-[var(--ink)] bg-fixed leading-[1.4] break-all; font-family: "Quicksand", Roboto, Helvetica, Arial, -apple-system, serif; }
+    body { @apply flex min-h-screen flex-col bg-[var(--paper-dim)] text-[var(--ink)] bg-fixed leading-[1.4]; font-family: "Quicksand", Roboto, Helvetica, Arial, -apple-system, serif; }
     .container { @apply mx-auto my-2 flex w-[min(100%,var(--container-max-width))] flex-col gap-6 px-4; }
     .sticky--bottom { @apply sticky bottom-4 mx-4 text-right; }
     button { @apply cursor-pointer; }
