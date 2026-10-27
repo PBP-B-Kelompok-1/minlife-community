@@ -13,6 +13,14 @@ from django.core.exceptions import PermissionDenied
 
 User = get_user_model()
 
+# Helper methods
+def get_user_badges(profile_user):
+    return (
+        profile_user.user_badges
+        .select_related("badge")
+        .order_by("-earned_at")
+    )
+
 # Profile show
 
 def show_profile(request, user_id):
@@ -28,6 +36,7 @@ def show_profile(request, user_id):
         'profile_user': profile_user,
         'social_links': social_links,
         'is_following': is_following,
+        'user_badges': get_user_badges(profile_user),
     }
     return render(request, 'users/profile.html', context)
     
@@ -37,6 +46,7 @@ def show_my_profile(request):
         'profile_user': request.user,
         'social_links': request.user.social_links.all(),
         'is_owner': True,
+        'user_badges': get_user_badges(request.user),
     }
     return render(request, 'users/profile.html', context)
 
