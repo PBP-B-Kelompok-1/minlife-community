@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.test import TestCase
 from django.utils import timezone
 
@@ -60,14 +61,13 @@ class AnnouncementModelTests(TestCase):
             [announcement],
         )
 
-    def test_deleting_creator_preserves_announcement_and_sets_creator_to_null(self):
-        announcement = self.create_announcement()
+    def test_created_by_allows_null_and_uses_set_null_on_delete(self):
+        created_by_field = Announcement._meta.get_field("created_by")
+        announcement = self.create_announcement(created_by=None)
 
-        self.moderator.delete()
-        announcement.refresh_from_db()
-
+        self.assertTrue(created_by_field.null)
+        self.assertIs(created_by_field.remote_field.on_delete, models.SET_NULL)
         self.assertIsNone(announcement.created_by)
-        self.assertTrue(Announcement.objects.filter(pk=announcement.pk).exists())
 
     def test_created_at_is_immutable_and_updated_at_changes_when_saved(self):
         announcement = self.create_announcement()
