@@ -8,18 +8,20 @@ untuk pengguna yang mempunyai Django model permissions yang sesuai.
 
 Checkpoint 1 mencakup model data, migration awal, dan unit test model. Checkpoint 2
 menambahkan public Read berupa list/detail HTML, endpoint JSON, database search, dan
-sorting. Forms, operasi create/update/delete, interaktivitas tanpa reload, integrasi
-frontpage, dan Firebase Cloud Messaging belum diimplementasikan.
+sorting. Checkpoint 3 menambahkan Create server-rendered dengan `ModelForm` dan
+authorization berbasis Django permission. Update/delete, interaktivitas tanpa reload,
+integrasi frontpage, dan Firebase Cloud Messaging belum diimplementasikan.
 
 ## Arsitektur Django MVT
 
 - **Model:** `Announcement` sudah diimplementasikan pada `models.py`.
-- **View:** list/detail HTML serta list/detail JSON sudah diimplementasikan.
+- **View:** list/detail HTML, list/detail JSON, dan Create sudah diimplementasikan.
 - **Template:** `templates/announcements/list.html` menyediakan server-rendered baseline
   yang responsif dan mengikuti pola list/detail Figma.
 - **URL:** HTML tersedia di `/announcements/`; endpoint data tersedia di
   `/api/announcements` dan `/api/announcement/<uuid>`.
-- **Form:** pending; Create/Edit direncanakan menggunakan `ModelForm`.
+- **Form:** `AnnouncementForm` untuk Create hanya mengekspos title dan content. Form yang
+  sama direncanakan untuk Edit pada checkpoint berikutnya.
 
 ## Model dan Relasi Data
 
@@ -65,9 +67,11 @@ JSON menampilkan UUID, title, content, timestamp ISO berdasarkan timezone Django
 
 ## Authentication dan Authorization
 
-Public Read tidak membutuhkan login. Authorization CRUD belum diimplementasikan pada
-Checkpoint 2. Rencana berikutnya
-adalah menggunakan permissions Django yang sudah diberikan kepada group `Moderator`:
+Public Read tidak membutuhkan login. Create memerlukan autentikasi dan permission
+`announcements.add_announcement`. Guest diarahkan ke login, sedangkan user yang sudah
+login tetapi tidak mempunyai permission menerima respons 403.
+
+Group `Moderator` menggunakan Django permissions yang sudah diprovision oleh migration:
 
 - `announcements.add_announcement`
 - `announcements.change_announcement`
@@ -76,11 +80,18 @@ adalah menggunakan permissions Django yang sudah diberikan kepada group `Moderat
 View nantinya wajib memeriksa permission pada server. Menyembunyikan tombol di template
 hanya akan menjadi perlindungan UX, bukan pengganti authorization server-side.
 
+Create view sudah mengikuti aturan tersebut. Tombol Add hanya dirender ketika
+`request.user.has_perm("announcements.add_announcement")` bernilai benar, dan endpoint
+tetap melakukan pemeriksaan permission secara independen. `created_by` selalu ditetapkan
+dari `request.user`; nilai creator yang dikirim melalui POST diabaikan.
+
 ## Interaktivitas
 
 Keputusan Fetch API, HTMX, atau hybrid berstatus **pending**. Checkpoint 2 menggunakan
 form GET dan server-rendered HTML sebagai baseline yang tetap berfungsi tanpa JavaScript.
-Belum ada AJAX atau HTMX.
+Checkpoint 3 menambahkan form POST server-rendered dengan CSRF protection dan error
+validation. Belum ada AJAX atau HTMX; modal Create responsif akan menjadi progressive
+enhancement pada checkpoint interaktivitas.
 
 ## Testing Checkpoint 1
 
@@ -151,11 +162,37 @@ Hasil aktual:
 - Tidak mengubah modul anggota lain untuk memperbaiki masalah migration Weekly Challenge.
 - Tidak melakukan refactor tambahan karena implementasi model sudah minimum dan jelas.
 
+## Testing Checkpoint 3
+
+Test Create dan authorization mencakup:
+
+- `AnnouncementForm` hanya mengekspos title/content dan memvalidasi field wajib.
+- Guest diarahkan ke halaman login.
+- User biasa menerima 403 untuk GET dan POST serta tidak dapat membuat data.
+- Moderator dapat membuka form dan membuat announcement.
+- Superuser dapat membuat announcement.
+- Creator tidak dapat dipalsukan dari payload POST.
+- Invalid form dirender ulang tanpa membuat data.
+- Tombol Add hanya muncul untuk user dengan permission.
+- Method selain GET/POST ditolak.
+
+Hasil aktual:
+
+- Fase Red: 10/10 test error karena `forms.py` dan route Create belum tersedia;
+  penyebab sesuai fitur yang belum diimplementasikan.
+- Green terfokus: 10/10 test Create/authorization lulus.
+- Regresi app: seluruh 27/27 test Announcements lulus.
+- Smoke test superuser berhasil: tombol Add muncul, form dapat disubmit, redirect ke
+  detail berhasil, tanggal pembuatan tampil, dan creator tersimpan sebagai akun
+  superuser yang sedang login.
+- Tidak ada migration baru pada Checkpoint 3.
+- Coverage belum diukur dan tidak ada angka coverage yang diklaim.
+
 ## Kontribusi AI
 
 ### 2026-10-27 - Checkpoint 1: Model Announcement
 
-- **Tool:** OpenAI Codex; model exact belum diverifikasi.
+- **Tool:** OpenAI Codex.
 - **Tujuan:** audit referensi PBP, merancang model, menulis unit test dengan alur TDD,
   mereview migration, menjelaskan kode, dan menyiapkan dokumentasi.
 - **Instruksi penting:** hanya mengerjakan Checkpoint 1; migration, testing, dan Git
@@ -177,7 +214,7 @@ Hasil aktual:
 
 ### 2026-10-27 - Checkpoint 2: Public Read dan Database Filtering
 
-- **Tool:** OpenAI Codex; model exact belum diverifikasi.
+- **Tool:** OpenAI Codex.
 - **Tujuan:** merancang kontrak test, mengimplementasikan public Read, ORM search/sort,
   endpoint JSON, URL routing, dan server-rendered responsive baseline.
 - **Instruksi penting:** tidak mengimplementasikan CRUD, permission controls, Fetch,
@@ -199,6 +236,32 @@ Hasil aktual:
   penyaringan pengumuman` dan `680a06d feat(announcements): tambahkan baca publik dan
   filter database`.
 
+### 2026-10-27 - Checkpoint 3: Authorization dan Create
+
+- **Tool:** OpenAI Codex.
+- **Tujuan:** merancang test role-based access, membuat `ModelForm`, melindungi Create
+  pada server, mencegah creator spoofing, dan menambahkan UI Create baseline.
+- **Instruksi penting:** hanya Create; tidak mengimplementasikan Update/Delete, modal,
+  Fetch, HTMX, Firebase, atau perubahan navbar/frontpage.
+- **File yang dibuat/diubah:** `announcements/tests.py`, `announcements/forms.py`,
+  `announcements/views.py`, `announcements/urls.py`,
+  `templates/announcements/list.html`, `templates/announcements/form.html`, dan
+  dokumentasi ini.
+- **Saran/implementasi AI:** `login_required`, `permission_required` dengan respons 403,
+  `AnnouncementForm`, assignment creator dari request, CSRF form, dan conditional Add
+  button.
+- **Kontribusi manual developer:** menjalankan Red, test Green terfokus, seluruh
+  regression test Announcements, membuat/menggunakan superuser development untuk smoke
+  test, memverifikasi creator melalui Django shell, dan melakukan commit Green.
+- **Koreksi manual developer:** meminta disclosure tool disederhanakan menjadi
+  `OpenAI Codex`.
+- **Limitasi/kesalahan AI:** belum ada kesalahan implementasi Checkpoint 3 yang ditemukan;
+  modal dan asynchronous submit memang belum termasuk scope.
+- **Hasil pengujian:** 10/10 Create test dan 27/27 seluruh test Announcements lulus;
+  smoke test superuser berhasil; coverage belum diukur.
+- **Commit terkait:** `7cacccf test(announcements): definisikan otorisasi dan pembuatan
+  pengumuman` dan `9f68eb6 feat(announcements): tambahkan pembuatan pengumuman berizin`.
+
 ## Riwayat Checkpoint dan Conventional Commit
 
 | Checkpoint | Status | Commit |
@@ -209,3 +272,6 @@ Hasil aktual:
 | Red Checkpoint 2 - Read/filter | Selesai | `fedc36f test(announcements): definisikan perilaku baca dan penyaringan pengumuman` |
 | Green Checkpoint 2 - Read/filter | Selesai | `680a06d feat(announcements): tambahkan baca publik dan filter database` |
 | Dokumentasi Checkpoint 2 | Selesai | commit dokumentasi ini |
+| Red Checkpoint 3 - Authorization/Create | Selesai | `7cacccf test(announcements): definisikan otorisasi dan pembuatan pengumuman` |
+| Green Checkpoint 3 - Authorization/Create | Selesai | `9f68eb6 feat(announcements): tambahkan pembuatan pengumuman berizin` |
+| Dokumentasi Checkpoint 3 | Selesai | commit dokumentasi ini |
