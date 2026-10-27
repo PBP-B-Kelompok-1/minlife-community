@@ -18,9 +18,16 @@ User = get_user_model()
 def show_profile(request, user_id):
     profile_user = get_object_or_404(User, id=user_id)
     social_links = profile_user.social_links.all()  
+    
+    is_following = (
+        request.user.is_authenticated
+        and request.user != profile_user
+        and request.user.following.filter(pk=profile_user.pk).exists()
+    )
     context = {
         'profile_user': profile_user,
         'social_links': social_links,
+        'is_following': is_following,
     }
     return render(request, 'users/profile.html', context)
     
