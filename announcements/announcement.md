@@ -9,19 +9,21 @@ untuk pengguna yang mempunyai Django model permissions yang sesuai.
 Checkpoint 1 mencakup model data, migration awal, dan unit test model. Checkpoint 2
 menambahkan public Read berupa list/detail HTML, endpoint JSON, database search, dan
 sorting. Checkpoint 3 menambahkan Create server-rendered dengan `ModelForm` dan
-authorization berbasis Django permission. Update/delete, interaktivitas tanpa reload,
-integrasi frontpage, dan Firebase Cloud Messaging belum diimplementasikan.
+authorization berbasis Django permission. Checkpoint 4 melengkapi Update/Delete dengan
+permission server-side dan halaman konfirmasi. Interaktivitas tanpa reload, integrasi
+frontpage, dan Firebase Cloud Messaging belum diimplementasikan.
 
 ## Arsitektur Django MVT
 
 - **Model:** `Announcement` sudah diimplementasikan pada `models.py`.
-- **View:** list/detail HTML, list/detail JSON, dan Create sudah diimplementasikan.
+- **View:** list/detail HTML, list/detail JSON, Create, Update, dan Delete sudah
+  diimplementasikan.
 - **Template:** `templates/announcements/list.html` menyediakan server-rendered baseline
   yang responsif dan mengikuti pola list/detail Figma.
 - **URL:** HTML tersedia di `/announcements/`; endpoint data tersedia di
   `/api/announcements` dan `/api/announcement/<uuid>`.
-- **Form:** `AnnouncementForm` untuk Create hanya mengekspos title dan content. Form yang
-  sama direncanakan untuk Edit pada checkpoint berikutnya.
+- **Form:** `AnnouncementForm` dipakai ulang oleh Create dan Update serta hanya
+  mengekspos title dan content.
 
 ## Model dan Relasi Data
 
@@ -77,21 +79,28 @@ Group `Moderator` menggunakan Django permissions yang sudah diprovision oleh mig
 - `announcements.change_announcement`
 - `announcements.delete_announcement`
 
-View nantinya wajib memeriksa permission pada server. Menyembunyikan tombol di template
-hanya akan menjadi perlindungan UX, bukan pengganti authorization server-side.
+Seluruh view yang mengubah data memeriksa permission pada server. Menyembunyikan tombol
+di template hanya menjadi perlindungan UX, bukan pengganti authorization server-side.
 
 Create view sudah mengikuti aturan tersebut. Tombol Add hanya dirender ketika
 `request.user.has_perm("announcements.add_announcement")` bernilai benar, dan endpoint
 tetap melakukan pemeriksaan permission secara independen. `created_by` selalu ditetapkan
 dari `request.user`; nilai creator yang dikirim melalui POST diabaikan.
 
+Update memerlukan `announcements.change_announcement`, sedangkan Delete memerlukan
+`announcements.delete_announcement`. Edit memakai form tanpa field creator/timestamp,
+sehingga `created_by` dan `created_at` tetap, sementara `updated_at` diperbarui ketika
+form disimpan. GET Delete hanya menampilkan konfirmasi; penghapusan dilakukan melalui
+POST yang dilindungi CSRF.
+
 ## Interaktivitas
 
 Keputusan Fetch API, HTMX, atau hybrid berstatus **pending**. Checkpoint 2 menggunakan
 form GET dan server-rendered HTML sebagai baseline yang tetap berfungsi tanpa JavaScript.
 Checkpoint 3 menambahkan form POST server-rendered dengan CSRF protection dan error
-validation. Belum ada AJAX atau HTMX; modal Create responsif akan menjadi progressive
-enhancement pada checkpoint interaktivitas.
+validation. Checkpoint 4 menambahkan halaman Edit dan konfirmasi Delete server-rendered.
+Belum ada AJAX atau HTMX; modal Create/Edit dan dialog Delete responsif akan menjadi
+progressive enhancement pada checkpoint interaktivitas.
 
 ## Testing Checkpoint 1
 
@@ -188,6 +197,33 @@ Hasil aktual:
 - Tidak ada migration baru pada Checkpoint 3.
 - Coverage belum diukur dan tidak ada angka coverage yang diklaim.
 
+## Testing Checkpoint 4
+
+Test Update/Delete dan authorization mencakup:
+
+- Guest diarahkan ke login untuk Update/Delete.
+- User biasa menerima 403 dan tidak dapat mengubah atau menghapus data.
+- Moderator dan superuser dapat Update/Delete.
+- Edit mempertahankan `created_by` dan `created_at`, serta memperbarui `updated_at`.
+- Invalid Edit dirender ulang tanpa menyimpan perubahan.
+- GET Delete hanya menampilkan konfirmasi dan tidak menghapus data.
+- Penghapusan berhasil melalui POST.
+- Tombol Edit/Delete hanya muncul untuk user berwenang.
+- Missing UUID menghasilkan 404 dan method tidak didukung menghasilkan 405.
+
+Hasil aktual:
+
+- Fase Red: 11/11 test error karena route Update/Delete belum tersedia; penyebab sesuai
+  fitur yang belum diimplementasikan.
+- Green terfokus: 11/11 test Update/Delete lulus.
+- Regresi final: seluruh 38/38 test Announcements lulus dalam 50.749 detik setelah
+  perbaikan visual tombol `Show less`.
+- Smoke test superuser untuk Edit, confirmation/Cancel Delete, dan POST Delete dinyatakan
+  sesuai oleh developer.
+- Tombol `Show less` diperjelas memakai shared outline button dan ikon chevron-up.
+- Tidak ada migration baru pada Checkpoint 4.
+- Coverage belum diukur dan tidak ada angka coverage yang diklaim.
+
 ## Kontribusi AI
 
 ### 2026-10-27 - Checkpoint 1: Model Announcement
@@ -262,6 +298,34 @@ Hasil aktual:
 - **Commit terkait:** `7cacccf test(announcements): definisikan otorisasi dan pembuatan
   pengumuman` dan `9f68eb6 feat(announcements): tambahkan pembuatan pengumuman berizin`.
 
+### 2026-10-27 - Checkpoint 4: Authorization Update dan Delete
+
+- **Tool:** OpenAI Codex.
+- **Tujuan:** merancang test Update/Delete, memakai ulang ModelForm, menjaga metadata,
+  melindungi endpoint berdasarkan permission, dan membuat konfirmasi penghapusan.
+- **Instruksi penting:** belum mengimplementasikan modal, Fetch, HTMX, Firebase, atau
+  perubahan navbar/frontpage.
+- **File yang dibuat/diubah:** `announcements/tests.py`, `announcements/views.py`,
+  `announcements/urls.py`, `templates/announcements/form.html`,
+  `templates/announcements/list.html`, `templates/announcements/confirm_delete.html`, dan
+  dokumentasi ini.
+- **Saran/implementasi AI:** permission server-side, form Update dengan instance,
+  POST-only deletion setelah GET confirmation, role-based controls, serta outline button
+  untuk `Show less`.
+- **Kontribusi manual developer:** menjalankan Red, test Green terfokus, dua regression
+  test seluruh app, smoke test Update/Delete, meminta `Show less` dibuat lebih jelas,
+  dan melakukan commit Green.
+- **Koreksi manual developer:** meminta tombol `Show less` dibedakan dari isi announcement;
+  styling kemudian memakai shared outline button dan ikon chevron-up.
+- **Limitasi/kesalahan AI:** patch awal ditolak sebelum diterapkan karena menargetkan
+  `views.py` dua kali dalam satu patch; patch kemudian digabung dan berhasil tanpa
+  perubahan parsial. Modal dan asynchronous CRUD belum termasuk scope.
+- **Hasil pengujian:** 11/11 Update/Delete test dan 38/38 seluruh test Announcements
+  lulus; smoke test superuser berhasil; coverage belum diukur.
+- **Commit terkait:** `d6476e7 test(announcements): definisikan otorisasi ubah dan hapus
+  pengumuman` dan `4cccc40 feat(announcements): tambahkan ubah dan hapus pengumuman
+  berizin`.
+
 ## Riwayat Checkpoint dan Conventional Commit
 
 | Checkpoint | Status | Commit |
@@ -275,3 +339,6 @@ Hasil aktual:
 | Red Checkpoint 3 - Authorization/Create | Selesai | `7cacccf test(announcements): definisikan otorisasi dan pembuatan pengumuman` |
 | Green Checkpoint 3 - Authorization/Create | Selesai | `9f68eb6 feat(announcements): tambahkan pembuatan pengumuman berizin` |
 | Dokumentasi Checkpoint 3 | Selesai | commit dokumentasi ini |
+| Red Checkpoint 4 - Authorization Update/Delete | Selesai | `d6476e7 test(announcements): definisikan otorisasi ubah dan hapus pengumuman` |
+| Green Checkpoint 4 - Authorization Update/Delete | Selesai | `4cccc40 feat(announcements): tambahkan ubah dan hapus pengumuman berizin` |
+| Dokumentasi Checkpoint 4 | Selesai | commit dokumentasi ini |
