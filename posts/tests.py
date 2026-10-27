@@ -1,6 +1,7 @@
 import json
 
 from django.db import IntegrityError, transaction
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
@@ -46,6 +47,35 @@ class PostModelAndFormTests(PostsTestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("title", form.errors)
+
+    def test_weekly_challenge_post_requires_a_challenge_image(self):
+        weekly_challenge = Tag.objects.create(title="Weekly Challenge")
+        form = PostForm(
+            data={
+                "title": "My submission",
+                "content": "I completed the challenge.",
+                "tags": [weekly_challenge.pk],
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("challenge_image", form.errors)
+
+    def test_weekly_challenge_post_accepts_a_challenge_image(self):
+        weekly_challenge = Tag.objects.create(title="Weekly Challenge")
+        image = SimpleUploadedFile(
+            "proof.gif", b"GIF87a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;", content_type="image/gif"
+        )
+        form = PostForm(
+            data={
+                "title": "My submission",
+                "content": "I completed the challenge.",
+                "tags": [weekly_challenge.pk],
+            },
+            files={"challenge_image": image},
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
 
     def test_vote_constraints_allow_only_one_valid_target_and_value(self):
         post = self.create_post()

@@ -11,6 +11,9 @@ class Post(models.Model):
     title = models.CharField(max_length=255, blank=False, null=False)
     content = models.TextField(blank=True, null=False)
     tags = models.ManyToManyField("Tag", blank=True, related_name="tagged_posts")
+    challenge_image = models.ImageField(
+        upload_to="challenge_images/", blank=True, null=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(blank=True, null=True, auto_now=True)
     
