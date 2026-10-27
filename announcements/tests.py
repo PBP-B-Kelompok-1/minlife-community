@@ -420,3 +420,234 @@ class AnnouncementCreateTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 405)
+
+
+class AnnouncementUpdateDeleteTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        moderator_group = Group.objects.get(name="Moderator")
+
+        cls.regular_user = user_model.objects.create_user(
+            username="announcement-update-regular-user",
+            password="test-password",
+        )
+        cls.creator = user_model.objects.create_user(
+            username="announcement-original-creator",
+            password="test-password",
+        )
+        cls.creator.groups.add(moderator_group)
+        cls.moderator = user_model.objects.create_user(
+            username="announcement-update-moderator",
+            password="test-password",
+        )
+        cls.moderator.groups.add(moderator_group)
+        cls.superuser = user_model.objects.create_superuser(
+            username="announcement-update-superuser",
+            password="test-password",
+        )
+        cls.announcement = Announcement.objects.create(
+            created_by=cls.creator,
+            title="Original announcement",
+            content="Original announcement content.",
+        )
+
+    def update_url(self, announcement=None):
+        announcement = announcement or self.announcement
+        return reverse(
+            "announcements:update",
+            kwargs={"announcement_id": announcement.pk},
+        )
+
+    def delete_url(self, announcement=None):
+        announcement = announcement or self.announcement
+        return reverse(
+            "announcements:delete",
+            kwargs={"announcement_id": announcement.pk},
+        )
+
+    def valid_update_data(self, **overrides):
+        data = {
+            "title": "Updated announcement",
+            "content": "Updated announcement content.",
+        }
+        data.update(overrides)
+        return data
+
+    def test_guest_is_redirected_to_login_for_update_and_delete(self):
+        update_url = self.update_url()
+        delete_url = self.delete_url()
+
+        update_response = self.client.get(update_url)
+        delete_response = self.client.get(delete_url)
+
+        self.assertRedirects(
+            update_response,
+            f"{reverse('login')}?next={update_url}",
+            fetch_redirect_response=False,
+        )
+        self.assertRedirects(
+            delete_response,
+            f"{reverse('login')}?next={delete_url}",
+            fetch_redirect_response=False,
+        )
+
+    def test_regular_user_receives_forbidden_and_cannot_update_or_delete(self):
+        self.client.force_login(self.regular_user)
+
+        responses = [
+            self.client.get(self.update_url()),
+            self.client.post(self.update_url(), self.valid_update_data()),
+            self.client.get(self.delete_url()),
+            self.client.post(self.delete_url()),
+        ]
+
+        for response in responses:
+            self.assertEqual(response.status_code, 403)
+        self.announcement.refresh_from_db()
+        self.assertEqual(self.announcement.title, "Original announcement")
+        self.assertTrue(
+            Announcement.objects.filter(pk=self.announcement.pk).exists()
+        )
+
+    def test_moderator_can_open_update_form_for_the_requested_announcement(self):
+        from .forms import AnnouncementForm
+
+        self.client.force_login(self.moderator)
+
+        response = self.client.get(self.update_url())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "announcements/form.html")
+        self.assertIsInstance(response.context["form"], AnnouncementForm)
+        self.assertEqual(response.context["form"].instance, self.announcement)
+
+    def test_moderator_can_update_content_without_changing_creator_or_created_at(self):
+        original_creator = self.announcement.created_by
+        original_created_at = self.announcement.created_at
+        old_updated_at = timezone.now() - timedelta(days=1)
+        Announcement.objects.filter(pk=self.announcement.pk).update(
+            updated_at=old_updated_at
+        )
+        self.client.force_login(self.moderator)
+
+        response = self.client.post(
+            self.update_url(),
+            self.valid_update_data(created_by=self.moderator.pk),
+        )
+
+        self.announcement.refresh_from_db()
+        self.assertRedirects(
+            response,
+            reverse(
+                "announcements:detail",
+                kwargs={"announcement_id": self.announcement.pk},
+            ),
+        )
+        self.assertEqual(self.announcement.title, "Updated announcement")
+        self.assertEqual(self.announcement.content, "Updated announcement content.")
+        self.assertEqual(self.announcement.created_by, original_creator)
+        self.assertEqual(self.announcement.created_at, original_created_at)
+        self.assertGreater(self.announcement.updated_at, old_updated_at)
+
+    def test_invalid_update_is_redisplayed_without_changing_announcement(self):
+        self.client.force_login(self.moderator)
+
+        response = self.client.post(
+            self.update_url(),
+            {"title": "", "content": ""},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "announcements/form.html")
+        self.assertFormError(response.context["form"], "title", "This field is required.")
+        self.assertFormError(response.context["form"], "content", "This field is required.")
+        self.announcement.refresh_from_db()
+        self.assertEqual(self.announcement.title, "Original announcement")
+
+    def test_delete_get_only_displays_confirmation(self):
+        self.client.force_login(self.moderator)
+
+        response = self.client.get(self.delete_url())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "announcements/confirm_delete.html")
+        self.assertEqual(response.context["announcement"], self.announcement)
+        self.assertTrue(
+            Announcement.objects.filter(pk=self.announcement.pk).exists()
+        )
+
+    def test_moderator_can_delete_announcement_with_post(self):
+        self.client.force_login(self.moderator)
+
+        response = self.client.post(self.delete_url())
+
+        self.assertRedirects(response, reverse("announcements:list"))
+        self.assertFalse(
+            Announcement.objects.filter(pk=self.announcement.pk).exists()
+        )
+
+    def test_superuser_can_update_and_delete_announcement(self):
+        self.client.force_login(self.superuser)
+
+        update_response = self.client.post(
+            self.update_url(),
+            self.valid_update_data(title="Superuser update"),
+        )
+        delete_response = self.client.post(self.delete_url())
+
+        self.assertEqual(update_response.status_code, 302)
+        self.assertEqual(delete_response.status_code, 302)
+        self.assertFalse(
+            Announcement.objects.filter(pk=self.announcement.pk).exists()
+        )
+
+    def test_edit_and_delete_controls_are_only_rendered_for_authorized_users(self):
+        list_url = reverse("announcements:list")
+        update_url = self.update_url()
+        delete_url = self.delete_url()
+
+        anonymous_response = self.client.get(list_url)
+        self.client.force_login(self.regular_user)
+        regular_response = self.client.get(list_url)
+        self.client.force_login(self.moderator)
+        moderator_response = self.client.get(list_url)
+
+        for response in (anonymous_response, regular_response):
+            self.assertNotContains(response, update_url)
+            self.assertNotContains(response, delete_url)
+        self.assertContains(moderator_response, update_url)
+        self.assertContains(moderator_response, delete_url)
+
+    def test_missing_announcement_returns_not_found_for_authorized_user(self):
+        self.client.force_login(self.moderator)
+        missing_id = uuid.UUID(int=0)
+
+        update_response = self.client.get(
+            reverse(
+                "announcements:update",
+                kwargs={"announcement_id": missing_id},
+            )
+        )
+        delete_response = self.client.get(
+            reverse(
+                "announcements:delete",
+                kwargs={"announcement_id": missing_id},
+            )
+        )
+
+        self.assertEqual(update_response.status_code, 404)
+        self.assertEqual(delete_response.status_code, 404)
+
+    def test_update_and_delete_reject_unsupported_methods(self):
+        self.client.force_login(self.moderator)
+
+        update_response = self.client.put(
+            self.update_url(),
+            data=self.valid_update_data(),
+            content_type="application/json",
+        )
+        delete_response = self.client.put(self.delete_url())
+
+        self.assertEqual(update_response.status_code, 405)
+        self.assertEqual(delete_response.status_code, 405)
