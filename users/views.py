@@ -83,14 +83,17 @@ def register_user(request):
 def update_profile(request):
     if request.method == 'POST':
         form = UpdateProfileForm(request.POST, instance=request.user)
-        if form.is_valid():
+        formset = SocialLinkFormSet(request.POST, instance=request.user)
+        if form.is_valid() and formset.is_valid():
             form.save()
+            formset.save()
             messages.success(request, 'Profile updated.')
             return redirect('users:show_my_profile')
     else:
         form = UpdateProfileForm(instance=request.user)
+        formset = SocialLinkFormSet(instance=request.user)
 
-    return render(request, 'users/update_profile.html', {'form': form})
+    return render(request, 'users/update_profile.html', {'form': form, 'formset': formset,})
 
 @login_required
 def delete_account(request):

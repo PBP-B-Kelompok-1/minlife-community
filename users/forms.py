@@ -1,6 +1,8 @@
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import get_user_model
 from django import forms
+from django.forms.models import inlineformset_factory
+from .models import SocialLink
 
 User = get_user_model()
 
@@ -16,3 +18,11 @@ class UpdateProfileForm(forms.ModelForm):
         widgets = {
             'bio': forms.Textarea(attrs={'rows': 4}),
         }
+        
+SocialLinkFormSet = inlineformset_factory(
+    User,
+    SocialLink,
+    fields=("platform", "url"),
+    extra=1,          # one blank row for adding a new link
+    can_delete=True,  # a Delete checkbox on each existing link
+)
