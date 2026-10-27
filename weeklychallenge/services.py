@@ -14,7 +14,7 @@ def submit_challenge(*, user, challenge, title, content, image):
     if ChallengeSubmission.objects.filter(challenge=challenge, user=user).exists():
         raise ValidationError("Kamu sudah submit untuk challenge ini.")
 
-    post = Post.objects.create(author=user, title=title, content=content, image=image)
+    post = Post.objects.create(author=user, title=title, content=content, challenge_image=image)
     tag, _ = Tag.objects.get_or_create(
         name=CHALLENGE_TAG_NAME, defaults={"slug": "weekly-challenge"}
     )
@@ -37,7 +37,7 @@ def maybe_award_badge(post):
     if submission is None:
         return None
 
-    score = post.upvote_count - post.downvote_count
+    score = post.get_vote_count()
     if score < submission.challenge.upvote_threshold:
         return None
 
