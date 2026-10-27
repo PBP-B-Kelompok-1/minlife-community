@@ -17,8 +17,7 @@ User = get_user_model()
 
 def show_profile(request, user_id):
     profile_user = get_object_or_404(User, id=user_id)
-    social_links = profile_user.social_links.all()  # or your related_name
-
+    social_links = profile_user.social_links.all()  
     context = {
         'profile_user': profile_user,
         'social_links': social_links,

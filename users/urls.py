@@ -1,6 +1,6 @@
 from django.urls import path
 from django.views.generic import RedirectView
-from . import views           
+from . import views              # then use views.show_profile, etc.
 
 app_name = "users"
 
@@ -13,6 +13,7 @@ urlpatterns = [
     path("logout/", views.logout_user, name="logout"),
     path("<uuid:user_id>/follow/", views.toggle_follow, name="toggle_follow"),
     path('profile/edit/', views.update_profile, name='update_profile'),
+    path('delete/', views.delete_account, name='delete_account'),
     path("<uuid:user_id>/following/", views.following_list, name="following_list"),
     path("<uuid:user_id>/followers/", views.followers_list, name="followers_list"),
 ]
