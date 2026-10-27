@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Register</h1>
+
+<form method="POST">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+    <p>{{ form.non_field_errors }}</p>
+  {% endif %}
+
+  <div>
+    {{ form.username.label_tag }}
+    {{ form.username }}
+    {{ form.username.errors }}
+  </div>
+
+  <div>
+    {{ form.first_name.label_tag }}
+    {{ form.first_name }}
+    {{ form.first_name.errors }}
+  </div>
+
+  <div>
+    {{ form.last_name.label_tag }}
+    {{ form.last_name }}
+    {{ form.last_name.errors }}
+  </div>
+
+  <div>
+    {{ form.email.label_tag }}
+    {{ form.email }}
+    {{ form.email.errors }}
+  </div>
+
+  <div>
+  {{ form.avatar_url.label_tag }}
+  {{ form.avatar_url }}
+  {{ form.avatar_url.errors }}
+  </div>
+
+  <div>
+    {{ form.password1.label_tag }}
+    {{ form.password1 }}
+    {{ form.password1.errors }}
+  </div>
+
+  <div>
+    {{ form.password2.label_tag }}
+    {{ form.password2 }}
+    {{ form.password2.errors }}
+  </div>
+
+  <button type="submit">Create account</button>
+</form>
+
+<p>Already have an account? <a href="{% url 'users:login' %}">Login</a></p>
+{% endblock %}

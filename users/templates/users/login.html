@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Login</h1>
+
+{% if messages %}
+  <ul>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+<form method="POST">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+    <p>{{ form.non_field_errors }}</p>
+  {% endif %}
+
+  <div>
+    {{ form.username.label_tag }}
+    {{ form.username }}
+    {{ form.username.errors }}
+  </div>
+
+  <div>
+    {{ form.password.label_tag }}
+    {{ form.password }}
+    {{ form.password.errors }}
+  </div>
+
+  {% if next %}
+    <input type="hidden" name="next" value="{{ next }}">
+  {% endif %}
+
+  <button type="submit">Login</button>
+</form>
+
+<p>Don't have an account? <a href="{% url 'users:register' %}">Register</a></p>
+{% endblock %}

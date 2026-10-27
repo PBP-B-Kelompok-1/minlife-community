@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div>
+  {% if profile_user.avatar_url %}
+    <img src="{{ profile_user.avatar_url }}" alt="{{ profile_user.username }}" width="120">
+  {% endif %}
+
+  <h1>{{ profile_user.username }}</h1>
+
+  {% if profile_user.first_name or profile_user.last_name %}
+    <p>{{ profile_user.first_name }} {{ profile_user.last_name }}</p>
+  {% endif %}
+
+  <p>Zen points: {{ profile_user.zen_points }}</p>
+
+  {% if profile_user.bio %}
+    <p>{{ profile_user.bio }}</p>
+  {% else %}
+    <p>No bio yet.</p>
+  {% endif %}
+
+  <p>
+    <a href="{% url 'users:following_list' profile_user.id %}">
+      {{ profile_user.following.count }} following
+    </a>
+    {% if request.user == profile_user %}
+      ·
+      <a href="{% url 'users:followers_list' profile_user.id %}">
+        {{ profile_user.followers.count }} followers
+      </a>
+    {% endif %}
+  </p>
+
+  {% if request.user.is_authenticated and request.user != profile_user %}
+    <form method="post" action="{% url 'users:toggle_follow' profile_user.id %}">
+      {% csrf_token %}
+      <button type="submit">
+        {% if is_following %}Unfollow{% else %}Follow{% endif %}
+      </button>
+    </form>
+  {% endif %}
+</div>
+
+<div>
+  <h2>Links</h2>
+  {% if social_links %}
+    <ul>
+      {% for link in social_links %}
+        <li><a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.get_platform_display }}</a></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No links yet.</p>
+  {% endif %}
+</div>
+
+{% if request.user == profile_user %}
+  <div>
+    <a href="{% url 'users:update_profile' %}">Edit profile</a>
+    <a href="{% url 'users:delete_account' %}">Delete account</a>
+  </div>
+{% endif %}
+{% endblock %}
