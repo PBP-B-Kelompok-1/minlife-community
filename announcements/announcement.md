@@ -6,16 +6,19 @@ Modul Announcements menyediakan pengumuman resmi komunitas Minlife. Pengumuman d
 dibaca oleh pengguna umum, sedangkan operasi create, update, dan delete akan dibatasi
 untuk pengguna yang mempunyai Django model permissions yang sesuai.
 
-Checkpoint 1 hanya mencakup model data, migration awal, dan unit test model. Listing,
-detail, forms, views, URLs, templates, interaktivitas, integrasi frontpage, dan Firebase
-Cloud Messaging belum diimplementasikan.
+Checkpoint 1 mencakup model data, migration awal, dan unit test model. Checkpoint 2
+menambahkan public Read berupa list/detail HTML, endpoint JSON, database search, dan
+sorting. Forms, operasi create/update/delete, interaktivitas tanpa reload, integrasi
+frontpage, dan Firebase Cloud Messaging belum diimplementasikan.
 
 ## Arsitektur Django MVT
 
 - **Model:** `Announcement` sudah diimplementasikan pada `models.py`.
-- **View:** pending untuk checkpoint Read/CRUD.
-- **Template:** pending; nantinya mengikuti Figma dan shared components kelompok.
-- **URL:** pending.
+- **View:** list/detail HTML serta list/detail JSON sudah diimplementasikan.
+- **Template:** `templates/announcements/list.html` menyediakan server-rendered baseline
+  yang responsif dan mengikuti pola list/detail Figma.
+- **URL:** HTML tersedia di `/announcements/`; endpoint data tersedia di
+  `/api/announcements` dan `/api/announcement/<uuid>`.
 - **Form:** pending; Create/Edit direncanakan menggunakan `ModelForm`.
 
 ## Model dan Relasi Data
@@ -42,9 +45,28 @@ hasil tetap deterministik ketika timestamp sama.
 Image, event date, published date, category, dan notification data tidak dimasukkan ke
 migration awal karena belum diperlukan pada core model.
 
+## Read, Search, dan Sorting
+
+Halaman list dan detail dapat dibaca tanpa login. Search menerima parameter GET `q` dan
+mencari title atau content melalui `Q(...__icontains=...)` pada Django ORM. Nilai search
+di-trim sebelum dipakai.
+
+Sorting menerima allowlist berikut:
+
+- `newest`: `-created_at`, lalu `-id`.
+- `oldest`: `created_at`, lalu `id`.
+
+Nilai sort yang tidak dikenal dikembalikan ke `newest`; input pengguna tidak pernah
+dimasukkan langsung ke `order_by()`. HTML dan JSON memakai helper QuerySet yang sama agar
+filtering tidak terduplikasi atau hanya dilakukan di browser.
+
+JSON menampilkan UUID, title, content, timestamp ISO berdasarkan timezone Django, dan
+`created_at_display` dengan format seperti `12 Oct 2026`.
+
 ## Authentication dan Authorization
 
-Authorization CRUD belum diimplementasikan pada Checkpoint 1. Rencana berikutnya
+Public Read tidak membutuhkan login. Authorization CRUD belum diimplementasikan pada
+Checkpoint 2. Rencana berikutnya
 adalah menggunakan permissions Django yang sudah diberikan kepada group `Moderator`:
 
 - `announcements.add_announcement`
@@ -56,8 +78,9 @@ hanya akan menjadi perlindungan UX, bukan pengganti authorization server-side.
 
 ## Interaktivitas
 
-Keputusan Fetch API, HTMX, atau hybrid berstatus **pending**. Tidak ada AJAX, HTMX, atau
-kode UI yang ditambahkan pada Checkpoint 1.
+Keputusan Fetch API, HTMX, atau hybrid berstatus **pending**. Checkpoint 2 menggunakan
+form GET dan server-rendered HTML sebagai baseline yang tetap berfungsi tanpa JavaScript.
+Belum ada AJAX atau HTMX.
 
 ## Testing Checkpoint 1
 
@@ -91,6 +114,32 @@ Keterbatasan: perilaku penghapusan User secara end-to-end belum diuji karena app
 Weekly Challenge memiliki model yang berelasi dengan User tetapi belum mempunyai
 migration awal. Konfigurasi `SET_NULL` Announcement tetap diuji melalui metadata field
 dan kemampuan menyimpan `created_by=None`.
+
+## Testing Checkpoint 2
+
+Test Read mencakup:
+
+- Akses publik untuk list dan detail.
+- Template dan default ordering Newest.
+- Empty state dan detail 404.
+- Search title/content yang case-insensitive.
+- Sorting Oldest dan fallback untuk nilai sort tidak valid.
+- Struktur data JSON list/detail.
+- Search/sort pada endpoint JSON.
+- Penolakan request selain GET.
+
+Hasil aktual:
+
+- Fase Red: 10/10 test error karena namespace HTML dan endpoint API belum tersedia;
+  penyebab sesuai fitur yang belum diimplementasikan.
+- Green terfokus: 10/10 test Read lulus dalam 11.027 detik.
+- Regresi app: seluruh 17/17 test Announcements lulus dalam 15.576 detik.
+- Django system check: 0 issue.
+- Smoke test development server untuk halaman HTML dan endpoint JSON dinyatakan sesuai
+  oleh developer.
+- Peringatan folder `staticfiles` belum tersedia muncul saat test, tetapi tidak
+  menyebabkan kegagalan dan bukan berasal dari modul Announcements.
+- Coverage belum diukur dan tidak ada angka coverage yang diklaim.
 
 ## Keputusan Teknis Checkpoint 1
 
@@ -126,6 +175,30 @@ dan kemampuan menyimpan `created_by=None`.
 - **Commit terkait:** `ed1f941 test(announcements): definisikan perilaku model announcement`
   dan `1cd337c feat(announcements): tambahkan model announcement`.
 
+### 2026-10-27 - Checkpoint 2: Public Read dan Database Filtering
+
+- **Tool:** OpenAI Codex; model exact belum diverifikasi.
+- **Tujuan:** merancang kontrak test, mengimplementasikan public Read, ORM search/sort,
+  endpoint JSON, URL routing, dan server-rendered responsive baseline.
+- **Instruksi penting:** tidak mengimplementasikan CRUD, permission controls, Fetch,
+  HTMX, Firebase, atau tombol frontpage; perubahan global URL telah disetujui developer.
+- **File yang dibuat/diubah:** `announcements/tests.py`, `announcements/views.py`,
+  `announcements/urls.py`, `templates/announcements/list.html`, `minlife/urls.py`,
+  `minlife/urls_api.py`, dan dokumentasi ini.
+- **Saran/implementasi AI:** helper QuerySet bersama, allowlist sort, search dengan `Q`,
+  serializer tanggal timezone-aware, public HTML/JSON views, dan responsive list/detail.
+- **Kontribusi manual developer:** memberi izin perubahan URL global, menjalankan Red,
+  test Green terfokus, seluruh regression test Announcements, smoke test server, dan
+  commit implementasi Green.
+- **Koreksi manual developer:** belum ada koreksi kode yang dilaporkan.
+- **Limitasi/kesalahan AI:** belum ada kesalahan implementasi Checkpoint 2 yang ditemukan;
+  tampilan dengan dataset development yang terisi belum didokumentasikan.
+- **Hasil pengujian:** 10/10 Read test dan 17/17 seluruh test Announcements lulus;
+  coverage belum diukur.
+- **Commit terkait:** `fedc36f test(announcements): definisikan perilaku baca dan
+  penyaringan pengumuman` dan `680a06d feat(announcements): tambahkan baca publik dan
+  filter database`.
+
 ## Riwayat Checkpoint dan Conventional Commit
 
 | Checkpoint | Status | Commit |
@@ -133,4 +206,6 @@ dan kemampuan menyimpan `created_by=None`.
 | Red - unit test model | Selesai | `ed1f941 test(announcements): definisikan perilaku model announcement` |
 | Green - model dan migration | Selesai | `1cd337c feat(announcements): tambahkan model announcement` |
 | Dokumentasi Checkpoint 1 | Selesai | commit dokumentasi ini |
-| Checkpoint 2 - Read/filter | Belum dimulai | pending |
+| Red Checkpoint 2 - Read/filter | Selesai | `fedc36f test(announcements): definisikan perilaku baca dan penyaringan pengumuman` |
+| Green Checkpoint 2 - Read/filter | Selesai | `680a06d feat(announcements): tambahkan baca publik dan filter database` |
+| Dokumentasi Checkpoint 2 | Selesai | commit dokumentasi ini |
