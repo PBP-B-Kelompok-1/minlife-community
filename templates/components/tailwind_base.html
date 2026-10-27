@@ -16,12 +16,13 @@
         --accent: #7373A6;
         --success: #52DE4F;
         --danger: #F12E42;
+        --danger-light: #FFB6C1;
         --line: var(--accent);
         --radius: 1.25rem;
         --container-max-width: 800px;
     }
 
-    body { @apply flex min-h-screen flex-col bg-[var(--paper-dim)] text-[var(--ink)] bg-fixed leading-[1.4]; font-family: "Quicksand", Roboto, Helvetica, Arial, -apple-system, serif; }
+    body { @apply flex min-h-screen flex-col bg-[var(--paper-dim)] text-[var(--ink)] bg-fixed leading-[1.4] break-all; font-family: "Quicksand", Roboto, Helvetica, Arial, -apple-system, serif; }
     .container { @apply mx-auto my-2 flex w-[min(100%,var(--container-max-width))] flex-col gap-6 px-4; }
     .sticky--bottom { @apply sticky bottom-4 mx-4 text-right; }
     button { @apply cursor-pointer; }
@@ -30,6 +31,14 @@
     a { @apply no-underline; }
     .empty-state { @apply text-[var(--tertiary)] italic; }
     .shadow { @apply shadow-[2px_2px_8px_2px_rgba(0,0,0,0.25)]; }
+    @layer base {
+        h1 { @apply text-2xl font-bold sm:text-3xl lg:text-3xl; }
+        h2 { @apply text-xl font-bold sm:text-2xl lg:text-2xl; }
+        h3 { @apply text-lg font-semibold sm:text-xl lg:text-xl; }
+        h4 { @apply text-base font-semibold sm:text-lg lg:text-xl; }
+        h5 { @apply text-sm font-semibold sm:text-base lg:text-lg; }
+        h6 { @apply text-sm font-semibold sm:text-base lg:text-lg; }
+    }
 
     .button { @apply inline-flex items-center justify-center gap-2.5 rounded-[var(--radius)] border-2 border-[var(--secondary)] bg-[var(--secondary)] px-7 py-3 text-lg text-[var(--ink-light)] transition-all duration-200 ease-in-out; font-family: inherit; }
     body.has-hover .button:hover { @apply border-[var(--accent)] bg-[var(--accent)]; }
@@ -38,10 +47,13 @@
     .button--small { @apply px-3 py-[0.3rem] text-base; }
 
     header { @apply sticky top-4 z-10 m-4; }
-    .navbar { @apply flex w-auto items-center justify-between rounded-[var(--radius)] bg-[var(--secondary)] px-6 py-4 text-[var(--ink-light)]; color: var(--ink-light) !important; }
+    .navbar { @apply flex w-auto items-center justify-between rounded-[var(--radius)] bg-[var(--secondary)] px-6 py-4 text-[var(--ink-light)] lowercase; color: var(--ink-light) !important; }
     .navbar__nav { @apply flex items-center justify-center gap-6; }
-    .navbar a { @apply border-b-[.1rem] border-transparent text-[var(--ink-light)] transition-all duration-200 ease-in-out; }
-    .navbar a:hover { @apply border-[var(--ink-light)]; }
+    .navbar a, .navbar button { @apply border-b-[.1rem] border-transparent text-[var(--ink-light)] transition-all duration-200 ease-in-out; }
+    .navbar a:hover, .navbar button:hover { @apply border-[var(--ink-light)]; }
+    .navbar .nav-user { @apply font-semibold }
+    .navbar .nav-logout { @apply text-[var(--danger-light)] }
+    .navbar .nav-logout:hover { @apply border-[var(--danger-light)] }
     @media (max-width: 600px) { .navbar__nav { @apply hidden; } }
 
     input, textarea { @apply w-full rounded-[var(--radius)] border border-[var(--accent)] bg-[var(--paper)] p-[0.7rem] transition-[border-color,outline-color] duration-200 ease-in-out; font: inherit; }
