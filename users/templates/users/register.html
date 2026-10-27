@@ -17,21 +17,27 @@
   </div>
 
   <div>
-  {{ form.first_name.label_tag }}
-  {{ form.first_name }}
-  {{ form.first_name.errors }}
-</div>
+    {{ form.first_name.label_tag }}
+    {{ form.first_name }}
+    {{ form.first_name.errors }}
+  </div>
 
-<div>
-  {{ form.last_name.label_tag }}
-  {{ form.last_name }}
-  {{ form.last_name.errors }}
-</div>
+  <div>
+    {{ form.last_name.label_tag }}
+    {{ form.last_name }}
+    {{ form.last_name.errors }}
+  </div>
 
   <div>
     {{ form.email.label_tag }}
     {{ form.email }}
     {{ form.email.errors }}
+  </div>
+
+  <div>
+  {{ form.avatar_url.label_tag }}
+  {{ form.avatar_url }}
+  {{ form.avatar_url.errors }}
   </div>
 
   <div>
