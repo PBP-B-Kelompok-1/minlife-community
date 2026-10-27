@@ -19,6 +19,27 @@
   {% else %}
     <p>No bio yet.</p>
   {% endif %}
+
+  <p>
+    <a href="{% url 'users:following_list' profile_user.id %}">
+      {{ profile_user.following.count }} following
+    </a>
+    {% if request.user == profile_user %}
+      ·
+      <a href="{% url 'users:followers_list' profile_user.id %}">
+        {{ profile_user.followers.count }} followers
+      </a>
+    {% endif %}
+  </p>
+
+  {% if request.user.is_authenticated and request.user != profile_user %}
+    <form method="post" action="{% url 'users:toggle_follow' profile_user.id %}">
+      {% csrf_token %}
+      <button type="submit">
+        {% if is_following %}Unfollow{% else %}Follow{% endif %}
+      </button>
+    </form>
+  {% endif %}
 </div>
 
 <div>
@@ -26,7 +47,7 @@
   {% if social_links %}
     <ul>
       {% for link in social_links %}
-        <li><a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.platform }}</a></li>
+        <li><a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.get_platform_display }}</a></li>
       {% endfor %}
     </ul>
   {% else %}
