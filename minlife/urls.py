@@ -29,6 +29,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('user/', include("users.urls")),
     path('post/', include("posts.urls")),
+    path('announcements/', include("announcements.urls")),
     path('journal/', include("journal.urls")),
     path('weeklychallenge/', include("weeklychallenge.urls")),
     path('login', login_user, name="login"),
