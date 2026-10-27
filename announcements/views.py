@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.views.decorators.http import require_GET, require_http_methods
@@ -55,6 +56,12 @@ def _list_context(request, selected_announcement=None):
         "can_add_announcement": request.user.has_perm(
             "announcements.add_announcement"
         ),
+        "can_change_announcement": request.user.has_perm(
+            "announcements.change_announcement"
+        ),
+        "can_delete_announcement": request.user.has_perm(
+            "announcements.delete_announcement"
+        ),
     }
 
 
@@ -96,7 +103,51 @@ def create_announcement(request):
             "form": form,
             "page_title": "Add Announcement",
             "submit_label": "Create Announcement",
+            "cancel_url": reverse("announcements:list"),
         },
+    )
+
+
+@login_required
+@permission_required("announcements.change_announcement", raise_exception=True)
+@require_http_methods(["GET", "POST"])
+def update_announcement(request, announcement_id):
+    announcement = get_object_or_404(Announcement, pk=announcement_id)
+    form = AnnouncementForm(request.POST or None, instance=announcement)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Announcement updated successfully.")
+        return redirect("announcements:detail", announcement_id=announcement.pk)
+
+    return render(
+        request,
+        "announcements/form.html",
+        {
+            "form": form,
+            "page_title": "Edit Announcement",
+            "submit_label": "Save Changes",
+            "cancel_url": reverse(
+                "announcements:detail",
+                kwargs={"announcement_id": announcement.pk},
+            ),
+        },
+    )
+
+
+@login_required
+@permission_required("announcements.delete_announcement", raise_exception=True)
+@require_http_methods(["GET", "POST"])
+def delete_announcement(request, announcement_id):
+    announcement = get_object_or_404(Announcement, pk=announcement_id)
+    if request.method == "POST":
+        announcement.delete()
+        messages.success(request, "Announcement deleted successfully.")
+        return redirect("announcements:list")
+
+    return render(
+        request,
+        "announcements/confirm_delete.html",
+        {"announcement": announcement},
     )
 
 

@@ -73,14 +73,38 @@
                                 </span>
                             </a>
 
+                            {% if can_change_announcement or can_delete_announcement %}
+                                <div class="mt-4 flex flex-wrap justify-end gap-2 border-t border-[var(--paper-dim)] pt-3">
+                                    {% if can_change_announcement %}
+                                        <a
+                                            href="{% url 'announcements:update' announcement.id %}"
+                                            class="button button--border button--small"
+                                        >
+                                            <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                                            Edit
+                                        </a>
+                                    {% endif %}
+                                    {% if can_delete_announcement %}
+                                        <a
+                                            href="{% url 'announcements:delete' announcement.id %}"
+                                            class="button button--border button--small !border-[var(--danger)] !text-[var(--danger)]"
+                                        >
+                                            <i class="fa-solid fa-trash" aria-hidden="true"></i>
+                                            Delete
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+
                             {% if selected_announcement.id == announcement.id %}
                                 <div class="mt-4 border-t border-[#cddcc5] pt-4 lg:hidden">
                                     <p class="whitespace-pre-line text-sm text-[var(--secondary)]">{{ announcement.content }}</p>
                                     <a
                                         href="{% url 'announcements:list' %}?q={{ query|urlencode }}&sort={{ sort }}"
-                                        class="mt-6 inline-flex text-sm font-medium text-[var(--secondary)]"
+                                        class="button button--border button--small mt-6"
                                     >
-                                        Show less &uarr;
+                                        Show less
+                                        <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
                                     </a>
                                 </div>
                             {% endif %}
@@ -103,9 +127,10 @@
                         <p class="whitespace-pre-line text-[var(--secondary)]">{{ selected_announcement.content }}</p>
                         <a
                             href="{% url 'announcements:list' %}?q={{ query|urlencode }}&sort={{ sort }}"
-                            class="mt-8 inline-flex text-sm font-medium text-[var(--secondary)]"
+                            class="button button--border button--small mt-8"
                         >
-                            Show less &uarr;
+                            Show less
+                            <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
                         </a>
                     </article>
                 {% endif %}
