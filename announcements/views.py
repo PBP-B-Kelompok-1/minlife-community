@@ -1,10 +1,13 @@
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Q
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.formats import date_format
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
 
+from .forms import AnnouncementForm
 from .models import Announcement
 
 
@@ -49,6 +52,9 @@ def _list_context(request, selected_announcement=None):
         "selected_announcement": selected_announcement,
         "query": query,
         "sort": sort,
+        "can_add_announcement": request.user.has_perm(
+            "announcements.add_announcement"
+        ),
     }
 
 
@@ -68,6 +74,29 @@ def announcement_detail(request, announcement_id):
         request,
         "announcements/list.html",
         _list_context(request, selected_announcement=announcement),
+    )
+
+
+@login_required
+@permission_required("announcements.add_announcement", raise_exception=True)
+@require_http_methods(["GET", "POST"])
+def create_announcement(request):
+    form = AnnouncementForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        announcement = form.save(commit=False)
+        announcement.created_by = request.user
+        announcement.save()
+        messages.success(request, "Announcement created successfully.")
+        return redirect("announcements:detail", announcement_id=announcement.pk)
+
+    return render(
+        request,
+        "announcements/form.html",
+        {
+            "form": form,
+            "page_title": "Add Announcement",
+            "submit_label": "Create Announcement",
+        },
     )
 
 
