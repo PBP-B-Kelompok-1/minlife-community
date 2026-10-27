@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.templatetags.static import static
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -651,3 +652,73 @@ class AnnouncementUpdateDeleteTests(TestCase):
 
         self.assertEqual(update_response.status_code, 405)
         self.assertEqual(delete_response.status_code, 405)
+
+
+class AnnouncementAsyncReadTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.moderator = user_model.objects.create_user(
+            username="announcement-async-moderator",
+            password="test-password",
+        )
+        cls.moderator.groups.add(Group.objects.get(name="Moderator"))
+        cls.announcement = Announcement.objects.create(
+            created_by=cls.moderator,
+            title="Async announcement",
+            content="Rendered safely without a full page reload.",
+        )
+
+    def test_list_exposes_fetch_endpoints_and_module_script(self):
+        response = self.client.get(reverse("announcements:list"))
+        placeholder = uuid.UUID(int=0)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="announcements-app"')
+        self.assertContains(
+            response,
+            f'data-list-endpoint="{reverse("api:get_announcements_json")}"',
+        )
+        self.assertContains(
+            response,
+            'data-detail-endpoint-template="'
+            + reverse(
+                "api:get_announcement_json",
+                kwargs={"announcement_id": placeholder},
+            )
+            + '"',
+        )
+        self.assertContains(response, 'data-selected-announcement-id=""')
+        self.assertContains(response, 'type="module"')
+        self.assertContains(
+            response,
+            f'src="{static("announcements/js/announcements.js")}"',
+        )
+
+    def test_detail_exposes_initial_selected_announcement_to_javascript(self):
+        response = self.client.get(
+            reverse(
+                "announcements:detail",
+                kwargs={"announcement_id": self.announcement.pk},
+            )
+        )
+
+        self.assertContains(
+            response,
+            f'data-selected-announcement-id="{self.announcement.pk}"',
+        )
+
+    def test_javascript_permission_flags_match_server_permissions(self):
+        anonymous_response = self.client.get(reverse("announcements:list"))
+        self.client.force_login(self.moderator)
+        moderator_response = self.client.get(reverse("announcements:list"))
+
+        for permission in ("add", "change", "delete"):
+            self.assertContains(
+                anonymous_response,
+                f'data-can-{permission}="false"',
+            )
+            self.assertContains(
+                moderator_response,
+                f'data-can-{permission}="true"',
+            )
