@@ -60,10 +60,11 @@ function generatePostElem(post, show_links=true) {
                 </a>
             </div>
             <div class="post__actions--right">
-                <a class="button button--small post__actions__share" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
+                <button class="button button--small post__actions__share"
+                    data-show-post-url=${show_post_url}>
                     <i class="fa-solid fa-link"></i>
                     Share
-                </a>
+                </button>
             </div>
         </div>`;
     
@@ -88,6 +89,10 @@ function generatePostElem(post, show_links=true) {
     postElem.querySelector(".post__actions__downvote").addEventListener("click", (e) => {
         e.preventDefault();
         vote_post(e.target, -1);
+    });
+    postElem.querySelector(".post__actions__share").addEventListener("click", (e) => {
+        e.preventDefault();
+        copy_post_url_to_clipboard(e.target);
     });
 
     return postElem;
@@ -470,8 +475,31 @@ async function vote_comment(vote_button, vote_value) {
     } catch(error){
         vote_count_elem.textContent = prev_vote_value;
         console.error(`An error occured while voting: ${error}`)
+        toast.fire({
+            icon: "error",
+            title: "Something went wrong while voting..."
+        });
     } finally {
         vote_button_set.dataset.requestPending = "false";
         vote_button_set.removeAttribute("aria-busy");
+    }
+}
+
+function copy_post_url_to_clipboard(share_btn) {
+    try {
+        const location_str = String(document.location);
+        const location_str_trimmed = location_str.endsWith('/') ? location_str.slice(0, -1) : str;
+        const show_post_url = location_str_trimmed + share_btn.dataset.showPostUrl;
+        navigator.clipboard.writeText(show_post_url);
+        toast.fire({
+            icon: "success",
+            title: "Copied to clipboard!"
+        });
+    } catch (error) {
+        toast.fire({
+            icon: "error",
+            title: "Failed to copy to clipboard..."
+        });
+        console.error(`An error occured while copying: ${error}`)
     }
 }
