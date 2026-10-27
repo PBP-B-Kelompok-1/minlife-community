@@ -1,41 +1,26 @@
 {% extends 'base.html' %}
 
+{% block meta %}
+    {% include "users/components/tailwind_styles.html" %}
+    <title>Login - Minlife Community</title>
+{% endblock meta %}
+
 {% block content %}
-<h1>Login</h1>
+<div class="container">
+    <section class="user-card shadow">
+        <h1 class="user-card__title">Welcome back</h1>
 
-{% if messages %}
-  <ul>
-    {% for message in messages %}
-      <li>{{ message }}</li>
-    {% endfor %}
-  </ul>
-{% endif %}
+        <form method="post" class="user-form">
+            {% csrf_token %}
+            {% for error in form.non_field_errors %}
+                <p class="user-form__error">{{ error }}</p>
+            {% endfor %}
+            {% include "users/components/form_field.html" with field=form.username %}
+            {% include "users/components/form_field.html" with field=form.password %}
+            <button type="submit" class="button">Login</button>
+        </form>
 
-<form method="POST">
-  {% csrf_token %}
-
-  {% if form.non_field_errors %}
-    <p>{{ form.non_field_errors }}</p>
-  {% endif %}
-
-  <div>
-    {{ form.username.label_tag }}
-    {{ form.username }}
-    {{ form.username.errors }}
-  </div>
-
-  <div>
-    {{ form.password.label_tag }}
-    {{ form.password }}
-    {{ form.password.errors }}
-  </div>
-
-  {% if next %}
-    <input type="hidden" name="next" value="{{ next }}">
-  {% endif %}
-
-  <button type="submit">Login</button>
-</form>
-
-<p>Don't have an account? <a href="{% url 'users:register' %}">Register</a></p>
-{% endblock %}
+        <p class="text-center">New here? <a class="user-link" href="{% url 'users:register' %}">Create an account</a></p>
+    </section>
+</div>
+{% endblock content %}
