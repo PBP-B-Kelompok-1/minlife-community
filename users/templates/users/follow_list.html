@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ profile_user.username }}: {{ list_type }}</h2>
+
+<ul>
+  {% for person in people %}
+    <li>
+      {% if person.avatar_url %}
+        <img src="{{ person.avatar_url }}" alt="" width="32" height="32">
+      {% endif %}
+      <a href="{% url 'users:show_profile' person.id %}">{{ person.username }}</a>
+      {% if person.bio %}<small>{{ person.bio }}</small>{% endif %}
+    </li>
+  {% empty %}
+    <li>Nobody here yet.</li>
+  {% endfor %}
+</ul>
+
+<a href="{% url 'users:show_profile' profile_user.id %}">Back to profile</a>
+{% endblock %}
