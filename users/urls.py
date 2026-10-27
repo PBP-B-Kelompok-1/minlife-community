@@ -1,6 +1,6 @@
 from django.urls import path
 from django.views.generic import RedirectView
-from . import views              # then use views.show_profile, etc.
+from . import views              
 
 app_name = "users"
 
