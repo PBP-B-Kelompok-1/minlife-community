@@ -22,6 +22,7 @@
     .post-form-container { @apply flex self-stretch flex-col gap-5 rounded-[var(--radius)] bg-[var(--paper)] px-5 py-4; }
     .post-form { @apply flex flex-col gap-5; }
     .post-form__field { @apply flex flex-col gap-2; }
+    .post-form__field[hidden] { @apply hidden; } /* the previous flex overrode the hidden property */
     .post-form__actions { @apply flex justify-end gap-2; }
     @media (max-width: 600px) { .post-form__actions { @apply flex-col; } }
 
