@@ -76,7 +76,7 @@ def get_posts_json(request):
 
 @login_required
 def create_post(request):
-    form = PostForm(request.POST or None)
+    form = PostForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
         post = form.save(commit=False)
         post.author = request.user
