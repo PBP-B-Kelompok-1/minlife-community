@@ -1,59 +1,37 @@
 {% extends 'base.html' %}
 
+{% block meta %}
+    {% include "users/components/tailwind_styles.html" %}
+    <title>Register - Minlife Community</title>
+{% endblock meta %}
+
 {% block content %}
-<h1>Register</h1>
+<div class="container">
+    <section class="user-card shadow">
+        <h1 class="user-card__title">Create your account</h1>
 
-<form method="POST">
-  {% csrf_token %}
+        <form method="post" class="user-form">
+            {% csrf_token %}
+            {% for error in form.non_field_errors %}
+                <p class="user-form__error">{{ error }}</p>
+            {% endfor %}
 
-  {% if form.non_field_errors %}
-    <p>{{ form.non_field_errors }}</p>
-  {% endif %}
+            {% include "users/components/form_field.html" with field=form.username %}
 
-  <div>
-    {{ form.username.label_tag }}
-    {{ form.username }}
-    {{ form.username.errors }}
-  </div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {% include "users/components/form_field.html" with field=form.first_name %}
+                {% include "users/components/form_field.html" with field=form.last_name %}
+            </div>
 
-  <div>
-    {{ form.first_name.label_tag }}
-    {{ form.first_name }}
-    {{ form.first_name.errors }}
-  </div>
+            {% include "users/components/form_field.html" with field=form.email %}
+            {% include "users/components/form_field.html" with field=form.avatar_url %}
+            {% include "users/components/form_field.html" with field=form.password1 %}
+            {% include "users/components/form_field.html" with field=form.password2 %}
 
-  <div>
-    {{ form.last_name.label_tag }}
-    {{ form.last_name }}
-    {{ form.last_name.errors }}
-  </div>
+            <button type="submit" class="button">Create account</button>
+        </form>
 
-  <div>
-    {{ form.email.label_tag }}
-    {{ form.email }}
-    {{ form.email.errors }}
-  </div>
-
-  <div>
-  {{ form.avatar_url.label_tag }}
-  {{ form.avatar_url }}
-  {{ form.avatar_url.errors }}
-  </div>
-
-  <div>
-    {{ form.password1.label_tag }}
-    {{ form.password1 }}
-    {{ form.password1.errors }}
-  </div>
-
-  <div>
-    {{ form.password2.label_tag }}
-    {{ form.password2 }}
-    {{ form.password2.errors }}
-  </div>
-
-  <button type="submit">Create account</button>
-</form>
-
-<p>Already have an account? <a href="{% url 'users:login' %}">Login</a></p>
-{% endblock %}
+        <p class="text-center">Already have an account? <a class="user-link" href="{% url 'users:login' %}">Login</a></p>
+    </section>
+</div>
+{% endblock content %}
