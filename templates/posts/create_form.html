@@ -17,7 +17,22 @@
         </section>
     </div>
     <script>
-        const choices = new Choices(document.querySelector("select"), {
+        const tagSelect = document.getElementById("id_tags");
+        const challengeImageField = document.querySelector("[data-challenge-image-field]");
+        const challengeImageInput = document.getElementById("id_challenge_image");
+
+        const updateChallengeImageVisibility = () => {
+            const weeklyChallengeSelected = Array.from(tagSelect.selectedOptions).some(
+                (option) => option.text.trim().toLowerCase() === "weekly challenge"
+            );
+            challengeImageField.hidden = !weeklyChallengeSelected;
+            challengeImageInput.required = weeklyChallengeSelected;
+        };
+
+        tagSelect.addEventListener("change", updateChallengeImageVisibility);
+        updateChallengeImageVisibility();
+
+        const choices = new Choices(tagSelect, {
             removeItemButton: true,
         });
     </script>
