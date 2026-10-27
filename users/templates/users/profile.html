@@ -1,107 +1,135 @@
 {% extends 'base.html' %}
 
+{% block meta %}
+    {% include "users/components/tailwind_styles.html" %}
+    <title>{{ profile_user.username }} - Minlife Community</title>
+    {# POSTS: when your friend's author filter is merged, add the posts.js script tag here (step 2) #}
+{% endblock meta %}
+
 {% block content %}
-<div>
-  {% if profile_user.avatar_url %}
-    <img src="{{ profile_user.avatar_url }}" alt="{{ profile_user.username }}" width="120">
-  {% endif %}
+<div class="container">
 
-  <h1>{{ profile_user.username }}</h1>
+    <section class="user-card shadow">
+        <div class="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+            {% if profile_user.avatar_url %}
+                <img src="{{ profile_user.avatar_url }}" alt="{{ profile_user.username }}" class="user-avatar size-28 shrink-0">
+            {% else %}
+                <div class="user-avatar user-avatar--placeholder size-28 shrink-0 text-4xl">{{ profile_user.username|slice:":1"|upper }}</div>
+            {% endif %}
 
-  {% if profile_user.first_name or profile_user.last_name %}
-    <p>{{ profile_user.first_name }} {{ profile_user.last_name }}</p>
-  {% endif %}
+            <div class="flex flex-1 flex-col gap-3 text-center sm:text-left">
+                <div>
+                    <h1 class="text-[1.75rem] font-bold">{{ profile_user.username }}</h1>
+                    {% if profile_user.first_name or profile_user.last_name %}
+                        <p class="text-[var(--tertiary)]">{{ profile_user.first_name }} {{ profile_user.last_name }}</p>
+                    {% endif %}
+                </div>
 
-  <p>Zen points: {{ profile_user.zen_points }}</p>
+                {% if profile_user.bio %}
+                    <p>{{ profile_user.bio }}</p>
+                {% else %}
+                    <p class="empty-state">No bio yet.</p>
+                {% endif %}
 
-  {% if profile_user.bio %}
-    <p>{{ profile_user.bio }}</p>
-  {% else %}
-    <p>No bio yet.</p>
-  {% endif %}
+                <div class="flex flex-wrap justify-center gap-x-6 gap-y-1 sm:justify-start">
+                    <span><i class="fa-solid fa-leaf"></i> {{ profile_user.zen_points }} zen points</span>
+                    <a class="user-link" href="{% url 'users:following_list' profile_user.id %}">
+                        <strong>{{ profile_user.following.count }}</strong> following
+                    </a>
+                    {% if request.user == profile_user %}
+                        <a class="user-link" href="{% url 'users:followers_list' profile_user.id %}">
+                            <strong>{{ profile_user.followers.count }}</strong> followers
+                        </a>
+                    {% endif %}
+                </div>
 
-  <p>
-    <a href="{% url 'users:following_list' profile_user.id %}">
-      {{ profile_user.following.count }} following
-    </a>
+                <div class="flex flex-wrap justify-center gap-2 sm:justify-start">
+                    {% if request.user.is_authenticated and request.user != profile_user %}
+                        <form method="post" action="{% url 'users:toggle_follow' profile_user.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="button button--small{% if is_following %} button--border{% endif %}">
+                                {% if is_following %}Unfollow{% else %}Follow{% endif %}
+                            </button>
+                        </form>
+                    {% endif %}
+                    {% if request.user == profile_user %}
+                        <a class="button button--small button--border" href="{% url 'users:update_profile' %}">
+                            <i class="fa-solid fa-pen"></i> Edit profile
+                        </a>
+                        {# SEARCH: the "search people" link goes here later #}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="user-card shadow">
+        <h2 class="user-section-title">Badges</h2>
+        {% if user_badges %}
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {% for ub in user_badges %}
+                    <div class="user-badge{% if forloop.counter > 6 %} badge-extra{% endif %}" {% if forloop.counter > 6 %}hidden{% endif %}>
+                        {% if ub.badge.icon_url %}
+                            <img src="{{ ub.badge.icon_url }}" alt="" class="size-10 shrink-0 object-contain">
+                        {% else %}
+                            <span class="flex size-10 shrink-0 items-center justify-center text-2xl text-[var(--accent)]"><i class="fa-solid fa-medal"></i></span>
+                        {% endif %}
+                        <div class="flex min-w-0 flex-col">
+                            <strong>{{ ub.badge.name }}</strong>
+                            {% if ub.badge.description %}<small class="text-[var(--tertiary)]">{{ ub.badge.description }}</small>{% endif %}
+                            <small class="text-[var(--tertiary)]">Earned {{ ub.earned_at|date:"d M Y" }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% if user_badges|length > 6 %}
+                <div>
+                    <button type="button" id="badge-toggle" class="button button--small button--border" aria-expanded="false">
+                        Show all ({{ user_badges|length }})
+                    </button>
+                </div>
+            {% endif %}
+        {% else %}
+            <p class="empty-state">No badges yet.</p>
+        {% endif %}
+    </section>
+
+    <section class="user-card shadow">
+        <h2 class="user-section-title">Links</h2>
+        {% if social_links %}
+            <div class="flex flex-wrap gap-2">
+                {% for link in social_links %}
+                    <a class="button button--small" href="{{ link.url }}" target="_blank" rel="noopener">{{ link.get_platform_display }}</a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="empty-state">No links yet.</p>
+        {% endif %}
+    </section>
+
+    {# POSTS: the "Posts" section goes here once the author filter is merged (step 3) #}
+
     {% if request.user == profile_user %}
-      ·
-      <a href="{% url 'users:followers_list' profile_user.id %}">
-        {{ profile_user.followers.count }} followers
-      </a>
+        <div class="text-center">
+            <a class="user-link text-sm !text-[var(--danger)]" href="{% url 'users:delete_account' %}">Delete account</a>
+        </div>
     {% endif %}
-  </p>
-
-  {% if request.user.is_authenticated and request.user != profile_user %}
-    <form method="post" action="{% url 'users:toggle_follow' profile_user.id %}">
-      {% csrf_token %}
-      <button type="submit">
-        {% if is_following %}Unfollow{% else %}Follow{% endif %}
-      </button>
-    </form>
-  {% endif %}
 </div>
-
-<div>
-  <h2>Badges</h2>
-  {% if user_badges %}
-    <ul>
-      {% for ub in user_badges %}
-        <li class="badge-item{% if forloop.counter > 6 %} badge-extra{% endif %}"
-            {% if forloop.counter > 6 %}hidden{% endif %}>
-          {% if ub.badge.icon_url %}
-            <img src="{{ ub.badge.icon_url }}" alt="{{ ub.badge.name }}" width="40">
-          {% endif %}
-          <strong>{{ ub.badge.name }}</strong>
-          {% if ub.badge.description %}<small>{{ ub.badge.description }}</small>{% endif %}
-          <small>Earned {{ ub.earned_at|date:"d M Y" }}</small>
-        </li>
-      {% endfor %}
-    </ul>
-
-    {% if user_badges|length > 6 %}
-      <button type="button" id="badge-toggle" aria-expanded="false">
-        Show all ({{ user_badges|length }})
-      </button>
-    {% endif %}
-  {% else %}
-    <p>No badges yet.</p>
-  {% endif %}
-</div>
-
-<div>
-  <h2>Links</h2>
-  {% if social_links %}
-    <ul>
-      {% for link in social_links %}
-        <li><a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.get_platform_display }}</a></li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>No links yet.</p>
-  {% endif %}
-</div>
-
-{% if request.user == profile_user %}
-  <div>
-    <a href="{% url 'users:update_profile' %}">Edit profile</a>
-    <a href="{% url 'users:delete_account' %}">Delete account</a>
-  </div>
-{% endif %}
 
 <script>
-  const badgeToggle = document.getElementById("badge-toggle");
-  if (badgeToggle) {
-    const extras = document.querySelectorAll(".badge-extra");
-    const total = extras.length + 6;
-    let expanded = false;
+    const badgeToggle = document.getElementById("badge-toggle");
+    if (badgeToggle) {
+        const extras = document.querySelectorAll(".badge-extra");
+        const total = extras.length + 6;
+        let expanded = false;
 
-    badgeToggle.addEventListener("click", () => {
-      expanded = !expanded;
-      extras.forEach(el => { el.hidden = !expanded; });
-      badgeToggle.setAttribute("aria-expanded", expanded);
-      badgeToggle.textContent = expanded ? "Show less" : `Show all (${total})`;
-    });
-  }
+        badgeToggle.addEventListener("click", () => {
+            expanded = !expanded;
+            extras.forEach(el => { el.hidden = !expanded; });
+            badgeToggle.setAttribute("aria-expanded", expanded);
+            badgeToggle.textContent = expanded ? "Show less" : `Show all (${total})`;
+        });
+    }
 </script>
-{% endblock %}
+{% endblock content %}
