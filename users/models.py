@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 import uuid
 
+from minlife import settings
+
 class User(AbstractUser):
     """
     Role dan permissions User didefinisikan dalam Group di mana User tersebut terdaftar.
@@ -113,11 +115,17 @@ class SocialLink(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.get_platform_display()}"
     
+class Badge(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    icon_url = models.URLField(max_length=500, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
 
-# class UserBadge(models.Model):
-#     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="user_badges")
-#     badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name="awards")
-#     earned_at = models.DateTimeField(auto_now_add=True)
+class UserBadge(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="user_badges")
+    badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name="awards")
+    earned_at = models.DateTimeField(auto_now_add=True)
 
-#     class Meta:
-#         constraints = [models.UniqueConstraint(fields=["user", "badge"], name="unique_badge_per_user")]
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "badge"], name="unique_badge_per_user")]
