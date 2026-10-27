@@ -2,6 +2,7 @@ import uuid
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.test import TestCase
@@ -273,3 +274,149 @@ class AnnouncementReadTests(TestCase):
 
         self.assertEqual(html_response.status_code, 405)
         self.assertEqual(json_response.status_code, 405)
+
+
+class AnnouncementCreateTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.regular_user = user_model.objects.create_user(
+            username="announcement-regular-user",
+            password="test-password",
+        )
+        self.moderator = user_model.objects.create_user(
+            username="announcement-create-moderator",
+            password="test-password",
+        )
+        self.moderator.groups.add(Group.objects.get(name="Moderator"))
+        self.superuser = user_model.objects.create_superuser(
+            username="announcement-superuser",
+            password="test-password",
+        )
+
+    def valid_form_data(self, **overrides):
+        data = {
+            "title": "Community garden clean-up",
+            "content": "Join the clean-up this Saturday.",
+        }
+        data.update(overrides)
+        return data
+
+    def test_announcement_form_exposes_only_editable_content_fields(self):
+        from .forms import AnnouncementForm
+
+        form = AnnouncementForm(data=self.valid_form_data())
+
+        self.assertEqual(list(form.fields), ["title", "content"])
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_announcement_form_requires_title_and_content(self):
+        from .forms import AnnouncementForm
+
+        form = AnnouncementForm(data={"title": "", "content": ""})
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("title", form.errors)
+        self.assertIn("content", form.errors)
+
+    def test_guest_is_redirected_to_login_before_opening_create_page(self):
+        create_url = reverse("announcements:create")
+
+        response = self.client.get(create_url)
+
+        self.assertRedirects(
+            response,
+            f"{reverse('login')}?next={create_url}",
+            fetch_redirect_response=False,
+        )
+
+    def test_regular_user_receives_forbidden_and_cannot_create(self):
+        self.client.force_login(self.regular_user)
+        create_url = reverse("announcements:create")
+
+        get_response = self.client.get(create_url)
+        post_response = self.client.post(create_url, self.valid_form_data())
+
+        self.assertEqual(get_response.status_code, 403)
+        self.assertEqual(post_response.status_code, 403)
+        self.assertEqual(Announcement.objects.count(), 0)
+
+    def test_moderator_can_open_create_form(self):
+        from .forms import AnnouncementForm
+
+        self.client.force_login(self.moderator)
+
+        response = self.client.get(reverse("announcements:create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "announcements/form.html")
+        self.assertIsInstance(response.context["form"], AnnouncementForm)
+
+    def test_moderator_can_create_announcement_and_becomes_its_creator(self):
+        self.client.force_login(self.moderator)
+
+        response = self.client.post(
+            reverse("announcements:create"),
+            self.valid_form_data(created_by=self.regular_user.pk),
+        )
+
+        announcement = Announcement.objects.get()
+        self.assertEqual(announcement.created_by, self.moderator)
+        self.assertEqual(announcement.title, "Community garden clean-up")
+        self.assertRedirects(
+            response,
+            reverse(
+                "announcements:detail",
+                kwargs={"announcement_id": announcement.pk},
+            ),
+        )
+
+    def test_invalid_submission_is_redisplayed_without_creating_announcement(self):
+        self.client.force_login(self.moderator)
+
+        response = self.client.post(
+            reverse("announcements:create"),
+            {"title": "", "content": ""},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "announcements/form.html")
+        self.assertFormError(response.context["form"], "title", "This field is required.")
+        self.assertFormError(response.context["form"], "content", "This field is required.")
+        self.assertEqual(Announcement.objects.count(), 0)
+
+    def test_superuser_can_create_announcement(self):
+        self.client.force_login(self.superuser)
+
+        response = self.client.post(
+            reverse("announcements:create"),
+            self.valid_form_data(title="Platform update"),
+        )
+
+        announcement = Announcement.objects.get()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(announcement.created_by, self.superuser)
+
+    def test_add_button_is_only_rendered_for_authorized_users(self):
+        list_url = reverse("announcements:list")
+        create_url = reverse("announcements:create")
+
+        anonymous_response = self.client.get(list_url)
+        self.client.force_login(self.regular_user)
+        regular_response = self.client.get(list_url)
+        self.client.force_login(self.moderator)
+        moderator_response = self.client.get(list_url)
+
+        self.assertNotContains(anonymous_response, create_url)
+        self.assertNotContains(regular_response, create_url)
+        self.assertContains(moderator_response, create_url)
+
+    def test_create_endpoint_rejects_unsupported_methods(self):
+        self.client.force_login(self.moderator)
+
+        response = self.client.put(
+            reverse("announcements:create"),
+            data=self.valid_form_data(),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 405)
