@@ -8,10 +8,13 @@
             <a href="{% url "frontpage" %}">home</a>
             <a href="{% url "journal:show_journal" %}">journal</a>
             <a href="{% url "weeklychallenge:show_weekly_challenge" %}">weekly challenge</a>
-            <a href="{% url "users:show_my_profile" %}">profile</a>
             {% if user.is_authenticated %}
+                <a href="{% url 'users:show_my_profile' %}">profile</a>
                 <span class="nav-user">{{ user.username }}</span>
-                <a href="{% url 'users:logout' %}">Logout</a>
+                <form method="post" action="{% url 'users:logout' %}">
+                {% csrf_token %}
+                <button type="submit">logout</button>
+                </form>
             {% else %}
                 <a href="{% url 'users:login' %}">Login</a>
                 <a href="{% url 'users:register' %}">Register</a>
