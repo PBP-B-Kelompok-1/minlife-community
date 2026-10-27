@@ -1,11 +1,66 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
+
 {% block content %}
 <h2>Edit profile</h2>
 
 <form method="post">
   {% csrf_token %}
+
   {{ form.as_p }}
+
+  <h3>Social links</h3>
+  {{ formset.management_form }}
+  {{ formset.non_form_errors }}
+
+  <div id="link-forms">
+    {% for link_form in formset %}
+      <div class="link-form">
+        {{ link_form.as_p }}
+      </div>
+    {% endfor %}
+  </div>
+
+  {# Hidden template that the button clones; __prefix__ becomes the row number #}
+  <template id="empty-link-form">
+    <div class="link-form">
+      {{ formset.empty_form.as_p }}
+      <button type="button" class="remove-link">Remove</button>
+    </div>
+  </template>
+
+  <button type="button" id="add-link">Add social link</button>
+
+  <hr>
   <button type="submit">Save</button>
   <a href="{% url 'users:show_my_profile' %}">Cancel</a>
 </form>
+
+<script>
+  const totalInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
+  const container = document.getElementById("link-forms");
+  const template = document.getElementById("empty-link-form");
+  const addButton = document.getElementById("add-link");
+  const MAX_LINKS = {{ formset.max_num }};
+
+  function updateAddButton() {
+    addButton.hidden = container.children.length >= MAX_LINKS;
+  }
+
+  addButton.addEventListener("click", () => {
+    const index = parseInt(totalInput.value);
+    const html = template.innerHTML.replace(/__prefix__/g, index);
+    container.insertAdjacentHTML("beforeend", html);
+    totalInput.value = index + 1;
+    updateAddButton();
+  });
+
+  container.addEventListener("click", (e) => {
+    if (e.target.classList.contains("remove-link")) {
+      e.target.closest(".link-form").remove();
+      updateAddButton();
+    }
+  });
+
+  updateAddButton();
+</script>
 {% endblock %}

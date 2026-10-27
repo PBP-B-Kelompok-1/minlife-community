@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login, logout, get_user_model
-from .forms import RegisterForm, UpdateProfileForm
+from .forms import RegisterForm, SocialLinkFormSet, UpdateProfileForm
 from django.http import HttpResponse
 from django.core.exceptions import PermissionDenied
 
