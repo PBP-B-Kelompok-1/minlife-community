@@ -29,6 +29,9 @@
                         <div class="flex min-w-0 flex-col gap-1.5">
                             <label class="font-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
                             {{ field }}
+                            {% if field.name == "week_start" %}
+                                <p class="text-sm text-[var(--tertiary)]">Challenge berlangsung 7 hari, berakhir 6 hari setelah tanggal mulai.</p>
+                            {% endif %}
                             {% if field.help_text %}<p class="text-sm text-[var(--tertiary)]">{{ field.help_text }}</p>{% endif %}
                             {% for error in field.errors %}<p class="text-sm text-red-700" role="alert">{{ error }}</p>{% endfor %}
                         </div>

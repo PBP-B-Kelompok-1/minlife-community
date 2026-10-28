@@ -78,7 +78,7 @@ demonstration.
 ## Rubric: HTMX and responsive interactivity
 
 - [ ] Decide whether create, edit, and delete should also use HTMX or whether the
-      current full-page flow is sufficient for the target rubric score.
+      current full-page flow is sufficient for the target rubric score. Decision: Use HTMX to go the extra mile
 - [ ] Test HTMX requests and ordinary browser requests separately where behavior differs.
 - [ ] Verify task-row controls preserve management-form values and form data.
 - [ ] Test the mobile layout at the target presentation viewport.

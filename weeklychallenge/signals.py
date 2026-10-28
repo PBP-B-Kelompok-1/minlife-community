@@ -1,17 +1,21 @@
+from datetime import timedelta
+
 from django.db import IntegrityError
 from django.db.models.signals import post_delete, post_save
 from django.utils import timezone
 
-from .models import Challenge, ChallengeSubmission
+from .models import Challenge, ChallengeSubmission, MAX_TASKS_PER_CHALLENGE
 from .services import award_badge_if_eligible
 
 
 def post_saved(sender, instance, **kwargs):
     """Create an active challenge submission after a tagged Post is saved."""
+    today = timezone.localdate()
+    window = timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
     challenges = Challenge.objects.filter(
         tag__in=instance.tags.all(),
-        week_start__lte=timezone.localdate(),
-        week_end__gte=timezone.localdate(),
+        week_start__lte=today,
+        week_start__gte=today - window,
     )
     for challenge in challenges:
         try:

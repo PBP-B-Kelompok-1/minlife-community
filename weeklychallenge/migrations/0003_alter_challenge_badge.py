@@ -7,14 +7,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0006_alter_userbadge_badge'),
-        ('weeklychallenge', '0002_challenge_tag'),
+        ("users", "0005_badge_userbadge"),
+        ("weeklychallenge", "0002_challenge_tag"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='challenge',
-            name='badge',
-            field=models.OneToOneField(on_delete=django.db.models.deletion.PROTECT, related_name='challenge', to='users.badge'),
+            model_name="challenge",
+            name="badge",
+            field=models.OneToOneField(
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="challenge",
+                to="users.badge",
+            ),
         ),
     ]

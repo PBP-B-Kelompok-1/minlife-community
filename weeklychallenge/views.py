@@ -55,12 +55,14 @@ def show_weekly_challenge(request):
     ).exists()
     challenge = _challenge_queryset().filter(
         week_start__lte=today,
-        week_end__gte=today,
+        week_start__gte=today - timedelta(days=MAX_TASKS_PER_CHALLENGE - 1),
     ).prefetch_related("tasks").first()
     upcoming_challenges = _challenge_queryset().filter(
         week_start__gt=today
     ).order_by("week_start")[:3]
-    past_challenges = _challenge_queryset().filter(week_end__lt=today)[:3]
+    past_challenges = _challenge_queryset().filter(
+        week_start__lt=today - timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
+    )[:3]
     if challenge is None:
         return render(
             request,
@@ -143,11 +145,16 @@ def _challenge_list_context(request):
     challenges = _challenge_queryset()
 
     if status == "open":
-        challenges = challenges.filter(week_start__lte=today, week_end__gte=today)
+        challenges = challenges.filter(
+            week_start__lte=today,
+            week_start__gte=today - timedelta(days=MAX_TASKS_PER_CHALLENGE - 1),
+        )
     elif status == "upcoming":
         challenges = challenges.filter(week_start__gt=today)
     elif status == "past":
-        challenges = challenges.filter(week_end__lt=today)
+        challenges = challenges.filter(
+            week_start__lt=today - timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
+        )
 
     if search:
         challenges = challenges.filter(title__icontains=search)

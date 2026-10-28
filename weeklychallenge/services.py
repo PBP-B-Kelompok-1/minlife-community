@@ -1,7 +1,9 @@
+from datetime import timedelta
+
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Challenge, ChallengeSubmission
+from .models import Challenge, ChallengeSubmission, MAX_TASKS_PER_CHALLENGE
 
 
 def get_current_challenge(today=None):
@@ -9,9 +11,10 @@ def get_current_challenge(today=None):
     if today is None:
         today = timezone.localdate()
 
+    window = timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
     return Challenge.objects.filter(
         week_start__lte=today,
-        week_end__gte=today,
+        week_start__gte=today - window,
     ).first()
 
 

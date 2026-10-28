@@ -1,7 +1,7 @@
 """Weekly Challenge: models dan fungsi servis. Kontrak antar modul ada di README.md."""
+from datetime import timedelta
 from django.conf import settings
 from django.db import models
-from django.db.models import F, Q
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 
@@ -69,7 +69,6 @@ class Challenge(models.Model):
     )
 
     week_start = models.DateField()
-    week_end = models.DateField()
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -81,15 +80,13 @@ class Challenge(models.Model):
 
     class Meta:
         ordering = ["-week_start"]
-        constraints = [
-            models.CheckConstraint(
-                condition=Q(week_end__gte=F("week_start")),
-                name="challenge_end_not_before_start",
-            ),
-        ]
 
     def __str__(self):
         return self.title
+
+    @property
+    def week_end(self):
+        return self.week_start + timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
 
     @property
     def is_open(self):
