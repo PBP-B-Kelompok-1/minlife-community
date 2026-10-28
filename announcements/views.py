@@ -65,21 +65,25 @@ def _list_context(request, selected_announcement=None):
     }
 
 
+def _render_announcement_list(request, context):
+    template_name = (
+        "announcements/_results.html"
+        if request.headers.get("HX-Request") == "true"
+        else "announcements/list.html"
+    )
+    return render(request, template_name, context)
+
+
 @require_GET
 def announcement_list(request):
-    return render(
-        request,
-        "announcements/list.html",
-        _list_context(request),
-    )
+    return _render_announcement_list(request, _list_context(request))
 
 
 @require_GET
 def announcement_detail(request, announcement_id):
     announcement = get_object_or_404(Announcement, pk=announcement_id)
-    return render(
+    return _render_announcement_list(
         request,
-        "announcements/list.html",
         _list_context(request, selected_announcement=announcement),
     )
 

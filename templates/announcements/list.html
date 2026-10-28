@@ -1,11 +1,14 @@
 {% extends "base.html" %}
-
 {% block meta %}
     <title>Announcements - Minlife Community</title>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
 {% endblock meta %}
 
 {% block content %}
-    <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-12 pt-4 sm:px-6 lg:px-8">
+    <div
+        id="announcements-app"
+        class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-12 pt-4 sm:px-6 lg:px-8"
+    >
         <section class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div class="flex flex-col gap-1">
                 <h1 class="m-0 text-3xl font-semibold text-[var(--secondary)]">Announcements</h1>
@@ -23,122 +26,54 @@
         </section>
 
         <form
+            id="announcement-filter-form"
             method="get"
             action="{% url 'announcements:list' %}"
+            hx-get="{% url 'announcements:list' %}"
+            hx-target="#announcement-results"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            hx-indicator="#announcement-loading"
             class="flex flex-col gap-3 rounded-[var(--radius)] bg-[var(--paper)] p-4 shadow sm:flex-row"
         >
             <label class="flex flex-1 flex-col gap-1 text-sm font-medium text-[var(--secondary)]">
                 Search announcements
                 <input
                     type="search"
+                    id="announcement-search"
                     name="q"
                     value="{{ query }}"
                     placeholder="Search by title or content"
+                    hx-get="{% url 'announcements:list' %}"
+                    hx-trigger="input changed delay:300ms"
+                    hx-include="#announcement-filter-form"
                 >
             </label>
             <label class="flex flex-col gap-1 text-sm font-medium text-[var(--secondary)] sm:w-48">
                 Sort by
-                <select name="sort" class="min-h-12 px-3 py-2.5">
+                <select
+                    id="announcement-sort"
+                    name="sort"
+                    class="min-h-12 px-3 py-2.5"
+                    hx-get="{% url 'announcements:list' %}"
+                    hx-trigger="change"
+                    hx-include="#announcement-filter-form"
+                >
                     <option value="newest" {% if sort == "newest" %}selected{% endif %}>Newest</option>
                     <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>Oldest</option>
                 </select>
             </label>
-            <button type="submit" class="button button--small self-stretch sm:self-end">
-                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                Apply
-            </button>
         </form>
 
-        {% if announcements %}
-            <div class="{% if selected_announcement %}grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]{% endif %}">
-                <section
-                    aria-label="Announcement list"
-                    class="grid gap-4 {% if not selected_announcement %}md:grid-cols-2{% endif %}"
-                >
-                    {% for announcement in announcements %}
-                        <article
-                            class="rounded-[var(--radius)] border p-4 shadow transition-colors {% if selected_announcement.id == announcement.id %}border-[#cddcc5] bg-[#f2f8ee]{% else %}border-transparent bg-[var(--paper)]{% endif %}"
-                        >
-                            <a
-                                href="{% url 'announcements:detail' announcement.id %}?q={{ query|urlencode }}&sort={{ sort }}"
-                                class="flex items-center justify-between gap-4 text-[var(--secondary)]"
-                                {% if selected_announcement.id == announcement.id %}aria-current="true"{% endif %}
-                            >
-                                <span class="font-semibold">{{ announcement.title }}</span>
-                                <span class="flex shrink-0 items-center gap-3 text-xs text-[var(--tertiary)]">
-                                    <time datetime="{{ announcement.created_at|date:'c' }}">
-                                        {{ announcement.created_at|date:"j M Y" }}
-                                    </time>
-                                    <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
-                                </span>
-                            </a>
+        <div
+            id="announcement-loading"
+            class="htmx-indicator empty-state"
+            role="status"
+            aria-live="polite"
+        >
+            Loading announcements...
+        </div>
 
-                            {% if can_change_announcement or can_delete_announcement %}
-                                <div class="mt-4 flex flex-wrap justify-end gap-2 border-t border-[var(--paper-dim)] pt-3">
-                                    {% if can_change_announcement %}
-                                        <a
-                                            href="{% url 'announcements:update' announcement.id %}"
-                                            class="button button--border button--small"
-                                        >
-                                            <i class="fa-solid fa-pen" aria-hidden="true"></i>
-                                            Edit
-                                        </a>
-                                    {% endif %}
-                                    {% if can_delete_announcement %}
-                                        <a
-                                            href="{% url 'announcements:delete' announcement.id %}"
-                                            class="button button--border button--small !border-[var(--danger)] !text-[var(--danger)]"
-                                        >
-                                            <i class="fa-solid fa-trash" aria-hidden="true"></i>
-                                            Delete
-                                        </a>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
-
-                            {% if selected_announcement.id == announcement.id %}
-                                <div class="mt-4 border-t border-[#cddcc5] pt-4 lg:hidden">
-                                    <p class="whitespace-pre-line text-sm text-[var(--secondary)]">{{ announcement.content }}</p>
-                                    <a
-                                        href="{% url 'announcements:list' %}?q={{ query|urlencode }}&sort={{ sort }}"
-                                        class="button button--border button--small mt-6"
-                                    >
-                                        Show less
-                                        <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
-                                    </a>
-                                </div>
-                            {% endif %}
-                        </article>
-                    {% endfor %}
-                </section>
-
-                {% if selected_announcement %}
-                    <article class="hidden min-h-80 rounded-[var(--radius)] bg-[var(--paper)] p-6 shadow lg:block">
-                        <h2 class="m-0 text-2xl font-semibold text-[var(--secondary)]">
-                            {{ selected_announcement.title }}
-                        </h2>
-                        <time
-                            datetime="{{ selected_announcement.created_at|date:'c' }}"
-                            class="mt-2 block text-sm text-[var(--tertiary)]"
-                        >
-                            {{ selected_announcement.created_at|date:"j M Y" }}
-                        </time>
-                        <div class="my-5 border-t border-[var(--paper-dim)]"></div>
-                        <p class="whitespace-pre-line text-[var(--secondary)]">{{ selected_announcement.content }}</p>
-                        <a
-                            href="{% url 'announcements:list' %}?q={{ query|urlencode }}&sort={{ sort }}"
-                            class="button button--border button--small mt-8"
-                        >
-                            Show less
-                            <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
-                        </a>
-                    </article>
-                {% endif %}
-            </div>
-        {% else %}
-            <section class="rounded-[var(--radius)] bg-[var(--paper)] p-8 text-center shadow">
-                <p class="empty-state">No announcements found</p>
-            </section>
-        {% endif %}
+        {% include "announcements/_results.html" %}
     </div>
 {% endblock content %}
