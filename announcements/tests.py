@@ -5,7 +5,6 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.templatetags.static import static
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -654,7 +653,7 @@ class AnnouncementUpdateDeleteTests(TestCase):
         self.assertEqual(delete_response.status_code, 405)
 
 
-class AnnouncementAsyncReadTests(TestCase):
+class AnnouncementHtmxReadTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         user_model = get_user_model()
@@ -669,56 +668,55 @@ class AnnouncementAsyncReadTests(TestCase):
             content="Rendered safely without a full page reload.",
         )
 
-    def test_list_exposes_fetch_endpoints_and_module_script(self):
+    def test_list_loads_htmx_and_exposes_dynamic_filter_controls(self):
         response = self.client.get(reverse("announcements:list"))
-        placeholder = uuid.UUID(int=0)
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="announcements-app"')
         self.assertContains(
             response,
-            f'data-list-endpoint="{reverse("api:get_announcements_json")}"',
+            'src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"',
         )
         self.assertContains(
             response,
-            'data-detail-endpoint-template="'
-            + reverse(
-                "api:get_announcement_json",
-                kwargs={"announcement_id": placeholder},
-            )
-            + '"',
+            f'hx-get="{reverse("announcements:list")}"',
         )
-        self.assertContains(response, 'data-selected-announcement-id=""')
-        self.assertContains(response, 'type="module"')
+        self.assertContains(response, 'hx-target="#announcement-results"')
+        self.assertContains(response, 'hx-push-url="true"')
         self.assertContains(
             response,
-            f'src="{static("announcements/js/announcements.js")}"',
+            'hx-trigger="input changed delay:300ms"',
         )
 
-    def test_detail_exposes_initial_selected_announcement_to_javascript(self):
+    def test_htmx_list_request_returns_only_the_results_fragment(self):
         response = self.client.get(
-            reverse(
-                "announcements:detail",
-                kwargs={"announcement_id": self.announcement.pk},
-            )
+            reverse("announcements:list"),
+            HTTP_HX_REQUEST="true",
         )
 
-        self.assertContains(
-            response,
-            f'data-selected-announcement-id="{self.announcement.pk}"',
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "announcements/_results.html")
+        self.assertTemplateNotUsed(response, "announcements/list.html")
+        self.assertContains(response, 'id="announcement-results"')
+        self.assertNotContains(response, "<title>")
+
+    def test_detail_link_uses_htmx_with_a_normal_navigation_fallback(self):
+        detail_url = reverse(
+            "announcements:detail",
+            kwargs={"announcement_id": self.announcement.pk},
+        )
+        list_response = self.client.get(reverse("announcements:list"))
+
+        self.assertContains(list_response, f'href="{detail_url}?q=&amp;sort=newest"')
+        self.assertContains(list_response, f'hx-get="{detail_url}?q=&amp;sort=newest"')
+        self.assertContains(list_response, 'hx-target="#announcement-results"')
+        self.assertContains(list_response, 'hx-push-url="true"')
+
+        response = self.client.get(
+            detail_url,
+            HTTP_HX_REQUEST="true",
         )
 
-    def test_javascript_permission_flags_match_server_permissions(self):
-        anonymous_response = self.client.get(reverse("announcements:list"))
-        self.client.force_login(self.moderator)
-        moderator_response = self.client.get(reverse("announcements:list"))
-
-        for permission in ("add", "change", "delete"):
-            self.assertContains(
-                anonymous_response,
-                f'data-can-{permission}="false"',
-            )
-            self.assertContains(
-                moderator_response,
-                f'data-can-{permission}="true"',
-            )
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "announcements/_results.html")
+        self.assertContains(response, self.announcement.content)
