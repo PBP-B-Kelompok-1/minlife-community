@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block meta %}
+    {% include "posts/components/tailwind_styles.html" %}
+    <title>Hapus {{ challenge.title }} - Weekly Challenge</title>
+{% endblock meta %}
+{% block content %}
+    <main class="mx-auto w-full max-w-xl px-4 pb-10">
+        <section class="rounded-[var(--radius)] bg-[var(--paper)] px-6 py-8 shadow sm:px-9">
+            <p class="text-sm font-semibold uppercase tracking-[0.16em] text-red-700">Konfirmasi moderator</p>
+            <h1 class="mt-2 text-2xl font-bold">Hapus challenge?</h1>
+            <p class="mt-3 text-[var(--secondary)]">
+                Challenge <strong>{{ challenge.title }}</strong> dan data submission terkait akan dihapus.
+                Post submission tetap ada.
+            </p>
+            <form method="post" class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                {% csrf_token %}
+                <a class="button button--border button--small" href="{% url 'weeklychallenge:challenge_detail' challenge.pk %}">Batal</a>
+                <button class="button button--small border-red-700 bg-red-700" type="submit">Hapus challenge</button>
+            </form>
+        </section>
+    </main>
+{% endblock content %}
