@@ -12,7 +12,7 @@ from django.utils import timezone
 from posts.models import Comment, Post, Tag, Vote
 from users.models import Badge, UserBadge
 from .forms import ChallengeForm, ChallengeTaskFormSet
-from .models import Challenge, ChallengeSubmission
+from .models import Challenge, ChallengeSubmission, MAX_TASKS_PER_CHALLENGE
 from .services import (
     award_badge_if_eligible,
     create_challenge,
@@ -232,6 +232,22 @@ class ChallengeServiceAndFormTests(TestCase):
         self.assertTrue(challenge.is_open)
         localdate.return_value = date(2026, 11, 8)
         self.assertFalse(challenge.is_open)
+
+    def test_challenge_status_querysets_cover_all_boundaries(self):
+        start = date(2026, 11, 1)
+        challenge = self.make_challenge(week_start=start)
+        before = start - timedelta(days=1)
+        last_day = start + timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
+        after = last_day + timedelta(days=1)
+
+        self.assertNotIn(challenge, Challenge.objects.current(before))
+        self.assertIn(challenge, Challenge.objects.upcoming(before))
+        self.assertIn(challenge, Challenge.objects.current(start))
+        self.assertNotIn(challenge, Challenge.objects.past(start))
+        self.assertIn(challenge, Challenge.objects.current(last_day))
+        self.assertNotIn(challenge, Challenge.objects.past(last_day))
+        self.assertIn(challenge, Challenge.objects.past(after))
+        self.assertNotIn(challenge, Challenge.objects.current(after))
 
     def test_submission_is_unique_per_user_and_challenge(self):
         challenge = self.make_challenge(week_start=date(2026, 11, 1))
@@ -591,6 +607,27 @@ class ChallengeViewsTests(TestCase):
         response = self.client.get(create_url)
         self.assertEqual(response.status_code, 403)
 
+    def test_update_and_delete_routes_require_permissions(self):
+        challenge = self.make_challenge(
+            "Protected challenge",
+            start=timezone.localdate() + timedelta(days=10),
+        )
+        normal_user = get_user_model().objects.create_user(
+            username="cannot-manage-challenge"
+        )
+        self.client.force_login(normal_user)
+
+        update_response = self.client.get(
+            reverse("weeklychallenge:challenge_update", args=[challenge.pk])
+        )
+        delete_response = self.client.get(
+            reverse("weeklychallenge:challenge_delete", args=[challenge.pk])
+        )
+
+        self.assertEqual(update_response.status_code, 403)
+        self.assertEqual(delete_response.status_code, 403)
+        self.assertTrue(Challenge.objects.filter(pk=challenge.pk).exists())
+
     def test_detail_returns_not_found_for_unknown_challenge(self):
         response = self.client.get(
             reverse("weeklychallenge:challenge_detail", args=[999999])
@@ -614,6 +651,50 @@ class ChallengeViewsTests(TestCase):
         self.assertContains(response, "Clear the desk")
         self.assertContains(response, "Focused mornings Badge")
         self.assertContains(response, "Belum ada submission")
+
+    @patch("weeklychallenge.views.timezone.localdate")
+    def test_challenge_detail_reveals_tasks_cumulatively_without_spoilers(
+        self, localdate
+    ):
+        start = date(2026, 11, 1)
+        challenge = self.make_challenge("Cumulative tasks", start=start)
+        for day_number in range(1, 8):
+            challenge.tasks.create(
+                day_number=day_number,
+                title=f"Task {day_number}",
+                description=f"Details {day_number}",
+            )
+
+        normal_user = get_user_model().objects.create_user(username="challenge-reader")
+        detail_url = reverse("weeklychallenge:challenge_detail", args=[challenge.pk])
+
+        self.client.logout()
+        localdate.return_value = start - timedelta(days=1)
+        anonymous_response = self.client.get(detail_url)
+        self.assertTrue(anonymous_response.context["is_teaser"])
+        for day_number in range(1, 8):
+            self.assertNotContains(anonymous_response, f"Task {day_number}")
+
+        self.client.force_login(normal_user)
+        teaser_response = self.client.get(detail_url)
+        self.assertTrue(teaser_response.context["is_teaser"])
+        for day_number in range(1, 8):
+            self.assertNotContains(teaser_response, f"Task {day_number}")
+
+        for current_day in (1, 3, 7):
+            localdate.return_value = start + timedelta(days=current_day - 1)
+            response = self.client.get(detail_url)
+            self.assertFalse(response.context.get("is_teaser", False))
+            for day_number in range(1, 8):
+                if day_number <= current_day:
+                    self.assertContains(response, f"Task {day_number}")
+                else:
+                    self.assertNotContains(response, f"Task {day_number}")
+
+        localdate.return_value = start + timedelta(days=7)
+        completed_response = self.client.get(detail_url)
+        for day_number in range(1, 8):
+            self.assertContains(completed_response, f"Task {day_number}")
 
     def test_update_changes_challenge_and_tasks_without_replacing_badge_or_tag(self):
         challenge = self.make_challenge(

@@ -12,6 +12,19 @@ DEFAULT_UPVOTE_THRESHOLD = 10
 # Should be the number of days, do not change!!
 MAX_TASKS_PER_CHALLENGE = 7
 
+class ChallengeQuerySet(models.QuerySet):
+    def _cutoff(self, today):
+        return (today or timezone.localdate()) - timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
+
+    def current(self, today=None):
+        today = today or timezone.localdate()
+        return self.filter(week_start__lte=today, week_start__gte=self._cutoff(today))
+
+    def upcoming(self, today=None):
+        return self.filter(week_start__gt=today or timezone.localdate())
+
+    def past(self, today=None):
+        return self.filter(week_start__lt=self._cutoff(today))
 
 class ChallengeTask(models.Model):
     """One daily task (sub-challenge) inside a weekly Challenge. Max 7 per challenge."""
@@ -92,6 +105,9 @@ class Challenge(models.Model):
     def is_open(self):
         """Submission hanya boleh di dalam minggu challenge."""
         return self.week_start <= timezone.localdate() <= self.week_end
+    
+    objects = ChallengeQuerySet.as_manager()
+
 
 
 class ChallengeSubmission(models.Model):
@@ -120,4 +136,3 @@ class ChallengeSubmission(models.Model):
 
     def __str__(self):
         return f"{self.user} -> {self.challenge}"
-

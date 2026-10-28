@@ -50,19 +50,13 @@ def show_weekly_challenge(request):
     can_create_challenge = request.user.is_authenticated and request.user.has_perm(
         "weeklychallenge.add_challenge"
     )
-    is_moderator = request.user.is_authenticated and request.user.groups.filter(
-        name="Moderator"
-    ).exists()
-    challenge = _challenge_queryset().filter(
-        week_start__lte=today,
-        week_start__gte=today - timedelta(days=MAX_TASKS_PER_CHALLENGE - 1),
-    ).prefetch_related("tasks").first()
-    upcoming_challenges = _challenge_queryset().filter(
-        week_start__gt=today
-    ).order_by("week_start")[:3]
-    past_challenges = _challenge_queryset().filter(
-        week_start__lt=today - timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
-    )[:3]
+    can_manage = request.user.is_authenticated and request.user.has_perm(
+        "weeklychallenge.change_challenge"
+    )
+    challenge = _challenge_queryset().current().prefetch_related("tasks").first()
+    upcoming_challenges = _challenge_queryset().upcoming().order_by("week_start")[:3]
+    past_challenges = _challenge_queryset().past()[:3]
+    
     if challenge is None:
         return render(
             request,
@@ -70,7 +64,7 @@ def show_weekly_challenge(request):
             {
                 "challenge": None,
                 "can_create_challenge": can_create_challenge,
-                "is_moderator": is_moderator,
+                "can_manage": can_manage,
                 "upcoming_challenges": upcoming_challenges,
                 "past_challenges": past_challenges,
             },
@@ -113,7 +107,7 @@ def show_weekly_challenge(request):
             "timeline": timeline,
             "submissions": submissions,
             "has_submitted": has_submitted,
-            "is_moderator": is_moderator,
+            "can_manage": can_manage,
             "upcoming_challenges": upcoming_challenges,
             "past_challenges": past_challenges,
         },
@@ -145,16 +139,11 @@ def _challenge_list_context(request):
     challenges = _challenge_queryset()
 
     if status == "open":
-        challenges = challenges.filter(
-            week_start__lte=today,
-            week_start__gte=today - timedelta(days=MAX_TASKS_PER_CHALLENGE - 1),
-        )
+        challenges = challenges.current()
     elif status == "upcoming":
-        challenges = challenges.filter(week_start__gt=today)
+        challenges = challenges.upcoming()
     elif status == "past":
-        challenges = challenges.filter(
-            week_start__lt=today - timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
-        )
+        challenges = challenges.past()
 
     if search:
         challenges = challenges.filter(title__icontains=search)
@@ -170,11 +159,17 @@ def _challenge_list_context(request):
         "status": status,
         "search": search,
         "today": today,
-        "is_moderator": request.user.is_authenticated
-        and request.user.groups.filter(name="Moderator").exists(),
+        "can_manage": request.user.is_authenticated
+        and request.user.has_perm("weeklychallenge.change_challenge"),
         "can_create_challenge": request.user.is_authenticated
         and request.user.has_perm("weeklychallenge.add_challenge"),
         "page_query": query_params.urlencode(),
+        "upcoming_ids": set(
+            Challenge.objects.upcoming(today).values_list("pk", flat=True)
+        ),
+        "past_ids": set(
+            Challenge.objects.past(today).values_list("pk", flat=True)
+        ),
     }
 
 
@@ -221,33 +216,41 @@ def _submission_list_context(request, challenge):
 
 
 def challenge_detail(request, pk):
-    """Show one challenge, its tasks, badge, and paginated leaderboard."""
-    challenge = get_object_or_404(
-        Challenge.objects.select_related("badge", "tag").prefetch_related("tasks"),
-        pk=pk,
-    )
+    challenge = get_object_or_404(Challenge, pk=pk)
+    can_manage = request.user.has_perm("weeklychallenge.change_challenge")
+    is_upcoming = Challenge.objects.upcoming().filter(pk=pk).exists()
+    if is_upcoming and not can_manage:
+        return render(request, "challenges/detail.html",
+                      {"challenge": challenge, "is_teaser": True, "can_manage": can_manage})
+
+    challenge = Challenge.objects.select_related("badge", "tag").get(pk=pk)
     today = timezone.localdate()
+    current_day = min(
+        max((today - challenge.week_start).days + 1, 1),
+        MAX_TASKS_PER_CHALLENGE,
+    )
+    visible_tasks = challenge.tasks.filter(day_number__lte=current_day)
     has_submitted = request.user.is_authenticated and ChallengeSubmission.objects.filter(
-        challenge=challenge,
-        user=request.user,
-    ).exists()
-    is_moderator = request.user.is_authenticated and request.user.groups.filter(
-        name="Moderator"
+        challenge=challenge, user=request.user
     ).exists()
     context = _submission_list_context(request, challenge)
-    context.update(
-        {
-            "has_submitted": has_submitted,
-            "is_current": challenge.week_start <= today <= challenge.week_end,
-            "is_moderator": is_moderator,
-        }
-    )
+    context.update({
+        "has_submitted": has_submitted,
+        "is_current": Challenge.objects.current().filter(pk=pk).exists(),
+        "current_day": current_day,
+        "visible_tasks": visible_tasks,
+        "can_manage": can_manage,
+    })
     return render(request, "challenges/detail.html", context)
 
 
 def submission_list_partial(request, pk):
     """Return a sorted, paginated leaderboard partial for a challenge."""
     challenge = get_object_or_404(Challenge, pk=pk)
+    if Challenge.objects.upcoming().filter(pk=pk).exists() and not request.user.has_perm(
+        "weeklychallenge.change_challenge"
+    ):
+        raise Http404
     return render(
         request,
         "challenges/components/_submission_list.html",

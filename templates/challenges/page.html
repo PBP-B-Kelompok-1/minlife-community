@@ -168,8 +168,6 @@
                         <a class="rounded-[var(--radius)] bg-[var(--paper)] p-5 shadow transition hover:shadow-lg" href="{% url 'weeklychallenge:challenge_detail' upcoming.pk %}">
                             <p class="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">{{ upcoming.week_start|date:"j M Y" }}</p>
                             <h3 class="mt-1 font-bold">{{ upcoming.title }}</h3>
-                            <p class="mt-1 line-clamp-2 text-sm text-[var(--tertiary)]">{{ upcoming.description }}</p>
-                            <p class="mt-2 text-xs text-[var(--tertiary)]">{{ upcoming.submission_count }} progres</p>
                         </a>
                     {% endfor %}
                 </div>

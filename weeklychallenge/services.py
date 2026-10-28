@@ -1,21 +1,11 @@
-from datetime import timedelta
-
 from django.db import transaction
-from django.utils import timezone
 
-from .models import Challenge, ChallengeSubmission, MAX_TASKS_PER_CHALLENGE
+from .models import Challenge, ChallengeSubmission
 
 
 def get_current_challenge(today=None):
     """Return the challenge whose date range includes today, if one exists."""
-    if today is None:
-        today = timezone.localdate()
-
-    window = timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
-    return Challenge.objects.filter(
-        week_start__lte=today,
-        week_start__gte=today - window,
-    ).first()
+    return Challenge.objects.current(today).first()
 
 
 def user_has_submitted(user, challenge):
