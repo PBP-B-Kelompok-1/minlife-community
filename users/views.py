@@ -44,16 +44,19 @@ def show_profile(request, user_id):
         'social_links': social_links,
         'is_following': is_following,
         'user_badges': get_user_badges(profile_user),
+        'user_posts': get_user_posts(profile_user),
     }
     return render(request, 'users/profile.html', context)
     
 @login_required
 def show_my_profile(request):
+    profile_user = request.user
     context = {
-        'profile_user': request.user,
-        'social_links': request.user.social_links.all(),
+        'profile_user': profile_user,
+        'social_links': profile_user.social_links.all(),
         'is_owner': True,
-        'user_badges': get_user_badges(request.user),
+        'user_badges': get_user_badges(profile_user),
+        'user_posts': get_user_posts(profile_user),
     }
     return render(request, 'users/profile.html', context)
 
