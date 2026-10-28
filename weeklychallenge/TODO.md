@@ -25,6 +25,8 @@ demonstration.
 - [x] Register signals through `WeeklychallengeConfig.ready()`.
 - [x] Add focused tests for models, services, forms, views, permissions, HTMX behavior,
       signals, and Badge persistence.
+- [x] Enforce one Badge per Challenge and preserve earned Badges after submission or
+      Challenge deletion.
 
 ## Highest-priority implementation
 
@@ -45,11 +47,12 @@ demonstration.
 
 ### Challenge deletion policy
 
-- [ ] Decide what should happen when a Challenge already has awarded Badges.
-- [ ] Prevent deletion with a clear error, or replace hard deletion with archive/
-      deactivation behavior.
-- [ ] Add tests for deletion with submissions, system Tags, and awarded Badges.
-- [ ] Document the final deletion policy in the README and live demonstration notes.
+- [x] A Challenge has exactly one Badge, and a Badge belongs to at most one Challenge.
+- [x] Deleting a Challenge deletes its submissions but preserves its Badge and all
+      previously earned UserBadge records.
+- [x] Deleting a submission or its Post does not revoke an earned UserBadge.
+- [ ] Decide whether hard deletion should eventually be replaced with archive/
+      deactivation behavior for audit history.
 
 ### Authorization consistency
 
@@ -149,5 +152,4 @@ git diff --check
 - [ ] `Vote.__str__` should safely handle comment Votes with no Post.
 - [ ] Challenge overlap is protected by form validation but not by a database-level
       exclusion constraint against concurrent creation.
-- [ ] The current challenge deletion behavior must be reconciled with protected Badges
-      and permanent UserBadge history.
+- [x] Challenge deletion preserves protected Badges and permanent UserBadge history.

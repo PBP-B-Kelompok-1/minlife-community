@@ -39,7 +39,8 @@ Challenge tidak boleh memiliki rentang tanggal yang tumpang tindih. Dengan demik
 
 ## Integrasi dengan Users (Husainah)
 
-- Sediakan model `Badge` dan `UserBadge`. `Challenge.badge` merujuk ke Badge; satu pengguna tidak dapat menerima Badge yang sama lebih dari sekali.
+- Sediakan model `Badge` dan `UserBadge`. Setiap `Challenge` memiliki tepat satu Badge, dan satu Badge hanya dapat dimiliki oleh satu Challenge. Satu pengguna tidak dapat menerima Badge yang sama lebih dari sekali.
+- **Action required from the Users module owner:** change `UserBadge.badge` to `on_delete=models.PROTECT`, create and apply the Users migration, and add a Users test proving that deleting a Badge with earned UserBadges is blocked. This preserves the permanent-award rule without editing the Users module from Weekly Challenge work.
 - Badge dibuat oleh layanan Weekly Challenge saat moderator membuat challenge. `UserBadge` diberikan oleh layanan badge menggunakan `get_or_create`; jangan membuat keduanya dari alur lain.
 - Pastikan `Badge.__str__` mengembalikan nama badge.
 - Profil pengguna dapat menampilkan badge melalui `user.user_badges`, diurutkan menurut `earned_at`.
@@ -98,5 +99,26 @@ Sinyal yang digunakan:
 
 ## Hal yang masih perlu diputuskan
 
-- Apa yang seharusnya terjadi jika moderator menghapus challenge yang sudah memiliki submission? Perilaku saat ini: submission terkait terhapus, sedangkan Post dan tag tetap ada.
+- Jika moderator menghapus challenge yang sudah memiliki submission, submission terkait terhapus, sedangkan Post, tag, Badge, dan UserBadge yang sudah diperoleh tetap ada. Badge yang sudah diperoleh tidak pernah dicabut.
 - Apakah nomor tugas perlu dibatasi oleh durasi challenge, selain batas tetap 1–7?
+
+## Koordinasi lintas modul yang diperlukan
+
+Perubahan berikut harus dilakukan oleh pemilik modul Users, bukan dari modul Weekly Challenge:
+
+1. Update `users.models.UserBadge.badge` dari `on_delete=models.CASCADE` menjadi
+   `on_delete=models.PROTECT`.
+2. Buat migration Users untuk perubahan tersebut.
+3. Jalankan migrasi di development dan deployment.
+4. Tambahkan test Users yang memastikan Badge dengan earned `UserBadge` tidak dapat
+   dihapus.
+
+Perubahan yang sudah dilakukan di Weekly Challenge:
+
+- `Challenge.badge` menggunakan `OneToOneField`, sehingga satu Badge hanya dapat
+  dimiliki satu Challenge.
+- Challenge deletion tidak menghapus Badge atau UserBadge yang sudah ada.
+- Penghapusan submission atau Post tidak mencabut UserBadge.
+
+Sebelum merge, pemilik Users dan Weekly Challenge harus menjalankan seluruh test suite
+untuk memastikan migration dan deletion policy lintas modul tetap kompatibel.

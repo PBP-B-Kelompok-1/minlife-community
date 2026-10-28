@@ -64,8 +64,8 @@ class Challenge(models.Model):
     upvote_threshold = models.PositiveIntegerField(
         default=DEFAULT_UPVOTE_THRESHOLD, help_text="Skor bersih yang dibutuhkan submission untuk mendapat badge."
     )
-    badge = models.ForeignKey(
-        "users.Badge", on_delete=models.PROTECT, related_name="challenges"
+    badge = models.OneToOneField(
+        "users.Badge", on_delete=models.PROTECT, related_name="challenge"
     )
 
     week_start = models.DateField()
@@ -123,5 +123,4 @@ class ChallengeSubmission(models.Model):
 
     def __str__(self):
         return f"{self.user} -> {self.challenge}"
-
 

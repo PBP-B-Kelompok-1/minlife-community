@@ -344,6 +344,40 @@ class ChallengeServiceAndFormTests(TestCase):
             UserBadge.objects.filter(user=self.user, badge=challenge.badge).exists()
         )
 
+    def test_awarded_badge_survives_submission_deletion(self):
+        challenge = self.make_challenge(
+            week_start=date(2026, 11, 1),
+            week_end=date(2026, 11, 7),
+            threshold=1,
+        )
+        post = Post.objects.create(author=self.user, title="Progress", content="Done")
+        submission = ChallengeSubmission.objects.create(
+            challenge=challenge,
+            post=post,
+            user=self.user,
+        )
+        UserBadge.objects.create(user=self.user, badge=challenge.badge)
+
+        submission.delete()
+
+        self.assertTrue(
+            UserBadge.objects.filter(user=self.user, badge=challenge.badge).exists()
+        )
+
+    def test_challenge_has_one_badge_and_deletion_preserves_earned_badge(self):
+        challenge = self.make_challenge(
+            week_start=date(2026, 11, 1),
+            week_end=date(2026, 11, 7),
+        )
+        UserBadge.objects.create(user=self.user, badge=challenge.badge)
+
+        challenge.delete()
+
+        self.assertTrue(Badge.objects.filter(pk=challenge.badge_id).exists())
+        self.assertTrue(
+            UserBadge.objects.filter(user=self.user, badge_id=challenge.badge_id).exists()
+        )
+
 
 class ChallengeSignalTests(TestCase):
     def setUp(self):
