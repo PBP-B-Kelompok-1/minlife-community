@@ -1,20 +1,37 @@
 {% extends "base.html" %}
+
+{% block meta %}
+    {% include "users/components/tailwind_styles.html" %}
+    <title>{{ profile_user.username }}’s {{ list_type }} - Minlife Community</title>
+{% endblock meta %}
+
 {% block content %}
-<h2>{{ profile_user.username }}: {{ list_type }}</h2>
+<div class="container">
+    <section class="user-card shadow">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <h1 class="user-card__title">{{ profile_user.username }}’s {{ list_type }}</h1>
+            <a class="button button--small button--border" href="{% url 'users:show_profile' profile_user.id %}">Back to profile</a>
+        </div>
 
-<ul>
-  {% for person in people %}
-    <li>
-      {% if person.avatar_url %}
-        <img src="{{ person.avatar_url }}" alt="" width="32" height="32">
-      {% endif %}
-      <a href="{% url 'users:show_profile' person.id %}">{{ person.username }}</a>
-      {% if person.bio %}<small>{{ person.bio }}</small>{% endif %}
-    </li>
-  {% empty %}
-    <li>Nobody here yet.</li>
-  {% endfor %}
-</ul>
-
-<a href="{% url 'users:show_profile' profile_user.id %}">Back to profile</a>
-{% endblock %}
+        <ul class="user-list">
+            {% for person in people %}
+                <li>
+                    <a class="user-list__item hover--expand" href="{% url 'users:show_profile' person.id %}">
+                        {% if person.avatar_src %}
+                            <img src="{{ person.avatar_src }}" alt="" class="user-avatar size-10 shrink-0">
+                        {% else %}
+                            <span class="user-avatar user-avatar--placeholder size-10 shrink-0 text-lg">{{ person.username|slice:":1"|upper }}</span>
+                        {% endif %}
+                        <span class="flex min-w-0 flex-col">
+                            <strong>{{ person.username }}</strong>
+                            {% if person.bio %}<small class="text-[var(--tertiary)]">{{ person.bio }}</small>{% endif %}
+                        </span>
+                    </a>
+                </li>
+            {% empty %}
+                <li class="empty-state">Nobody here yet.</li>
+            {% endfor %}
+        </ul>
+    </section>
+</div>
+{% endblock content %}

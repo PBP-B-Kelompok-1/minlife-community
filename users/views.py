@@ -1,17 +1,32 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Follow, User
-from django.http import HttpResponseBadRequest
-from django.views.decorators.http import require_POST
+from django.http import HttpResponseBadRequest, JsonResponse, HttpResponse
+from django.views.decorators.http import require_POST, require_GET
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login, logout, get_user_model
-from .forms import RegisterForm, UpdateProfileForm
-from django.http import HttpResponse
+from .forms import RegisterForm, SocialLinkFormSet, UpdateProfileForm
 from django.core.exceptions import PermissionDenied
-
+from django.db.models import Exists, OuterRef, Q
+from posts.models import Post
 
 User = get_user_model()
+
+# Helper methods
+def get_user_badges(profile_user):
+    return (
+        profile_user.user_badges
+        .select_related("badge")
+        .order_by("-earned_at")
+    )
+    
+def get_user_posts(profile_user, limit=10):
+    return (
+        Post.objects.filter(author=profile_user)
+        .prefetch_related("tags")
+        .order_by("-created_at")[:limit]
+    )
 
 # Profile show
 
@@ -28,15 +43,20 @@ def show_profile(request, user_id):
         'profile_user': profile_user,
         'social_links': social_links,
         'is_following': is_following,
+        'user_badges': get_user_badges(profile_user),
+        'user_posts': get_user_posts(profile_user),
     }
     return render(request, 'users/profile.html', context)
     
 @login_required
 def show_my_profile(request):
+    profile_user = request.user
     context = {
-        'profile_user': request.user,
-        'social_links': request.user.social_links.all(),
+        'profile_user': profile_user,
+        'social_links': profile_user.social_links.all(),
         'is_owner': True,
+        'user_badges': get_user_badges(profile_user),
+        'user_posts': get_user_posts(profile_user),
     }
     return render(request, 'users/profile.html', context)
 
@@ -58,7 +78,7 @@ def logout_user(request):
     return redirect('frontpage')
 
 def register_user(request):
-    form = RegisterForm(request.POST or None)
+    form = RegisterForm(request.POST or None, request.FILES or None)
 
     if request.method == 'POST' and form.is_valid():
         form.save()
@@ -72,15 +92,18 @@ def register_user(request):
 @login_required
 def update_profile(request):
     if request.method == 'POST':
-        form = UpdateProfileForm(request.POST, instance=request.user)
-        if form.is_valid():
+        form = UpdateProfileForm(request.POST, request.FILES, instance=request.user)
+        formset = SocialLinkFormSet(request.POST, instance=request.user)
+        if form.is_valid() and formset.is_valid():
             form.save()
+            formset.save()
             messages.success(request, 'Profile updated.')
             return redirect('users:show_my_profile')
     else:
         form = UpdateProfileForm(instance=request.user)
+        formset = SocialLinkFormSet(instance=request.user)
 
-    return render(request, 'users/update_profile.html', {'form': form})
+    return render(request, 'users/update_profile.html', {'form': form, 'formset': formset,})
 
 @login_required
 def delete_account(request):
@@ -99,15 +122,29 @@ def delete_account(request):
 @require_POST
 def toggle_follow(request, user_id):
     target = get_object_or_404(User, pk=user_id)
-    if target == request.user:
-        return HttpResponseBadRequest('You cannot follow yourself.')
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
 
-    link, created = Follow.objects.get_or_create(
-        follower=request.user, following=target
-    )
+    if target == request.user:
+        if is_ajax:
+            return JsonResponse({"message": "You can't follow yourself."}, status=400)
+        messages.error(request, "You can't follow yourself.")
+        return redirect('users:show_my_profile')
+
+    link, created = Follow.objects.get_or_create(follower=request.user, following=target)
     if not created:          # already following → this click means unfollow
         link.delete()
 
+    if is_ajax:
+        # no messages.* here: they'd queue up and pop as a toast on the next page load
+        return JsonResponse({
+            "following": created,
+            "following_count": request.user.following.count(),
+        })
+
+    if created:
+        messages.success(request, f"You are now following {target.username}.")
+    else:
+        messages.success(request, f"You unfollowed {target.username}.")
     return redirect('users:show_profile', user_id=target.id)
 
 def following_list(request, user_id):
@@ -142,4 +179,31 @@ def followers_list(request, user_id):
         "list_type": "followers",
     })
     
+@require_GET
+def search_users_json(request):
+    # not @login_required: that would redirect fetch() to an HTML page
+    if not request.user.is_authenticated:
+        return JsonResponse({"message": "Please log in first!"}, status=401)
+
+    q = request.GET.get("q", "").strip()
+    if len(q) < 2:
+        return JsonResponse({"data": []})
+
+    users = (
+        User.objects.filter(is_active=True)
+        .filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))
+        .exclude(pk=request.user.pk)
+        .annotate(is_following=Exists(
+            Follow.objects.filter(follower=request.user, following=OuterRef("pk"))
+        ))
+        .order_by("username")[:10]
+    )
+    data = [{
+        "id": str(u.id),
+        "username": u.username,
+        "full_name": f"{u.first_name} {u.last_name}".strip(),
+        "avatar_url": u.avatar_url,
+        "is_following": u.is_following,
+    } for u in users]
+    return JsonResponse({"data": data})
 # TODO: view badges that the user owns?

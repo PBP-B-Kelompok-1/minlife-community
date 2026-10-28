@@ -1,64 +1,329 @@
 {% extends 'base.html' %}
 
+{% block meta %}
+    {% include "users/components/tailwind_styles.html" %}
+    <title>{{ profile_user.username }} - Minlife Community</title>
+{% endblock meta %}
+
 {% block content %}
-<div>
-  {% if profile_user.avatar_url %}
-    <img src="{{ profile_user.avatar_url }}" alt="{{ profile_user.username }}" width="120">
-  {% endif %}
+<div class="container">
 
-  <h1>{{ profile_user.username }}</h1>
+    <section class="user-card shadow">
+        <div class="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+            {% if profile_user.avatar_src %}
+                <img src="{{ profile_user.avatar_src }}" alt="{{ profile_user.username }}" class="user-avatar size-28 shrink-0">
+            {% else %}
+                <div class="user-avatar user-avatar--placeholder size-28 shrink-0 text-4xl">{{ profile_user.username|slice:":1"|upper }}</div>
+            {% endif %}
 
-  {% if profile_user.first_name or profile_user.last_name %}
-    <p>{{ profile_user.first_name }} {{ profile_user.last_name }}</p>
-  {% endif %}
+            <div class="flex flex-1 flex-col gap-3 text-center sm:text-left">
+                <div>
+                    <h1 class="text-[1.75rem] font-bold">{{ profile_user.username }}</h1>
+                    {% if profile_user.first_name or profile_user.last_name %}
+                        <p class="text-[var(--tertiary)]">{{ profile_user.first_name }} {{ profile_user.last_name }}</p>
+                    {% endif %}
+                </div>
 
-  <p>Zen points: {{ profile_user.zen_points }}</p>
+                {% if profile_user.bio %}
+                    <p>{{ profile_user.bio }}</p>
+                {% else %}
+                    <p class="empty-state">No bio yet.</p>
+                {% endif %}
 
-  {% if profile_user.bio %}
-    <p>{{ profile_user.bio }}</p>
-  {% else %}
-    <p>No bio yet.</p>
-  {% endif %}
+                <div class="flex flex-wrap justify-center gap-x-6 gap-y-1 sm:justify-start">
+                    <span><i class="fa-solid fa-leaf"></i> {{ profile_user.zen_points }} zen points</span>
+                    <a class="user-link" href="{% url 'users:following_list' profile_user.id %}">
+                        <strong id="following-count">{{ profile_user.following.count }}</strong> following
+                    </a>
+                    {% if request.user == profile_user %}
+                        <a class="user-link" href="{% url 'users:followers_list' profile_user.id %}">
+                            <strong>{{ profile_user.followers.count }}</strong> followers
+                        </a>
+                    {% endif %}
+                </div>
 
-  <p>
-    <a href="{% url 'users:following_list' profile_user.id %}">
-      {{ profile_user.following.count }} following
-    </a>
-    {% if request.user == profile_user %}
-      ·
-      <a href="{% url 'users:followers_list' profile_user.id %}">
-        {{ profile_user.followers.count }} followers
-      </a>
+                <div class="flex flex-wrap justify-center gap-2 sm:justify-start">
+                    {% if request.user.is_authenticated and request.user != profile_user %}
+                        <form method="post" action="{% url 'users:toggle_follow' profile_user.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="button button--small{% if is_following %} button--border{% endif %}">
+                                {% if is_following %}Unfollow{% else %}Follow{% endif %}
+                            </button>
+                        </form>
+                    {% endif %}
+                    {% if request.user == profile_user %}
+                        <a class="button button--small button--border" href="{% url 'users:update_profile' %}">
+                            <i class="fa-solid fa-pen"></i> Edit profile
+                        </a>
+                        <button type="button" id="people-search-open" class="button button--small">
+                            <i class="fa-solid fa-magnifying-glass"></i> Find people
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+   {% if request.user == profile_user %}
+    <div id="people-search" class="people-modal" hidden
+        data-search-url="{% url 'users:search_users' %}"
+        data-follow-url-template="{% url 'users:toggle_follow' user_id='00000000-0000-0000-0000-000000000000' %}"
+        data-profile-url-template="{% url 'users:show_profile' user_id='00000000-0000-0000-0000-000000000000' %}"
+        data-csrf-token="{{ csrf_token }}">
+        <div class="people-modal__window user-card shadow" role="dialog" aria-modal="true" aria-labelledby="people-search-title">
+            <div class="flex items-center justify-between gap-3">
+                <h2 id="people-search-title" class="user-section-title">Find people</h2>
+                <button type="button" id="people-search-close" class="button button--small button--border" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <input type="search" id="people-search-input" placeholder="Search by username or name..." autocomplete="off">
+            <p id="people-search-status" class="empty-state">Type at least 2 characters to search.</p>
+            <ul id="people-search-results" class="user-list"></ul>
+        </div>
+    </div>
     {% endif %}
-  </p>
+    <section class="user-card shadow">
+        <h2 class="user-section-title">Badges</h2>
+        {% if user_badges %}
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {% for ub in user_badges %}
+                    <div class="user-badge{% if forloop.counter > 6 %} badge-extra{% endif %}" {% if forloop.counter > 6 %}hidden{% endif %}>
+                        {% if ub.badge.icon_url %}
+                            <img src="{{ ub.badge.icon_url }}" alt="" class="size-10 shrink-0 object-contain">
+                        {% else %}
+                            <span class="flex size-10 shrink-0 items-center justify-center text-2xl text-[var(--accent)]"><i class="fa-solid fa-medal"></i></span>
+                        {% endif %}
+                        <div class="flex min-w-0 flex-col">
+                            <strong>{{ ub.badge.name }}</strong>
+                            {% if ub.badge.description %}<small class="text-[var(--tertiary)]">{{ ub.badge.description }}</small>{% endif %}
+                            <small class="text-[var(--tertiary)]">Earned {{ ub.earned_at|date:"d M Y" }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
 
-  {% if request.user.is_authenticated and request.user != profile_user %}
-    <form method="post" action="{% url 'users:toggle_follow' profile_user.id %}">
-      {% csrf_token %}
-      <button type="submit">
-        {% if is_following %}Unfollow{% else %}Follow{% endif %}
-      </button>
-    </form>
-  {% endif %}
+            {% if user_badges|length > 6 %}
+                <div>
+                    <button type="button" id="badge-toggle" class="button button--small button--border" aria-expanded="false">
+                        Show all ({{ user_badges|length }})
+                    </button>
+                </div>
+            {% endif %}
+        {% else %}
+            <p class="empty-state">No badges yet.</p>
+        {% endif %}
+    </section>
+
+    <section class="user-card shadow">
+        <h2 class="user-section-title">Links</h2>
+        {% if social_links %}
+            <div class="flex flex-wrap gap-2">
+                {% for link in social_links %}
+                    <a class="button button--small" href="{{ link.url }}" target="_blank" rel="noopener">{{ link.get_platform_display }}</a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="empty-state">No links yet.</p>
+        {% endif %}
+    </section>
+
+    <section class="user-card shadow">
+    <h2 class="user-section-title">Posts</h2>
+    {% if user_posts %}
+        <div class="flex flex-col gap-3">
+            {% for post in user_posts %}
+                <a class="user-post hover--expand" href="{% url 'posts:show_post' post_id=post.id %}">
+                    <strong class="user-post__title">{{ post.title }}</strong>
+                    {% if post.tags.all %}
+                        <div class="flex flex-wrap gap-1.5">
+                            {% for tag in post.tags.all %}
+                                <span class="user-tag">{{ tag.title }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if post.content %}
+                        <p class="text-[var(--tertiary)]">{{ post.content|striptags|truncatewords:30 }}</p>
+                    {% endif %}
+                    <small class="flex flex-wrap items-center gap-x-4 text-[var(--tertiary)]">
+                        <span><i class="fa-solid fa-chevron-up"></i> {{ post.get_vote_count }}</span>
+                        <span><i class="fa-solid fa-comment"></i> {{ post.comments.count }}</span>
+                        <span>{{ post.created_at|date:"d M Y" }}</span>
+                    </small>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="empty-state">No posts yet.</p>
+    {% endif %}
+</section>
+
+    {% if request.user == profile_user %}
+        <div class="text-center">
+            <a class="user-link text-sm !text-[var(--danger)]" href="{% url 'users:delete_account' %}">Delete account</a>
+        </div>
+    {% endif %}
 </div>
 
-<div>
-  <h2>Links</h2>
-  {% if social_links %}
-    <ul>
-      {% for link in social_links %}
-        <li><a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.get_platform_display }}</a></li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>No links yet.</p>
-  {% endif %}
-</div>
+<script>
+    const badgeToggle = document.getElementById("badge-toggle");
+    if (badgeToggle) {
+        const extras = document.querySelectorAll(".badge-extra");
+        const total = extras.length + 6;
+        let expanded = false;
 
-{% if request.user == profile_user %}
-  <div>
-    <a href="{% url 'users:update_profile' %}">Edit profile</a>
-    <a href="{% url 'users:delete_account' %}">Delete account</a>
-  </div>
-{% endif %}
-{% endblock %}
+        badgeToggle.addEventListener("click", () => {
+            expanded = !expanded;
+            extras.forEach(el => { el.hidden = !expanded; });
+            badgeToggle.setAttribute("aria-expanded", expanded);
+            badgeToggle.textContent = expanded ? "Show less" : `Show all (${total})`;
+        });
+    }
+</script>
+
+<script>
+(function () {
+    const panel = document.getElementById("people-search");
+    if (!panel) return;                       // not your own profile
+
+    const openBtn = document.getElementById("people-search-open");
+    const closeBtn = document.getElementById("people-search-close");
+    const input = document.getElementById("people-search-input");
+    const status = document.getElementById("people-search-status");
+    const list = document.getElementById("people-search-results");
+
+    const SEARCH_URL = panel.dataset.searchUrl;
+    const FOLLOW_URL_TEMPLATE = panel.dataset.followUrlTemplate;
+    const PROFILE_URL_TEMPLATE = panel.dataset.profileUrlTemplate;
+    const CSRF_TOKEN = panel.dataset.csrfToken;
+    const PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
+
+    let debounceTimer;
+    let abortController;
+
+    function openPanel() {
+    panel.hidden = false;
+    document.body.style.overflow = "hidden";   // stop the page scrolling behind the modal
+    input.focus();
+    }
+    function closePanel() {
+        panel.hidden = true;
+        document.body.style.overflow = "";
+        openBtn.focus();
+    }
+
+    openBtn.addEventListener("click", openPanel);
+    closeBtn.addEventListener("click", closePanel);
+    panel.addEventListener("click", (e) => { if (e.target === panel) closePanel(); });   // click on the dark area
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !panel.hidden) closePanel(); });
+
+    input.addEventListener("input", () => {
+        clearTimeout(debounceTimer);
+        const q = input.value.trim();
+        if (q.length < 2) {
+            if (abortController) abortController.abort();
+            list.replaceChildren();
+            status.textContent = "Type at least 2 characters to search.";
+            return;
+        }
+        debounceTimer = setTimeout(() => search(q), 300);   // wait until typing pauses
+    });
+
+    async function search(q) {
+        if (abortController) abortController.abort();       // drop the older request
+        abortController = new AbortController();
+        status.textContent = "Searching...";
+        try {
+            const response = await fetch(`${SEARCH_URL}?q=${encodeURIComponent(q)}`, {
+                headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                signal: abortController.signal,
+            });
+            if (!response.ok) throw new Error(`status ${response.status}`);
+            const users = (await response.json()).data;
+            list.replaceChildren(...users.map(buildItem));
+            status.textContent = users.length ? "" : "No users found.";
+        } catch (error) {
+            if (error.name === "AbortError") return;
+            status.textContent = "Something went wrong while searching.";
+        }
+    }
+
+    // built with textContent (not innerHTML) so names/bios can't inject HTML
+    function buildItem(u) {
+        const li = document.createElement("li");
+        li.className = "user-list__item";
+
+        const link = document.createElement("a");
+        link.href = PROFILE_URL_TEMPLATE.replace(PLACEHOLDER, u.id);
+        link.className = "flex min-w-0 flex-1 items-center gap-3";
+
+        let avatar;
+        if (u.avatar_src) {
+            avatar = document.createElement("img");
+            avatar.src = u.avatar_src;
+            avatar.alt = "";
+            avatar.className = "user-avatar size-10 shrink-0";
+        } else {
+            avatar = document.createElement("span");
+            avatar.className = "user-avatar user-avatar--placeholder size-10 shrink-0 text-lg";
+            avatar.textContent = u.username.charAt(0).toUpperCase();
+        }
+
+        const text = document.createElement("span");
+        text.className = "flex min-w-0 flex-col";
+        const name = document.createElement("strong");
+        name.textContent = u.username;
+        text.append(name);
+        if (u.full_name) {
+            const small = document.createElement("small");
+            small.className = "text-[var(--tertiary)]";
+            small.textContent = u.full_name;
+            text.append(small);
+        }
+        link.append(avatar, text);
+
+        const button = document.createElement("button");
+        button.type = "button";
+        setButtonState(button, u.is_following);
+        button.addEventListener("click", () => toggleFollow(u, button));
+
+        li.append(link, button);
+        return li;
+    }
+
+    function setButtonState(button, following) {
+        button.textContent = following ? "Unfollow" : "Follow";
+        button.className = "button button--small shrink-0" + (following ? " button--border" : "");
+    }
+
+    async function toggleFollow(u, button) {
+        button.disabled = true;
+        try {
+            const response = await fetch(FOLLOW_URL_TEMPLATE.replace(PLACEHOLDER, u.id), {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": CSRF_TOKEN,
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Accept": "application/json",
+                },
+            });
+            if (!response.ok) throw new Error(`status ${response.status}`);
+            const data = await response.json();
+
+            setButtonState(button, data.following);
+            const countElem = document.getElementById("following-count");
+            if (countElem) countElem.textContent = data.following_count;
+
+            toast.fire({
+                icon: "success",
+                title: data.following ? `You are now following ${u.username}.` : `You unfollowed ${u.username}.`,
+            });
+        } catch (error) {
+            toast.fire({ icon: "error", title: "Could not update follow status." });
+        } finally {
+            button.disabled = false;
+        }
+    }
+})();
+</script>
+{% endblock content %}

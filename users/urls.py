@@ -16,4 +16,5 @@ urlpatterns = [
     path('delete/', views.delete_account, name='delete_account'),
     path("<uuid:user_id>/following/", views.following_list, name="following_list"),
     path("<uuid:user_id>/followers/", views.followers_list, name="followers_list"),
+    path("search/", views.search_users_json, name="search_users"),
 ]

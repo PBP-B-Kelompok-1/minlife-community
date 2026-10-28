@@ -1,0 +1,19 @@
+<div class="link-form user-link-row">
+    {# hidden id/user fields: required, or editing existing links breaks #}
+    {% for hidden in link_form.hidden_fields %}{{ hidden }}{% endfor %}
+
+    <div>
+        {{ link_form.platform }}
+        {% for error in link_form.platform.errors %}<p class="user-form__error">{{ error }}</p>{% endfor %}
+    </div>
+    <div>
+        {{ link_form.url }}
+        {% for error in link_form.url.errors %}<p class="user-form__error">{{ error }}</p>{% endfor %}
+    </div>
+
+    {% if link_form.instance.pk %}
+        <label class="flex items-center gap-2 whitespace-nowrap py-3">{{ link_form.DELETE }} Delete</label>
+    {% else %}
+        <button type="button" class="remove-link button button--small button--border">Remove</button>
+    {% endif %}
+</div>
