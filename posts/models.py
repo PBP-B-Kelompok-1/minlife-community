@@ -7,7 +7,7 @@ from users.models import User
 class Post(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # kalo reddit kan tetep ada yah walau kehapus, tapi keknya ribet
-    author = models.ForeignKey(User, on_delete=CASCADE, null=False)
+    author = models.ForeignKey(User, on_delete=CASCADE, null=False, related_name="posts")
     title = models.CharField(max_length=255, blank=False, null=False)
     content = models.TextField(blank=True, null=False)
     tags = models.ManyToManyField("Tag", blank=True, related_name="tagged_posts")
@@ -38,7 +38,7 @@ class Comment(models.Model):
             on_delete=CASCADE, blank=False, null=False,
             related_name="comments", related_query_name="comment"
         )
-    user = models.ForeignKey(User, on_delete=CASCADE, null=False)
+    user = models.ForeignKey(User, on_delete=CASCADE, null=False, related_name="comments")
     content = models.TextField(blank=False, null=False)
     replies_to_comment = models.ForeignKey("self", 
             on_delete=CASCADE, null=True, blank=True,
