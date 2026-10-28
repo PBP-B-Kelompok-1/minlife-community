@@ -168,4 +168,31 @@ def followers_list(request, user_id):
         "list_type": "followers",
     })
     
+@require_GET
+def search_users_json(request):
+    # not @login_required: that would redirect fetch() to an HTML page
+    if not request.user.is_authenticated:
+        return JsonResponse({"message": "Please log in first!"}, status=401)
+
+    q = request.GET.get("q", "").strip()
+    if len(q) < 2:
+        return JsonResponse({"data": []})
+
+    users = (
+        User.objects.filter(is_active=True)
+        .filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))
+        .exclude(pk=request.user.pk)
+        .annotate(is_following=Exists(
+            Follow.objects.filter(follower=request.user, following=OuterRef("pk"))
+        ))
+        .order_by("username")[:10]
+    )
+    data = [{
+        "id": str(u.id),
+        "username": u.username,
+        "full_name": f"{u.first_name} {u.last_name}".strip(),
+        "avatar_url": u.avatar_url,
+        "is_following": u.is_following,
+    } for u in users]
+    return JsonResponse({"data": data})
 # TODO: view badges that the user owns?
