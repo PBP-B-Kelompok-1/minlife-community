@@ -1,6 +1,6 @@
 <div id="announcement-results" aria-live="polite">
     {% if announcements %}
-        <div class="{% if selected_announcement %}grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]{% endif %}">
+        <div class="{% if selected_announcement %}grid gap-4 lg:grid-cols-2 lg:items-start{% endif %}">
             <section
                 id="announcement-list"
                 aria-label="Announcement list"
@@ -8,7 +8,7 @@
             >
                 {% for announcement in announcements %}
                     <article
-                        class="rounded-[var(--radius)] border p-4 shadow transition-colors {% if selected_announcement.id == announcement.id %}border-[#cddcc5] bg-[#f2f8ee]{% else %}border-transparent bg-[var(--paper)]{% endif %}"
+                        class="min-w-0 rounded-[var(--radius)] border p-4 shadow transition-colors {% if selected_announcement.id == announcement.id %}border-[#cddcc5] bg-[#f2f8ee]{% else %}border-transparent bg-[var(--paper)]{% endif %}"
                     >
                         <a
                             href="{% url 'announcements:detail' announcement.id %}?q={{ query|urlencode }}&amp;sort={{ sort }}"
@@ -20,7 +20,7 @@
                             class="flex items-center justify-between gap-4 text-[var(--secondary)]"
                             {% if selected_announcement.id == announcement.id %}aria-current="true"{% endif %}
                         >
-                            <span class="font-semibold">{{ announcement.title }}</span>
+                            <span class="min-w-0 break-words font-semibold">{{ announcement.title }}</span>
                             <span class="flex shrink-0 items-center gap-3 text-xs text-[var(--tertiary)]">
                                 <time datetime="{{ announcement.created_at|date:'c' }}">
                                     {{ announcement.created_at|date:"j M Y" }}
@@ -34,6 +34,10 @@
                                 {% if can_change_announcement %}
                                     <a
                                         href="{% url 'announcements:update' announcement.id %}"
+                                        hx-get="{% url 'announcements:update' announcement.id %}"
+                                        hx-target="#announcement-dialog-content"
+                                        hx-swap="innerHTML"
+                                        hx-include="#announcement-filter-form"
                                         class="button button--border button--small"
                                     >
                                         <i class="fa-solid fa-pen" aria-hidden="true"></i>
@@ -43,6 +47,10 @@
                                 {% if can_delete_announcement %}
                                     <a
                                         href="{% url 'announcements:delete' announcement.id %}"
+                                        hx-get="{% url 'announcements:delete' announcement.id %}"
+                                        hx-target="#announcement-dialog-content"
+                                        hx-swap="innerHTML"
+                                        hx-include="#announcement-filter-form"
                                         class="button button--border button--small !border-[var(--danger)] !text-[var(--danger)]"
                                     >
                                         <i class="fa-solid fa-trash" aria-hidden="true"></i>
@@ -54,7 +62,7 @@
 
                         {% if selected_announcement.id == announcement.id %}
                             <div class="mt-4 border-t border-[#cddcc5] pt-4 lg:hidden">
-                                <p class="whitespace-pre-line text-sm text-[var(--secondary)]">{{ announcement.content }}</p>
+                                <p class="break-words whitespace-pre-line text-sm text-[var(--secondary)]">{{ announcement.content }}</p>
                                 <a
                                     href="{% url 'announcements:list' %}?q={{ query|urlencode }}&amp;sort={{ sort }}"
                                     hx-get="{% url 'announcements:list' %}?q={{ query|urlencode }}&amp;sort={{ sort }}"
@@ -74,8 +82,8 @@
             </section>
 
             {% if selected_announcement %}
-                <article id="announcement-detail" class="hidden min-h-80 rounded-[var(--radius)] bg-[var(--paper)] p-6 shadow lg:block">
-                    <h2 class="m-0 text-2xl font-semibold text-[var(--secondary)]">
+                <article id="announcement-detail" class="hidden min-w-0 rounded-[var(--radius)] bg-[var(--paper)] p-6 shadow lg:block">
+                    <h2 class="m-0 break-words text-2xl font-semibold text-[var(--secondary)]">
                         {{ selected_announcement.title }}
                     </h2>
                     <time
@@ -85,7 +93,7 @@
                         {{ selected_announcement.created_at|date:"j M Y" }}
                     </time>
                     <div class="my-5 border-t border-[var(--paper-dim)]"></div>
-                    <p class="whitespace-pre-line text-[var(--secondary)]">{{ selected_announcement.content }}</p>
+                    <p class="break-words whitespace-pre-line text-[var(--secondary)]">{{ selected_announcement.content }}</p>
                     <a
                         href="{% url 'announcements:list' %}?q={{ query|urlencode }}&amp;sort={{ sort }}"
                         hx-get="{% url 'announcements:list' %}?q={{ query|urlencode }}&amp;sort={{ sort }}"

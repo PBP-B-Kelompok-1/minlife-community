@@ -6,47 +6,6 @@
 
 {% block content %}
     <div class="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pb-12 pt-4 sm:px-6">
-        <section class="flex flex-col gap-1">
-            <h1 class="m-0 text-3xl font-semibold text-[var(--secondary)]">{{ page_title }}</h1>
-            <p class="m-0 text-sm text-[var(--tertiary)]">
-                Share an official update with the Minlife community.
-            </p>
-        </section>
-
-        <form method="post" class="flex flex-col gap-5 rounded-[var(--radius)] bg-[var(--paper)] p-5 shadow sm:p-7">
-            {% csrf_token %}
-
-            {% if form.non_field_errors %}
-                <div role="alert" class="rounded-xl border border-[var(--danger)] bg-red-50 p-3 text-sm text-[var(--danger)]">
-                    {{ form.non_field_errors }}
-                </div>
-            {% endif %}
-
-            {% for field in form %}
-                <div class="flex flex-col gap-2">
-                    <label for="{{ field.id_for_label }}" class="font-semibold text-[var(--secondary)]">
-                        {{ field.label }}
-                    </label>
-                    {{ field }}
-                    {% if field.help_text %}
-                        <p class="m-0 text-sm text-[var(--tertiary)]">{{ field.help_text }}</p>
-                    {% endif %}
-                    {% if field.errors %}
-                        <div role="alert" class="text-sm text-[var(--danger)]">
-                            {{ field.errors }}
-                        </div>
-                    {% endif %}
-                </div>
-            {% endfor %}
-
-            <div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-                <a href="{{ cancel_url }}" class="button button--border">
-                    Cancel
-                </a>
-                <button type="submit" class="button">
-                    {{ submit_label }}
-                </button>
-            </div>
-        </form>
+        {% include "announcements/_form.html" %}
     </div>
 {% endblock content %}

@@ -1,0 +1,50 @@
+<section class="rounded-[var(--radius)] bg-[var(--paper)] p-5 shadow sm:p-7">
+    <div class="flex flex-col gap-3">
+        <span class="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-xl text-[var(--danger)]">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        </span>
+        <h1 id="announcement-dialog-title" class="m-0 text-2xl font-semibold text-[var(--secondary)]">
+            Delete announcement?
+        </h1>
+        <p class="m-0 text-[var(--secondary)]">
+            You are about to permanently delete
+            <strong>{{ announcement.title }}</strong>. This action cannot be undone.
+        </p>
+    </div>
+
+    <form
+        method="post"
+        action="{{ form_action }}"
+        {% if is_htmx %}
+            hx-post="{{ form_action }}"
+            hx-target="#announcement-dialog-content"
+            hx-swap="innerHTML"
+            hx-indicator="#announcement-dialog-loading"
+        {% endif %}
+        class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+    >
+        {% csrf_token %}
+        {% if is_htmx %}
+            <input type="hidden" name="q" value="{{ query }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+        {% endif %}
+        {% if is_htmx %}
+            <button type="button" data-close-announcement-dialog class="button button--border">
+                Cancel
+            </button>
+        {% else %}
+            <a
+                href="{% url 'announcements:detail' announcement.id %}"
+                class="button button--border"
+            >
+                Cancel
+            </a>
+        {% endif %}
+        <button
+            type="submit"
+            class="button !border-[var(--danger)] !bg-[var(--danger)]"
+        >
+            Delete Announcement
+        </button>
+    </form>
+</section>

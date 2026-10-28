@@ -1,7 +1,9 @@
 {% extends "base.html" %}
+{% load static %}
 {% block meta %}
     <title>Announcements - Minlife Community</title>
     <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
+    <script defer src="{% static 'announcements/js/dialog.js' %}"></script>
 {% endblock meta %}
 
 {% block content %}
@@ -17,6 +19,10 @@
             {% if can_add_announcement %}
                 <a
                     href="{% url 'announcements:create' %}"
+                    hx-get="{% url 'announcements:create' %}"
+                    hx-target="#announcement-dialog-content"
+                    hx-swap="innerHTML"
+                    hx-include="#announcement-filter-form"
                     class="button shadow self-stretch sm:self-start"
                 >
                     <i class="fa-solid fa-plus" aria-hidden="true"></i>
@@ -75,5 +81,13 @@
         </div>
 
         {% include "announcements/_results.html" %}
+
+        <dialog
+            id="announcement-dialog"
+            class="fixed inset-0 m-auto max-h-[90vh] w-[min(92vw,42rem)] overflow-y-auto rounded-[var(--radius)] border-0 bg-transparent p-0 backdrop:bg-black/50"
+            aria-labelledby="announcement-dialog-title"
+        >
+            <div id="announcement-dialog-content"></div>
+        </dialog>
     </div>
 {% endblock content %}

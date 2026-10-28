@@ -1,3 +1,5 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Q
@@ -18,11 +20,21 @@ SORT_ORDERS = {
 }
 
 
-def _get_filtered_announcements(request):
-    query = request.GET.get("q", "").strip()
-    sort = request.GET.get("sort", "newest")
+def _is_htmx(request):
+    return request.headers.get("HX-Request") == "true"
+
+
+def _get_filter_values(request):
+    data = request.POST if request.method == "POST" else request.GET
+    query = data.get("q", "").strip()
+    sort = data.get("sort", "newest")
     if sort not in SORT_ORDERS:
         sort = "newest"
+    return query, sort
+
+
+def _get_filtered_announcements(request):
+    query, sort = _get_filter_values(request)
 
     announcements = Announcement.objects.all()
     if query:
@@ -68,10 +80,34 @@ def _list_context(request, selected_announcement=None):
 def _render_announcement_list(request, context):
     template_name = (
         "announcements/_results.html"
-        if request.headers.get("HX-Request") == "true"
+        if _is_htmx(request)
         else "announcements/list.html"
     )
     return render(request, template_name, context)
+
+
+def _render_announcement_form(request, context):
+    context["is_htmx"] = _is_htmx(request)
+    template_name = (
+        "announcements/_form.html"
+        if context["is_htmx"]
+        else "announcements/form.html"
+    )
+    return render(request, template_name, context)
+
+
+def _htmx_mutation_response(request, message, selected_announcement=None):
+    response = render(
+        request,
+        "announcements/_results.html",
+        _list_context(request, selected_announcement=selected_announcement),
+    )
+    response.headers["HX-Retarget"] = "#announcement-results"
+    response.headers["HX-Reswap"] = "outerHTML"
+    response.headers["HX-Trigger"] = json.dumps(
+        {"announcement-changed": {"message": message}}
+    )
+    return response
 
 
 @require_GET
@@ -93,21 +129,30 @@ def announcement_detail(request, announcement_id):
 @require_http_methods(["GET", "POST"])
 def create_announcement(request):
     form = AnnouncementForm(request.POST or None)
+    query, sort = _get_filter_values(request)
     if request.method == "POST" and form.is_valid():
         announcement = form.save(commit=False)
         announcement.created_by = request.user
         announcement.save()
+        if _is_htmx(request):
+            return _htmx_mutation_response(
+                request,
+                "Announcement created successfully.",
+                selected_announcement=announcement,
+            )
         messages.success(request, "Announcement created successfully.")
         return redirect("announcements:detail", announcement_id=announcement.pk)
 
-    return render(
+    return _render_announcement_form(
         request,
-        "announcements/form.html",
         {
             "form": form,
             "page_title": "Add Announcement",
             "submit_label": "Create Announcement",
             "cancel_url": reverse("announcements:list"),
+            "form_action": reverse("announcements:create"),
+            "query": query,
+            "sort": sort,
         },
     )
 
@@ -118,14 +163,20 @@ def create_announcement(request):
 def update_announcement(request, announcement_id):
     announcement = get_object_or_404(Announcement, pk=announcement_id)
     form = AnnouncementForm(request.POST or None, instance=announcement)
+    query, sort = _get_filter_values(request)
     if request.method == "POST" and form.is_valid():
         form.save()
+        if _is_htmx(request):
+            return _htmx_mutation_response(
+                request,
+                "Announcement updated successfully.",
+                selected_announcement=announcement,
+            )
         messages.success(request, "Announcement updated successfully.")
         return redirect("announcements:detail", announcement_id=announcement.pk)
 
-    return render(
+    return _render_announcement_form(
         request,
-        "announcements/form.html",
         {
             "form": form,
             "page_title": "Edit Announcement",
@@ -134,6 +185,12 @@ def update_announcement(request, announcement_id):
                 "announcements:detail",
                 kwargs={"announcement_id": announcement.pk},
             ),
+            "form_action": reverse(
+                "announcements:update",
+                kwargs={"announcement_id": announcement.pk},
+            ),
+            "query": query,
+            "sort": sort,
         },
     )
 
@@ -143,15 +200,35 @@ def update_announcement(request, announcement_id):
 @require_http_methods(["GET", "POST"])
 def delete_announcement(request, announcement_id):
     announcement = get_object_or_404(Announcement, pk=announcement_id)
+    query, sort = _get_filter_values(request)
     if request.method == "POST":
         announcement.delete()
+        if _is_htmx(request):
+            return _htmx_mutation_response(
+                request,
+                "Announcement deleted successfully.",
+            )
         messages.success(request, "Announcement deleted successfully.")
         return redirect("announcements:list")
 
+    template_name = (
+        "announcements/_confirm_delete.html"
+        if _is_htmx(request)
+        else "announcements/confirm_delete.html"
+    )
     return render(
         request,
-        "announcements/confirm_delete.html",
-        {"announcement": announcement},
+        template_name,
+        {
+            "announcement": announcement,
+            "is_htmx": _is_htmx(request),
+            "form_action": reverse(
+                "announcements:delete",
+                kwargs={"announcement_id": announcement.pk},
+            ),
+            "query": query,
+            "sort": sort,
+        },
     )
 
 
