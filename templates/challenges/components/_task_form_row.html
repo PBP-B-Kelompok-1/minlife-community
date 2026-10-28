@@ -1,0 +1,30 @@
+<fieldset
+    data-task-row
+    class="flex min-w-0 flex-col gap-3 rounded-xl border border-[var(--paper-dim)] p-4 {% if task_form.DELETE.value %}opacity-60{% endif %}"
+>
+    <legend class="px-1 font-bold">Tugas {{ task_index|add:1 }}</legend>
+    {% for hidden in task_form.hidden_fields %}{{ hidden }}{% endfor %}
+    {% for field in task_form.visible_fields %}
+        {% if field.name != "DELETE" %}
+            <div class="flex min-w-0 flex-col gap-1.5">
+                <label class="font-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}<p class="text-sm text-red-700" role="alert">{{ error }}</p>{% endfor %}
+            </div>
+        {% endif %}
+    {% endfor %}
+    <div class="hidden">{{ task_form.DELETE }}</div>
+    {% if task_form.DELETE.value %}
+        <p class="text-sm text-[var(--tertiary)]">Tugas ini akan dihapus saat challenge disimpan.</p>
+    {% endif %}
+    <button
+        type="button"
+        class="self-start rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+        hx-post="{% url 'weeklychallenge:toggle_task_form_delete' index=task_index %}"
+        hx-include="closest form"
+        hx-target="closest fieldset"
+        hx-swap="outerHTML"
+    >
+        {% if task_form.DELETE.value %}Pulihkan tugas{% else %}Hapus tugas{% endif %}
+    </button>
+</fieldset>
