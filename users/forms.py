@@ -29,10 +29,31 @@ class RegisterForm(AvatarValidationMixin, UserCreationForm):
 
 
 class UpdateProfileForm(AvatarValidationMixin, forms.ModelForm):
+    field_order = ["first_name", "last_name", "avatar", "remove_avatar", "bio"]
+    remove_avatar = forms.BooleanField(required=False, label="Remove current photo")
+
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'avatar', 'bio']
-        widgets = {'bio': forms.Textarea(attrs={'rows': 4})}
+        widgets = {
+            'bio': forms.Textarea(attrs={'rows': 4}),
+            'avatar': forms.FileInput(attrs={'accept': 'image/*'}),   # plain input: no "Currently / Clear / Change"
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # only offer "Remove" if there is a photo to remove
+        if not self.instance.avatar:
+            del self.fields["remove_avatar"]
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        # remove the photo, unless a new one was uploaded in the same save
+        if self.cleaned_data.get("remove_avatar") and not self.files.get("avatar"):
+            user.avatar.delete(save=False)
+        if commit:
+            user.save()
+        return user
 
 
 class BaseSocialLinkFormSet(BaseInlineFormSet):
