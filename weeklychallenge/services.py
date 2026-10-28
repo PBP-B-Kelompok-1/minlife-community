@@ -1,6 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from models import ChallengeSubmission, CHALLENGE_TAG_NAME
+from .models import ChallengeSubmission, CHALLENGE_TAG_NAME
 
 @transaction.atomic
 def submit_challenge(*, user, challenge, title, content, image):

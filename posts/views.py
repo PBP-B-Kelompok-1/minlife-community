@@ -10,6 +10,7 @@ from django.urls import reverse
 
 from .models import Post, Vote, Comment
 from .forms import PostForm, CommentForm
+from weeklychallenge.services import maybe_award_badge
 
 # Create your views here.
 def frontpage(request):
@@ -121,6 +122,8 @@ def vote_post(request, post_id):
         elif vote.value == vote_value:
             vote_value = 0
             vote.delete()
+
+    maybe_award_badge(post)
 
     return JsonResponse(
         data={
