@@ -135,7 +135,7 @@ class Badge(models.Model):
 
 class UserBadge(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="user_badges")
-    badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name="awards")
+    badge = models.ForeignKey(Badge, on_delete=models.PROTECT, related_name="awards")
     earned_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
