@@ -12,7 +12,8 @@ sorting. Checkpoint 3 menambahkan Create server-rendered dengan `ModelForm` dan
 authorization berbasis Django permission. Checkpoint 4 melengkapi Update/Delete dengan
 permission server-side dan halaman konfirmasi. Interaktivitas tanpa reload, integrasi
 Checkpoint 5A menambahkan Read, search, sorting, serta expand/collapse dinamis dengan
-HTMX. Integrasi frontpage, modal CRUD, dan Firebase Cloud Messaging belum
+HTMX. Checkpoint 5B menambahkan modal Create, Edit, dan Delete berbasis HTMX dengan
+halaman terpisah sebagai fallback. Integrasi frontpage dan Firebase Cloud Messaging belum
 diimplementasikan.
 
 ## Arsitektur Django MVT
@@ -114,7 +115,19 @@ berubah. Klik card dan `Show less` juga menggunakan GET HTMX. Semua operasi mena
 Link `href`, form GET, ORM filtering, dan server-rendered HTML tetap menjadi baseline.
 Tidak ada JavaScript custom Announcements pada Checkpoint 5A; atribut `hx-*` dijalankan
 oleh library HTMX. Create, Update, dan Delete masih memakai form Django, redirect, serta
-shared toast kelompok. Modal dan mutation asynchronous belum diimplementasikan.
+shared toast kelompok.
+
+Checkpoint 5B menambahkan progressive enhancement untuk mutation. Request biasa tetap
+merender `form.html` atau `confirm_delete.html`, sedangkan request HTMX merender partial
+`_form.html` atau `_confirm_delete.html` ke native `<dialog>`. Submit valid mengembalikan
+fragment `_results.html` dengan `HX-Retarget`, `HX-Reswap`, dan `HX-Trigger`; submit tidak
+valid merender ulang error form di dalam dialog. Search dan sort dibawa melalui form agar
+state filter tetap konsisten setelah mutation.
+
+`static/announcements/js/dialog.js` hanya menjadi glue untuk membuka/menutup native
+dialog dan meneruskan event sukses HTMX ke shared `toast.fire()`. Request, validasi,
+authorization, dan DOM swap tetap ditangani HTMX serta Django. Full-page CRUD tetap
+tersedia melalui URL yang sama ketika HTMX tidak tersedia atau URL dibuka langsung.
 
 ## Testing Checkpoint 1
 
@@ -265,6 +278,38 @@ Hasil aktual:
   kegagalan, dan tidak diubah sepihak dalam modul Announcements.
 - Coverage belum diukur dan tidak ada angka coverage yang diklaim.
 
+## Testing Checkpoint 5B
+
+Test mutation HTMX mencakup:
+
+- Kontrol moderator menargetkan native dialog HTMX.
+- GET HTMX Create dan Update hanya mengembalikan fragment form.
+- Invalid Create menampilkan error di dialog tanpa membuat data.
+- Valid Create memperbarui results, menyimpan creator dari user aktif, dan mengirim
+  event sukses.
+- Valid Update mempertahankan creator dan `created_at`, memperbarui results, dan
+  mengirim event sukses.
+- GET Delete hanya mengembalikan fragment konfirmasi; POST Delete menghapus data,
+  memperbarui results, dan mengirim event sukses.
+- Success response menetapkan `HX-Retarget`, `HX-Reswap`, dan `HX-Trigger` yang sesuai.
+
+Hasil aktual:
+
+- Fase Red: 7 test gagal karena dialog, partial form/confirmation, dan response mutation
+  HTMX belum tersedia; penyebab sesuai fitur yang belum diimplementasikan.
+- Green terfokus: seluruh 7/7 test mutation HTMX lulus.
+- Regresi final sebelum commit: seluruh 48/48 test Announcements lulus.
+- Smoke test browser dinyatakan selesai oleh developer. Add modal, detail expansion,
+  centering dialog, dan wrapping konten panjang diperiksa secara visual selama smoke
+  test; behavior mutation lainnya dicakup oleh automated test.
+- Modal sempat berada di kiri karena shared CSS mereset margin semua elemen; diperbaiki
+  dengan centering eksplisit, batas tinggi viewport, dan overflow scroll.
+- Detail desktop sempat terlalu lebar dan ter-stretch setinggi list; diperbaiki menjadi
+  dua kolom seimbang dengan content-height.
+- Teks panjang tanpa spasi sempat keluar dari card; diperbaiki dengan `min-w-0` dan
+  wrapping kata pada title/content desktop maupun mobile.
+- Coverage belum diukur dan tidak ada angka coverage yang diklaim.
+
 ## Kontribusi AI
 
 ### 2026-10-27 - Checkpoint 1: Model Announcement
@@ -393,6 +438,33 @@ Hasil aktual:
 - **Commit terkait:** `9afec6d test(announcements): menyesuaikan kontrak baca dinamis ke
   htmx` dan `c0cf75d feat(announcements): tambahkan baca dinamis dengan htmx`.
 
+### 2026-10-29 - Checkpoint 5B: Modal CRUD Dinamis dengan HTMX
+
+- **Tool:** OpenAI Codex.
+- **Tujuan:** meningkatkan Create/Edit/Delete menjadi mutation HTMX dalam modal tanpa
+  menghapus halaman server-rendered dan authorization yang sudah ada.
+- **Instruksi penting:** mempertahankan fallback direct URL, memakai komponen kelompok,
+  menjaga kode mudah didemokan, tidak mengubah shared toast, dan belum mengerjakan
+  Firebase atau integrasi frontpage.
+- **File yang dibuat/diubah:** `announcements/tests.py`, `announcements/views.py`,
+  seluruh template Announcements yang berkaitan dengan CRUD/results,
+  `static/announcements/js/dialog.js`, dan dokumentasi ini.
+- **Saran/implementasi AI:** partial form/confirmation reusable, native dialog,
+  `HX-Retarget`, `HX-Reswap`, `HX-Trigger`, filter preservation, serta JavaScript kecil
+  untuk dialog dan pemanggilan shared toast.
+- **Kontribusi manual developer:** menyetujui pola modal dengan full-page fallback,
+  menjalankan Red/Green dan regression test, melakukan smoke test, menemukan masalah
+  centering modal, ukuran detail, dan overflow teks, serta melakukan commit test/fitur.
+- **Koreksi manual developer:** meminta penjelasan ulang fallback dan kebutuhan
+  JavaScript, lalu melaporkan tiga masalah visual saat smoke test untuk diperbaiki.
+- **Limitasi/kesalahan AI:** styling awal mengandalkan centering bawaan `<dialog>` yang
+  tertimpa reset margin shared; grid detail awal juga terlalu besar dan belum menangani
+  kata tanpa spasi. Seluruh masalah diperbaiki sebelum commit fitur.
+- **Hasil pengujian:** 7/7 mutation HTMX test dan 48/48 seluruh test Announcements
+  lulus; smoke test browser selesai; coverage belum diukur.
+- **Commit terkait:** `a423850 test(announcements): definisikan mutasi dinamis dengan
+  htmx` dan `0e7902c feat(announcements): tambahkan modal crud dinamis dengan htmx`.
+
 ## Riwayat Checkpoint dan Conventional Commit
 
 | Checkpoint | Status | Commit |
@@ -412,3 +484,6 @@ Hasil aktual:
 | Red/revisi Checkpoint 5A - Read dinamis HTMX | Selesai | `9afec6d test(announcements): menyesuaikan kontrak baca dinamis ke htmx` |
 | Green Checkpoint 5A - Read dinamis HTMX | Selesai | `c0cf75d feat(announcements): tambahkan baca dinamis dengan htmx` |
 | Dokumentasi Checkpoint 5A | Selesai | commit dokumentasi ini |
+| Red Checkpoint 5B - Mutation HTMX | Selesai | `a423850 test(announcements): definisikan mutasi dinamis dengan htmx` |
+| Green Checkpoint 5B - Modal CRUD HTMX | Selesai | `0e7902c feat(announcements): tambahkan modal crud dinamis dengan htmx` |
+| Dokumentasi Checkpoint 5B | Selesai | commit dokumentasi ini |
