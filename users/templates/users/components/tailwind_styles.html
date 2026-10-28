@@ -34,4 +34,8 @@
 
     .people-modal { @apply fixed inset-0 z-50 flex items-start justify-center p-4; background: rgba(0, 0, 0, 0.5); padding-top: 6rem; }
     .people-modal__window { @apply w-full; max-width: 32rem; max-height: calc(100vh - 8rem); overflow-y: auto; }
+
+    .user-checkbox { @apply flex w-fit cursor-pointer items-center gap-2 rounded-[var(--radius)] border border-[var(--accent)] px-3 py-1.5 text-sm text-[var(--accent)] transition-all duration-200 ease-in-out; }
+    .user-checkbox input { accent-color: var(--danger); }
+    .user-checkbox:has(input:checked) { border-color: var(--danger); color: var(--danger); background: rgba(241, 46, 66, 0.08); }
 </style>
