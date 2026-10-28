@@ -47,6 +47,9 @@ def challenge_management_required(view):
 def show_weekly_challenge(request):
     """Render the active challenge, its current task, timeline, and scored submissions."""
     today = timezone.localdate()
+    can_create_challenge = request.user.is_authenticated and request.user.has_perm(
+        "weeklychallenge.add_challenge"
+    )
     is_moderator = request.user.is_authenticated and request.user.groups.filter(
         name="Moderator"
     ).exists()
@@ -64,6 +67,7 @@ def show_weekly_challenge(request):
             "challenges/page.html",
             {
                 "challenge": None,
+                "can_create_challenge": can_create_challenge,
                 "is_moderator": is_moderator,
                 "upcoming_challenges": upcoming_challenges,
                 "past_challenges": past_challenges,
@@ -101,6 +105,7 @@ def show_weekly_challenge(request):
         "challenges/page.html",
         {
             "challenge": challenge,
+            "can_create_challenge": can_create_challenge,
             "current_day": current_day,
             "current_task": tasks_by_day.get(current_day),
             "timeline": timeline,
@@ -160,6 +165,8 @@ def _challenge_list_context(request):
         "today": today,
         "is_moderator": request.user.is_authenticated
         and request.user.groups.filter(name="Moderator").exists(),
+        "can_create_challenge": request.user.is_authenticated
+        and request.user.has_perm("weeklychallenge.add_challenge"),
         "page_query": query_params.urlencode(),
     }
 

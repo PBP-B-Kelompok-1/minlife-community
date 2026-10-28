@@ -13,7 +13,7 @@
                     <h1 class="mt-1 text-2xl font-bold sm:text-3xl">Weekly Challenge</h1>
                     <p class="mt-2 text-[var(--tertiary)]">Temukan challenge aktif, yang akan datang, dan arsip sebelumnya.</p>
                 </div>
-                {% if is_moderator %}
+                {% if can_create_challenge %}
                     <a class="button button--small w-full sm:w-auto" href="{% url 'weeklychallenge:challenge_create' %}">
                         <i class="fa-solid fa-plus" aria-hidden="true"></i>
                         Buat challenge

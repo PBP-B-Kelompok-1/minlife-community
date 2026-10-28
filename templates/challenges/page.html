@@ -17,7 +17,7 @@
                             <p class="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
                                 Weekly Challenge
                             </p>
-                            {% if is_moderator %}
+                            {% if can_create_challenge %}
                                 <a class="button button--small w-full sm:w-auto" href="{% url 'weeklychallenge:challenge_create' %}">
                                     <i class="fa-solid fa-plus" aria-hidden="true"></i>
                                     Buat challenge
@@ -151,7 +151,7 @@
                     Challenge mingguan berikutnya akan muncul di sini. Sementara itu, kamu tetap bisa berbagi cerita di komunitas.
                 </p>
                 <a class="button mt-6" href="{% url 'frontpage' %}">Jelajahi komunitas</a>
-                {% if is_moderator %}
+                {% if can_create_challenge %}
                     <a class="button button--border mt-3" href="{% url 'weeklychallenge:challenge_create' %}">Buat challenge</a>
                 {% endif %}
             </section>

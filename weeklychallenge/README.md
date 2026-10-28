@@ -43,7 +43,7 @@ Challenge tidak boleh memiliki rentang tanggal yang tumpang tindih. Dengan demik
 - Badge dibuat oleh layanan Weekly Challenge saat moderator membuat challenge. `UserBadge` diberikan oleh layanan badge menggunakan `get_or_create`; jangan membuat keduanya dari alur lain.
 - Pastikan `Badge.__str__` mengembalikan nama badge.
 - Profil pengguna dapat menampilkan badge melalui `user.user_badges`, diurutkan menurut `earned_at`.
-- Moderator menggunakan Django Group bernama `Moderator`, bukan pemeriksaan `is_staff`. Berikan izin `add_challenge`, `change_challenge`, dan `delete_challenge` untuk aplikasi `weeklychallenge` setelah migrasi membuat izin tersebut.
+- Tampilkan tombol membuat challenge kepada user yang memiliki izin `weeklychallenge.add_challenge`; anggota Group `Moderator` biasanya menerima izin tersebut, dan superuser juga dapat mengaksesnya. Berikan izin `add_challenge`, `change_challenge`, dan `delete_challenge` untuk aplikasi `weeklychallenge` setelah migrasi membuat izin tersebut.
 - Gunakan `from django.conf import settings` untuk mengakses `AUTH_USER_MODEL` dari model Users.
 
 ## Setup dan pemeriksaan bersama

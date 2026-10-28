@@ -47,17 +47,24 @@ class ChallengeTaskRowHTMXTests(TestCase):
             username="regular-user",
             password="test-password",
         )
-        permission = Permission.objects.get(
-            content_type__app_label="weeklychallenge",
-            codename="add_challenge",
-        )
-        normal_user.user_permissions.add(permission)
         self.client.force_login(normal_user)
 
         response = self.client.get(reverse("weeklychallenge:show_weekly_challenge"))
 
         self.assertNotContains(response, reverse("weeklychallenge:challenge_create"))
         self.assertNotContains(response, "Buat challenge")
+
+    def test_create_button_is_shown_to_superuser(self):
+        superuser = get_user_model().objects.create_superuser(
+            username="superuser",
+            password="test-password",
+        )
+        self.client.force_login(superuser)
+
+        response = self.client.get(reverse("weeklychallenge:show_weekly_challenge"))
+
+        self.assertContains(response, reverse("weeklychallenge:challenge_create"))
+        self.assertContains(response, "Buat challenge")
 
     def test_add_task_row_updates_formset_management_count(self):
         response = self.client.get(
