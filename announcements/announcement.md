@@ -11,15 +11,18 @@ menambahkan public Read berupa list/detail HTML, endpoint JSON, database search,
 sorting. Checkpoint 3 menambahkan Create server-rendered dengan `ModelForm` dan
 authorization berbasis Django permission. Checkpoint 4 melengkapi Update/Delete dengan
 permission server-side dan halaman konfirmasi. Interaktivitas tanpa reload, integrasi
-frontpage, dan Firebase Cloud Messaging belum diimplementasikan.
+Checkpoint 5A menambahkan Read, search, sorting, serta expand/collapse dinamis dengan
+HTMX. Integrasi frontpage, modal CRUD, dan Firebase Cloud Messaging belum
+diimplementasikan.
 
 ## Arsitektur Django MVT
 
 - **Model:** `Announcement` sudah diimplementasikan pada `models.py`.
-- **View:** list/detail HTML, list/detail JSON, Create, Update, dan Delete sudah
-  diimplementasikan.
-- **Template:** `templates/announcements/list.html` menyediakan server-rendered baseline
-  yang responsif dan mengikuti pola list/detail Figma.
+- **View:** list/detail HTML penuh atau fragment HTMX, list/detail JSON, Create, Update,
+  dan Delete sudah diimplementasikan.
+- **Template:** `templates/announcements/list.html` menyediakan kerangka halaman,
+  sedangkan `templates/announcements/_results.html` menyediakan fragment hasil yang
+  responsif dan mengikuti pola list/detail Figma.
 - **URL:** HTML tersedia di `/announcements/`; endpoint data tersedia di
   `/api/announcements` dan `/api/announcement/<uuid>`.
 - **Form:** `AnnouncementForm` dipakai ulang oleh Create dan Update serta hanya
@@ -95,12 +98,23 @@ POST yang dilindungi CSRF.
 
 ## Interaktivitas
 
-Keputusan Fetch API, HTMX, atau hybrid berstatus **pending**. Checkpoint 2 menggunakan
-form GET dan server-rendered HTML sebagai baseline yang tetap berfungsi tanpa JavaScript.
-Checkpoint 3 menambahkan form POST server-rendered dengan CSRF protection dan error
-validation. Checkpoint 4 menambahkan halaman Edit dan konfirmasi Delete server-rendered.
-Belum ada AJAX atau HTMX; modal Create/Edit dan dialog Delete responsif akan menjadi
-progressive enhancement pada checkpoint interaktivitas.
+Checkpoint 5A menggunakan HTMX 2.0.8 untuk Read dinamis. Fetch API sempat dibuat sebagai
+prototipe, tetapi diganti sebelum commit fitur karena HTMX lebih sesuai dengan rendering
+server Django MVT, lebih ringkas untuk didemokan, dan tidak memerlukan state serta
+manipulasi DOM manual. Endpoint JSON tetap dipertahankan sebagai API, tetapi UI HTMX
+mengambil HTML fragment agar respons dapat langsung ditukar ke DOM.
+
+Search mengirim GET setelah debounce 300 ms dan sorting mengirim GET ketika pilihan
+berubah. Klik card dan `Show less` juga menggunakan GET HTMX. Semua operasi menargetkan
+`#announcement-results`, memakai `outerHTML`, dan memperbarui URL melalui
+`hx-push-url`, sehingga Back/Forward browser tetap didukung. View memeriksa header
+`HX-Request`: request biasa mendapat halaman penuh, sedangkan request HTMX hanya mendapat
+`_results.html`.
+
+Link `href`, form GET, ORM filtering, dan server-rendered HTML tetap menjadi baseline.
+Tidak ada JavaScript custom Announcements pada Checkpoint 5A; atribut `hx-*` dijalankan
+oleh library HTMX. Create, Update, dan Delete masih memakai form Django, redirect, serta
+shared toast kelompok. Modal dan mutation asynchronous belum diimplementasikan.
 
 ## Testing Checkpoint 1
 
@@ -224,6 +238,33 @@ Hasil aktual:
 - Tidak ada migration baru pada Checkpoint 4.
 - Coverage belum diukur dan tidak ada angka coverage yang diklaim.
 
+## Testing Checkpoint 5A
+
+Test HTMX Read mencakup:
+
+- Library HTMX dan atribut filter dinamis tersedia pada halaman list.
+- Search memakai debounce 300 ms.
+- Request dengan header `HX-Request` hanya merender `_results.html`.
+- Link detail mempunyai navigasi normal sebagai fallback sekaligus atribut HTMX.
+- Detail HTMX menampilkan announcement yang dipilih.
+
+Hasil aktual:
+
+- Kontrak test awal Checkpoint 5A menggunakan Fetch API, kemudian disesuaikan ke HTMX
+  sebelum implementasi fitur di-commit.
+- Green pertama: 2/3 test lulus; satu assertion gagal karena separator query pada HTML
+  memakai `&` alih-alih `&amp;`.
+- Markup query diperbaiki menjadi HTML valid dan Green kedua menghasilkan 3/3 test HTMX
+  lulus dalam 1.029 detik.
+- Regresi final: seluruh 41/41 test Announcements lulus dalam 41.890 detik.
+- Smoke test browser dinyatakan aman oleh developer: search/sort bekerja otomatis,
+  detail expand/collapse tanpa full reload, tampilan responsif sesuai, dan request HTMX
+  terverifikasi bertipe XHR.
+- Tombol Apply dihapus karena search dan sort sudah otomatis.
+- Warning penggunaan Tailwind CDN berasal dari shared `base.html`, tidak menyebabkan
+  kegagalan, dan tidak diubah sepihak dalam modul Announcements.
+- Coverage belum diukur dan tidak ada angka coverage yang diklaim.
+
 ## Kontribusi AI
 
 ### 2026-10-27 - Checkpoint 1: Model Announcement
@@ -326,6 +367,32 @@ Hasil aktual:
   pengumuman` dan `4cccc40 feat(announcements): tambahkan ubah dan hapus pengumuman
   berizin`.
 
+### 2026-10-28 - Checkpoint 5A: Read Dinamis dengan HTMX
+
+- **Tool:** OpenAI Codex.
+- **Tujuan:** menambahkan search, sorting, dan expand/collapse tanpa full-page reload
+  dengan tetap mempertahankan server-rendered fallback dan Django ORM filtering.
+- **Instruksi penting:** membandingkan Fetch API dan HTMX, memilih pendekatan yang mudah
+  dipahami saat demo, mempertahankan endpoint JSON, serta tidak mengimplementasikan
+  asynchronous mutation atau Firebase pada tahap ini.
+- **File yang dibuat/diubah:** `announcements/tests.py`, `announcements/views.py`,
+  `templates/announcements/list.html`, `templates/announcements/_results.html`, dan
+  dokumentasi ini.
+- **Saran/implementasi AI:** deteksi header `HX-Request`, fragment template reusable,
+  debounce 300 ms, partial swap, URL history, loading indicator, dan fallback link/form.
+- **Kontribusi manual developer:** memilih HTMX setelah membandingkan kompleksitas demo,
+  menjalankan Red/Green serta regression test, melakukan smoke test browser dan Network,
+  menyetujui penghapusan tombol Apply, dan melakukan commit test/fitur.
+- **Koreksi manual developer:** meminta prototipe Fetch diganti dengan HTMX karena kode
+  lebih mudah dipahami dan dijelaskan saat demo.
+- **Limitasi/kesalahan AI:** kontrak awal memakai Fetch API sebelum keputusan direvisi;
+  assertion HTML pertama juga menemukan separator query yang belum memakai `&amp;`.
+  Keduanya dikoreksi sebelum commit fitur HTMX.
+- **Hasil pengujian:** 3/3 HTMX test dan 41/41 seluruh test Announcements lulus; smoke
+  test browser berhasil; coverage belum diukur.
+- **Commit terkait:** `9afec6d test(announcements): menyesuaikan kontrak baca dinamis ke
+  htmx` dan `c0cf75d feat(announcements): tambahkan baca dinamis dengan htmx`.
+
 ## Riwayat Checkpoint dan Conventional Commit
 
 | Checkpoint | Status | Commit |
@@ -342,3 +409,6 @@ Hasil aktual:
 | Red Checkpoint 4 - Authorization Update/Delete | Selesai | `d6476e7 test(announcements): definisikan otorisasi ubah dan hapus pengumuman` |
 | Green Checkpoint 4 - Authorization Update/Delete | Selesai | `4cccc40 feat(announcements): tambahkan ubah dan hapus pengumuman berizin` |
 | Dokumentasi Checkpoint 4 | Selesai | commit dokumentasi ini |
+| Red/revisi Checkpoint 5A - Read dinamis HTMX | Selesai | `9afec6d test(announcements): menyesuaikan kontrak baca dinamis ke htmx` |
+| Green Checkpoint 5A - Read dinamis HTMX | Selesai | `c0cf75d feat(announcements): tambahkan baca dinamis dengan htmx` |
+| Dokumentasi Checkpoint 5A | Selesai | commit dokumentasi ini |
