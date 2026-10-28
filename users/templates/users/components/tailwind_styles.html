@@ -31,4 +31,7 @@
     .user-post { @apply flex flex-col gap-2 rounded-[var(--radius)] bg-[var(--paper-dim)] p-4; }
     .user-post__title { @apply text-lg font-bold; }
     .user-tag { @apply rounded-full border border-[var(--accent)] px-2 text-sm text-[var(--accent)]; }
+
+    .people-modal { @apply fixed inset-0 z-50 flex items-start justify-center p-4; background: rgba(0, 0, 0, 0.5); padding-top: 6rem; }
+    .people-modal__window { @apply w-full; max-width: 32rem; max-height: calc(100vh - 8rem); overflow-y: auto; }
 </style>

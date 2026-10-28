@@ -64,24 +64,26 @@
         </div>
     </section>
 
+   {% if request.user == profile_user %}
+    <div id="people-search" class="people-modal" hidden
+        data-search-url="{% url 'users:search_users' %}"
+        data-follow-url-template="{% url 'users:toggle_follow' user_id='00000000-0000-0000-0000-000000000000' %}"
+        data-profile-url-template="{% url 'users:show_profile' user_id='00000000-0000-0000-0000-000000000000' %}"
+        data-csrf-token="{{ csrf_token }}">
+        <div class="people-modal__window user-card shadow" role="dialog" aria-modal="true" aria-labelledby="people-search-title">
+            <div class="flex items-center justify-between gap-3">
+                <h2 id="people-search-title" class="user-section-title">Find people</h2>
+                <button type="button" id="people-search-close" class="button button--small button--border" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <input type="search" id="people-search-input" placeholder="Search by username or name..." autocomplete="off">
+            <p id="people-search-status" class="empty-state">Type at least 2 characters to search.</p>
+            <ul id="people-search-results" class="user-list"></ul>
+        </div>
+    </div>
+    {% endif %}
     <section class="user-card shadow">
-      {% if request.user == profile_user %}
-      <section id="people-search" class="user-card shadow" hidden
-          data-search-url="{% url 'users:search_users' %}"
-          data-follow-url-template="{% url 'users:toggle_follow' user_id='00000000-0000-0000-0000-000000000000' %}"
-          data-profile-url-template="{% url 'users:show_profile' user_id='00000000-0000-0000-0000-000000000000' %}"
-          data-csrf-token="{{ csrf_token }}">
-          <div class="flex items-center justify-between gap-3">
-              <h2 class="user-section-title">Find people</h2>
-              <button type="button" id="people-search-close" class="button button--small button--border" aria-label="Close">
-                  <i class="fa-solid fa-xmark"></i>
-              </button>
-          </div>
-          <input type="search" id="people-search-input" placeholder="Search by username or name..." autocomplete="off">
-          <p id="people-search-status" class="empty-state">Type at least 2 characters to search.</p>
-          <ul id="people-search-results" class="user-list"></ul>
-      </section>
-      {% endif %}
         <h2 class="user-section-title">Badges</h2>
         {% if user_badges %}
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -199,8 +201,21 @@
     let debounceTimer;
     let abortController;
 
-    openBtn.addEventListener("click", () => { panel.hidden = false; input.focus(); });
-    closeBtn.addEventListener("click", () => { panel.hidden = true; });
+    function openPanel() {
+    panel.hidden = false;
+    document.body.style.overflow = "hidden";   // stop the page scrolling behind the modal
+    input.focus();
+    }
+    function closePanel() {
+        panel.hidden = true;
+        document.body.style.overflow = "";
+        openBtn.focus();
+    }
+
+    openBtn.addEventListener("click", openPanel);
+    closeBtn.addEventListener("click", closePanel);
+    panel.addEventListener("click", (e) => { if (e.target === panel) closePanel(); });   // click on the dark area
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !panel.hidden) closePanel(); });
 
     input.addEventListener("input", () => {
         clearTimeout(debounceTimer);
