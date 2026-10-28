@@ -34,7 +34,7 @@
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-1 sm:justify-start">
                     <span><i class="fa-solid fa-leaf"></i> {{ profile_user.zen_points }} zen points</span>
                     <a class="user-link" href="{% url 'users:following_list' profile_user.id %}">
-                        <strong>{{ profile_user.following.count }}</strong> following
+                        <strong id="following-count">{{ profile_user.following.count }}</strong> following
                     </a>
                     {% if request.user == profile_user %}
                         <a class="user-link" href="{% url 'users:followers_list' profile_user.id %}">
@@ -56,7 +56,9 @@
                         <a class="button button--small button--border" href="{% url 'users:update_profile' %}">
                             <i class="fa-solid fa-pen"></i> Edit profile
                         </a>
-                        {# SEARCH: the "search people" link goes here later #}
+                        <button type="button" id="people-search-open" class="button button--small">
+                            <i class="fa-solid fa-magnifying-glass"></i> Find people
+                        </button>
                     {% endif %}
                 </div>
             </div>
@@ -64,6 +66,23 @@
     </section>
 
     <section class="user-card shadow">
+      {% if request.user == profile_user %}
+      <section id="people-search" class="user-card shadow" hidden
+          data-search-url="{% url 'users:search_users' %}"
+          data-follow-url-template="{% url 'users:toggle_follow' user_id='00000000-0000-0000-0000-000000000000' %}"
+          data-profile-url-template="{% url 'users:show_profile' user_id='00000000-0000-0000-0000-000000000000' %}"
+          data-csrf-token="{{ csrf_token }}">
+          <div class="flex items-center justify-between gap-3">
+              <h2 class="user-section-title">Find people</h2>
+              <button type="button" id="people-search-close" class="button button--small button--border" aria-label="Close">
+                  <i class="fa-solid fa-xmark"></i>
+              </button>
+          </div>
+          <input type="search" id="people-search-input" placeholder="Search by username or name..." autocomplete="off">
+          <p id="people-search-status" class="empty-state">Type at least 2 characters to search.</p>
+          <ul id="people-search-results" class="user-list"></ul>
+      </section>
+      {% endif %}
         <h2 class="user-section-title">Badges</h2>
         {% if user_badges %}
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -131,5 +150,138 @@
             badgeToggle.textContent = expanded ? "Show less" : `Show all (${total})`;
         });
     }
+</script>
+
+<script>
+(function () {
+    const panel = document.getElementById("people-search");
+    if (!panel) return;                       // not your own profile
+
+    const openBtn = document.getElementById("people-search-open");
+    const closeBtn = document.getElementById("people-search-close");
+    const input = document.getElementById("people-search-input");
+    const status = document.getElementById("people-search-status");
+    const list = document.getElementById("people-search-results");
+
+    const SEARCH_URL = panel.dataset.searchUrl;
+    const FOLLOW_URL_TEMPLATE = panel.dataset.followUrlTemplate;
+    const PROFILE_URL_TEMPLATE = panel.dataset.profileUrlTemplate;
+    const CSRF_TOKEN = panel.dataset.csrfToken;
+    const PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
+
+    let debounceTimer;
+    let abortController;
+
+    openBtn.addEventListener("click", () => { panel.hidden = false; input.focus(); });
+    closeBtn.addEventListener("click", () => { panel.hidden = true; });
+
+    input.addEventListener("input", () => {
+        clearTimeout(debounceTimer);
+        const q = input.value.trim();
+        if (q.length < 2) {
+            if (abortController) abortController.abort();
+            list.replaceChildren();
+            status.textContent = "Type at least 2 characters to search.";
+            return;
+        }
+        debounceTimer = setTimeout(() => search(q), 300);   // wait until typing pauses
+    });
+
+    async function search(q) {
+        if (abortController) abortController.abort();       // drop the older request
+        abortController = new AbortController();
+        status.textContent = "Searching...";
+        try {
+            const response = await fetch(`${SEARCH_URL}?q=${encodeURIComponent(q)}`, {
+                headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                signal: abortController.signal,
+            });
+            if (!response.ok) throw new Error(`status ${response.status}`);
+            const users = (await response.json()).data;
+            list.replaceChildren(...users.map(buildItem));
+            status.textContent = users.length ? "" : "No users found.";
+        } catch (error) {
+            if (error.name === "AbortError") return;
+            status.textContent = "Something went wrong while searching.";
+        }
+    }
+
+    // built with textContent (not innerHTML) so names/bios can't inject HTML
+    function buildItem(u) {
+        const li = document.createElement("li");
+        li.className = "user-list__item";
+
+        const link = document.createElement("a");
+        link.href = PROFILE_URL_TEMPLATE.replace(PLACEHOLDER, u.id);
+        link.className = "flex min-w-0 flex-1 items-center gap-3";
+
+        let avatar;
+        if (u.avatar_url) {
+            avatar = document.createElement("img");
+            avatar.src = u.avatar_url;
+            avatar.alt = "";
+            avatar.className = "user-avatar size-10 shrink-0";
+        } else {
+            avatar = document.createElement("span");
+            avatar.className = "user-avatar user-avatar--placeholder size-10 shrink-0 text-lg";
+            avatar.textContent = u.username.charAt(0).toUpperCase();
+        }
+
+        const text = document.createElement("span");
+        text.className = "flex min-w-0 flex-col";
+        const name = document.createElement("strong");
+        name.textContent = u.username;
+        text.append(name);
+        if (u.full_name) {
+            const small = document.createElement("small");
+            small.className = "text-[var(--tertiary)]";
+            small.textContent = u.full_name;
+            text.append(small);
+        }
+        link.append(avatar, text);
+
+        const button = document.createElement("button");
+        button.type = "button";
+        setButtonState(button, u.is_following);
+        button.addEventListener("click", () => toggleFollow(u, button));
+
+        li.append(link, button);
+        return li;
+    }
+
+    function setButtonState(button, following) {
+        button.textContent = following ? "Unfollow" : "Follow";
+        button.className = "button button--small shrink-0" + (following ? " button--border" : "");
+    }
+
+    async function toggleFollow(u, button) {
+        button.disabled = true;
+        try {
+            const response = await fetch(FOLLOW_URL_TEMPLATE.replace(PLACEHOLDER, u.id), {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": CSRF_TOKEN,
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Accept": "application/json",
+                },
+            });
+            if (!response.ok) throw new Error(`status ${response.status}`);
+            const data = await response.json();
+
+            setButtonState(button, data.following);
+            const countElem = document.getElementById("following-count");
+            if (countElem) countElem.textContent = data.following_count;
+
+            toast.fire({
+                icon: "success",
+                title: data.following ? `You are now following ${u.username}.` : `You unfollowed ${u.username}.`,
+            });
+        } catch (error) {
+            toast.fire({ icon: "error", title: "Could not update follow status." });
+        } finally {
+            button.disabled = false;
+        }
+    }
+})();
 </script>
 {% endblock content %}

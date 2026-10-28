@@ -9,6 +9,7 @@ from django.contrib.auth import login, logout, get_user_model
 from .forms import RegisterForm, SocialLinkFormSet, UpdateProfileForm
 from django.core.exceptions import PermissionDenied
 from django.db.models import Exists, OuterRef, Q
+from posts.models import Post
 
 User = get_user_model()
 
@@ -18,6 +19,13 @@ def get_user_badges(profile_user):
         profile_user.user_badges
         .select_related("badge")
         .order_by("-earned_at")
+    )
+    
+def get_user_posts(profile_user, limit=10):
+    return (
+        Post.objects.filter(author=profile_user)
+        .prefetch_related("tags")
+        .order_by("-created_at")[:limit]
     )
 
 # Profile show
