@@ -10,7 +10,7 @@
     <section class="user-card shadow">
         <h1 class="user-card__title">Edit profile</h1>
 
-        <form method="post" class="user-form">
+        <form method="post" enctype="multipart/form-data" class="user-form">
             {% csrf_token %}
 
             {% for field in form %}

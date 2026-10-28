@@ -17,8 +17,8 @@
             {% for person in people %}
                 <li>
                     <a class="user-list__item hover--expand" href="{% url 'users:show_profile' person.id %}">
-                        {% if person.avatar_url %}
-                            <img src="{{ person.avatar_url }}" alt="" class="user-avatar size-10 shrink-0">
+                        {% if person.avatar_src %}
+                            <img src="{{ person.avatar_src }}" alt="" class="user-avatar size-10 shrink-0">
                         {% else %}
                             <span class="user-avatar user-avatar--placeholder size-10 shrink-0 text-lg">{{ person.username|slice:":1"|upper }}</span>
                         {% endif %}
