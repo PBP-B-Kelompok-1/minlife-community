@@ -5,6 +5,7 @@ const LOGIN_URL = scriptElem.dataset.loginUrl;
 const USER_PROFILE_ENDPOINT_TEMPLATE = scriptElem.dataset.userProfileEndpointTemplate;
 const CSRF_TOKEN = scriptElem.dataset.csrfToken;
 const UUID4_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
+const QUOTES_ENDPOINT = "https://jovan-finesta-minimalist-quotes-api.pws.cs.ui.ac.id/random"
 const FALLBACK_PFP = "/static/img/pfp.svg";
 
 // frontpage
@@ -518,5 +519,29 @@ function copy_post_url_to_clipboard(share_btn) {
             title: "Failed to copy to clipboard..."
         });
         console.error(`An error occured while copying: ${error}`)
+    }
+}
+
+async function showQuote() {
+    quoteTextElem = document.getElementById("quote__text");
+    quoteByElem = document.getElementById("quote__by");
+
+    try {
+        const response = await fetch(QUOTES_ENDPOINT, {
+            method: "GET",
+            headers: { "Accept": "application/json" },
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Get request failed with status ${response.status}`);
+        }
+        const data = (await response.json()).data;
+        if (data.length === 0) {
+            throw new Error(`Quote API returned empty.`);
+        }
+        quoteTextElem.innerText = `"${data["quote"]}"`;
+        quoteByElem.innerText = `— ${data["author"]}, ${data["year"]}`;
+    } catch (error) {
+        console.error(`An error occured: ${error}`);
     }
 }
