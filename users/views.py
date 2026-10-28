@@ -1,15 +1,14 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Follow, User
-from django.http import HttpResponseBadRequest
-from django.views.decorators.http import require_POST
+from django.http import HttpResponseBadRequest, JsonResponse, HttpResponse
+from django.views.decorators.http import require_POST, require_GET
 from django.contrib import messages
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import login, logout, get_user_model
 from .forms import RegisterForm, SocialLinkFormSet, UpdateProfileForm
-from django.http import HttpResponse
 from django.core.exceptions import PermissionDenied
-
+from django.db.models import Exists, OuterRef, Q
 
 User = get_user_model()
 
@@ -112,15 +111,29 @@ def delete_account(request):
 @require_POST
 def toggle_follow(request, user_id):
     target = get_object_or_404(User, pk=user_id)
-    if target == request.user:
-        return HttpResponseBadRequest('You cannot follow yourself.')
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
 
-    link, created = Follow.objects.get_or_create(
-        follower=request.user, following=target
-    )
+    if target == request.user:
+        if is_ajax:
+            return JsonResponse({"message": "You can't follow yourself."}, status=400)
+        messages.error(request, "You can't follow yourself.")
+        return redirect('users:show_my_profile')
+
+    link, created = Follow.objects.get_or_create(follower=request.user, following=target)
     if not created:          # already following → this click means unfollow
         link.delete()
 
+    if is_ajax:
+        # no messages.* here: they'd queue up and pop as a toast on the next page load
+        return JsonResponse({
+            "following": created,
+            "following_count": request.user.following.count(),
+        })
+
+    if created:
+        messages.success(request, f"You are now following {target.username}.")
+    else:
+        messages.success(request, f"You unfollowed {target.username}.")
     return redirect('users:show_profile', user_id=target.id)
 
 def following_list(request, user_id):
