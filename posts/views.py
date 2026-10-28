@@ -82,6 +82,7 @@ def create_post(request):
         post.author = request.user
         post.save()
         form.save_m2m()
+        post.save()
         messages.success(request, "Form has been created successfully.")
         return redirect("frontpage")
     context = {

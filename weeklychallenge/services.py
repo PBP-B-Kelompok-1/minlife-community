@@ -1,47 +1,68 @@
-from django.core.exceptions import ValidationError
 from django.db import transaction
-from .models import ChallengeSubmission, CHALLENGE_TAG_NAME
+from django.utils import timezone
+
+from .models import Challenge, ChallengeSubmission
+
+
+def get_current_challenge(today=None):
+    """Return the challenge whose date range includes today, if one exists."""
+    if today is None:
+        today = timezone.localdate()
+
+    return Challenge.objects.filter(
+        week_start__lte=today,
+        week_end__gte=today,
+    ).first()
+
+
+def user_has_submitted(user, challenge):
+    """Return whether an authenticated user already submitted to this challenge."""
+    if not getattr(user, "is_authenticated", False):
+        return False
+
+    return ChallengeSubmission.objects.filter(
+        user=user,
+        challenge=challenge,
+    ).exists()
+
 
 @transaction.atomic
-def submit_challenge(*, user, challenge, title, content, image):
-    """Buat Post dan ChallengeSubmission sekaligus."""
-    from posts.models import Post, Tag
+def create_challenge(*, form, formset, user):
+    """Create a challenge, its badge and tag, and its validated task formset atomically."""
+    from posts.models import Tag
+    from users.models import Badge
 
-    if not challenge.is_open:
-        raise ValidationError("Challenge ini sudah tidak menerima submission.")
-    if not image:
-        raise ValidationError("Foto bukti wajib diunggah.")
-    if ChallengeSubmission.objects.filter(challenge=challenge, user=user).exists():
-        raise ValidationError("Kamu sudah submit untuk challenge ini.")
-
-    post = Post.objects.create(author=user, title=title, content=content, challenge_image=image)
-    tag, _ = Tag.objects.get_or_create(
-        name=CHALLENGE_TAG_NAME, defaults={"slug": "weekly-challenge"}
+    challenge = form.save(commit=False)
+    challenge.badge = Badge.objects.create(
+        name=f"{challenge.title} Badge",
+        description=f"Selesaikan challenge: {challenge.title}",
     )
-    post.tags.add(tag)
-    return ChallengeSubmission.objects.create(challenge=challenge, post=post, user=user)
+    challenge.created_by = user
+    challenge.save()
+
+    challenge.tag = Tag.objects.create(title=f"weeklychallenge{challenge.pk}")
+    challenge.save(update_fields=["tag"])
+
+    formset.instance = challenge
+    formset.save()
+    return challenge
 
 
 @transaction.atomic
-def maybe_award_badge(post):
-    """
-    Dipanggil setelah vote berubah. Badge hanya diberikan sekali dan tetap ada.
-    """
+def award_badge_if_eligible(post):
+    """Award the submission's challenge badge once its net vote score meets the threshold."""
     from users.models import UserBadge
 
-    submission = (
-        ChallengeSubmission.objects.select_related("challenge__badge")
-        .filter(post=post)
-        .first()
-    )
-    if submission is None:
-        return None
+    try:
+        submission = post.challenge_submission
+    except ChallengeSubmission.DoesNotExist:
+        return False
 
-    score = post.get_vote_count()
-    if score < submission.challenge.upvote_threshold:
-        return None
+    if post.get_vote_count() < submission.challenge.upvote_threshold:
+        return False
 
-    badge, created = UserBadge.objects.get_or_create(
-        user=submission.user, badge=submission.challenge.badge
+    _, created = UserBadge.objects.get_or_create(
+        user=submission.user,
+        badge=submission.challenge.badge,
     )
-    return badge if created else None
+    return created

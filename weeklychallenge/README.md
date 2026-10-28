@@ -15,7 +15,7 @@ Weekly Challenge menggunakan model dari aplikasi Posts dan Users. Posts mengimpo
 1. Moderator membuat challenge. Dalam satu transaksi, sistem membuat challenge, badge, tag khusus, dan tugas-tugasnya.
 2. Nama tag sistem menggunakan format `weeklychallenge<id-challenge>`. Relasinya disimpan di `Challenge.tag`.
 3. Pengguna hanya dapat mengikuti challenge yang sedang aktif. Mereka membuat Post melalui formulir Posts, mencentang pilihan ikut challenge, dan mengunggah `challenge_image`.
-4. Setelah tag challenge ditambahkan ke Post, sinyal `m2m_changed` membuat `ChallengeSubmission`. Satu pengguna hanya dapat memiliki satu submission per challenge.
+4. Setelah Post disimpan dengan tag challenge, sinyal `post_save` membuat `ChallengeSubmission`. Satu pengguna hanya dapat memiliki satu submission per challenge.
 5. Sinyal pada perubahan Vote mengevaluasi skor Post, yaitu upvote dikurangi downvote. Jika skor memenuhi ambang challenge, sistem memberikan badge kepada penulis.
 6. Badge yang sudah diberikan tidak dicabut jika skor turun atau Post dihapus.
 
@@ -28,6 +28,7 @@ Challenge tidak boleh memiliki rentang tanggal yang tumpang tindih. Dengan demik
 - Tampilkan pilihan ikut challenge hanya saat ada challenge aktif. Nonaktifkan pilihan itu untuk pengguna yang sudah memiliki submission.
 - Tag khusus challenge tidak boleh muncul sebagai pilihan tag umum. Ambil tag umum dengan `Tag.objects.filter(challenge__isnull=True)`.
 - Setelah Post disimpan, tambahkan tag challenge melalui `post.tags.add(challenge.tag)`. Jangan membuat `ChallengeSubmission` secara langsung atau menulis ke tabel perantara; sinyal mengurus pencatatannya.
+- Setelah `form.save_m2m()` selesai, simpan Post sekali lagi agar `post_save` melihat tag challenge yang sudah terpasang dan membuat submission.
 - Saat mengedit Post, pertahankan tag challenge yang sudah terpasang ketika menyimpan ulang pilihan tag biasa. `form.save_m2m()` atau `tags.set()` dapat menghapus tag tersebut jika tidak disertakan.
 - Wajibkan `challenge_image` saat pengguna memilih ikut challenge.
 - Gunakan sinyal `post_save` dan `post_delete` pada Vote untuk mengevaluasi badge. Jangan mengubah Vote melalui `update()` atau `bulk_create()` karena cara tersebut tidak memicu sinyal model.
@@ -53,10 +54,36 @@ Challenge tidak boleh memiliki rentang tanggal yang tumpang tindih. Dengan demik
 
   ```powershell
   python manage.py check
-  python manage.py test weeklychallenge
+  python manage.py test weeklychallenge posts
   ```
 
   Jalankan juga seluruh tes proyek sebelum menggabungkan perubahan lintas modul.
+
+## Status implementasi
+
+- [x] Model, relasi tag, dan migrasi.
+- [x] Service untuk challenge aktif, pembuatan challenge, pemeriksaan submission, dan pemberian badge.
+- [x] Form challenge dengan date picker, validasi rentang tanggal, validasi overlap, dan batas maksimal tujuh tugas.
+- [x] View dan URL untuk halaman challenge, daftar/filter, detail, edit, hapus dengan konfirmasi, leaderboard, serta endpoint HTMX untuk form tugas.
+- [x] Template responsif untuk desktop dan mobile menggunakan Tailwind dan HTMX.
+- [x] Tes terfokus untuk service, form, model constraint, permission, filtering, rendering, update, delete, badge persistence, dan sinyal sudah tersedia.
+- [x] Sinyal Django untuk submission berbasis tag dan pemberian badge berbasis Vote sudah diimplementasikan.
+
+### Perilaku sinyal
+
+Sinyal yang digunakan:
+
+1. `post_save` pada `Post`.
+   - Setelah Post tersimpan, cari tag challenge yang terpasang.
+   - Submission hanya dibuat untuk challenge yang sedang aktif.
+   - Buat `ChallengeSubmission` memakai author dan Post terkait melalui `get_or_create`.
+   - Tangani `IntegrityError` agar submission duplikat tidak menggagalkan penyimpanan Post.
+2. `post_save` dan `post_delete` pada `Vote`.
+   - Abaikan Vote yang tidak memiliki `post_id`, seperti Vote pada komentar.
+   - Evaluasi kelayakan badge dengan `award_badge_if_eligible(post)`.
+   - Pada penghapusan Vote, abaikan kasus ketika Post terkait sudah tidak ada.
+   - Badge yang sudah diperoleh tetap tersimpan dan tidak dicabut ketika skor turun.
+3. Signal handlers didaftarkan melalui `WeeklychallengeConfig.ready()` dengan `dispatch_uid` agar tidak terhubung ganda.
 
 ## Keputusan yang disepakati
 

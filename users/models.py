@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 import uuid
 
-from minlife import settings
+from django.conf import settings
 
 class User(AbstractUser):
     """
@@ -14,10 +14,16 @@ class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     avatar_url = models.URLField(
+            blank=True,
+            default="",
+            max_length=500,
+            help_text="User avatar URL."
+        )
+
+    avatar = models.ImageField(
+        upload_to="avatars/",
         blank=True,
-        default="",
-        max_length=500,
-        help_text="User avatar URL."
+        help_text="Profile picture."
     )
 
     bio = models.TextField(
@@ -41,6 +47,11 @@ class User(AbstractUser):
         related_name="followers",
         blank=True,
     )
+    
+    @property
+    def avatar_src(self):
+        """URL of the uploaded profile picture, or an empty string if none."""
+        return self.avatar.url if self.avatar else ""
 
 class Follow(models.Model):
     follower = models.ForeignKey(

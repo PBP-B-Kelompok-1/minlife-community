@@ -1,15 +1,27 @@
 {% extends "base.html" %}
+
+{% block meta %}
+    {% include "users/components/tailwind_styles.html" %}
+    <title>Delete account - Minlife Community</title>
+{% endblock meta %}
+
 {% block content %}
-<h2>Delete account</h2>
+<div class="container">
+    <section class="user-card shadow">
+        <h1 class="user-card__title text-[var(--danger)]">
+            <i class="fa-solid fa-triangle-exclamation"></i> Delete account
+        </h1>
 
-<p>
-  This permanently deletes your account, including your profile and social links.
-  This cannot be undone.
-</p>
+        <p>
+            This permanently deletes your account, including your posts, comments, votes,
+            badges and social links. This cannot be undone.
+        </p>
 
-<form method="post">
-  {% csrf_token %}
-  <button type="submit">Yes, delete my account</button>
-  <a href="{% url 'users:show_my_profile' %}">Cancel</a>
-</form>
-{% endblock %}
+        <form method="post" class="user-form__actions">
+            {% csrf_token %}
+            <a class="button button--border" href="{% url 'users:show_my_profile' %}">Cancel</a>
+            <button type="submit" class="button button--danger">Yes, delete my account</button>
+        </form>
+    </section>
+</div>
+{% endblock content %}

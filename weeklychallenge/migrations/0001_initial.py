@@ -12,6 +12,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('posts', '0007_post_challenge_image'),
+        ('users', '0006_remove_user_avatar_url_user_avatar'),
         ('users', '0005_badge_userbadge'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
