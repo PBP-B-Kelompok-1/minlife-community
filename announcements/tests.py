@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import timedelta
 
@@ -720,3 +721,173 @@ class AnnouncementHtmxReadTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "announcements/_results.html")
         self.assertContains(response, self.announcement.content)
+
+
+class AnnouncementHtmxMutationTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.moderator = user_model.objects.create_user(
+            username="announcement-htmx-mutation-moderator",
+            password="test-password",
+        )
+        cls.moderator.groups.add(Group.objects.get(name="Moderator"))
+        cls.announcement = Announcement.objects.create(
+            created_by=cls.moderator,
+            title="HTMX mutation announcement",
+            content="Original content for HTMX mutation tests.",
+        )
+
+    def create_url(self):
+        return reverse("announcements:create")
+
+    def update_url(self):
+        return reverse(
+            "announcements:update",
+            kwargs={"announcement_id": self.announcement.pk},
+        )
+
+    def delete_url(self):
+        return reverse(
+            "announcements:delete",
+            kwargs={"announcement_id": self.announcement.pk},
+        )
+
+    def assert_htmx_success_response(self, response, expected_message):
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "announcements/_results.html")
+        self.assertEqual(response.headers["HX-Retarget"], "#announcement-results")
+        self.assertEqual(response.headers["HX-Reswap"], "outerHTML")
+        self.assertEqual(
+            json.loads(response.headers["HX-Trigger"]),
+            {"announcement-changed": {"message": expected_message}},
+        )
+
+    def test_moderator_controls_target_the_htmx_dialog(self):
+        self.client.force_login(self.moderator)
+
+        response = self.client.get(reverse("announcements:list"))
+
+        self.assertContains(response, 'id="announcement-dialog"')
+        self.assertContains(response, 'id="announcement-dialog-content"')
+        for url in (self.create_url(), self.update_url(), self.delete_url()):
+            self.assertContains(response, f'hx-get="{url}"')
+        self.assertContains(response, 'hx-target="#announcement-dialog-content"')
+
+    def test_htmx_create_get_returns_only_the_form_fragment(self):
+        self.client.force_login(self.moderator)
+
+        response = self.client.get(
+            self.create_url(),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "announcements/_form.html")
+        self.assertTemplateNotUsed(response, "announcements/form.html")
+        self.assertContains(response, f'hx-post="{self.create_url()}"')
+
+    def test_invalid_htmx_create_redisplays_errors_inside_the_dialog(self):
+        self.client.force_login(self.moderator)
+        original_count = Announcement.objects.count()
+
+        response = self.client.post(
+            self.create_url(),
+            {"title": "", "content": ""},
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "announcements/_form.html")
+        self.assertContains(response, "This field is required.", count=2)
+        self.assertEqual(Announcement.objects.count(), original_count)
+        self.assertNotIn("HX-Retarget", response.headers)
+
+    def test_valid_htmx_create_updates_results_and_signals_success(self):
+        self.client.force_login(self.moderator)
+
+        response = self.client.post(
+            self.create_url(),
+            {
+                "title": "Created through HTMX",
+                "content": "The list should update without a full page reload.",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        announcement = Announcement.objects.get(title="Created through HTMX")
+        self.assertEqual(announcement.created_by, self.moderator)
+        self.assertContains(response, "Created through HTMX")
+        self.assert_htmx_success_response(
+            response,
+            "Announcement created successfully.",
+        )
+
+    def test_htmx_update_get_returns_only_the_form_fragment(self):
+        self.client.force_login(self.moderator)
+
+        response = self.client.get(
+            self.update_url(),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "announcements/_form.html")
+        self.assertTemplateNotUsed(response, "announcements/form.html")
+        self.assertContains(response, self.announcement.title)
+
+    def test_valid_htmx_update_preserves_creator_and_updates_results(self):
+        original_creator = self.announcement.created_by
+        original_created_at = self.announcement.created_at
+        self.client.force_login(self.moderator)
+
+        response = self.client.post(
+            self.update_url(),
+            {
+                "title": "Updated through HTMX",
+                "content": "Updated content through the modal.",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.announcement.refresh_from_db()
+        self.assertEqual(self.announcement.created_by, original_creator)
+        self.assertEqual(self.announcement.created_at, original_created_at)
+        self.assertContains(response, "Updated through HTMX")
+        self.assert_htmx_success_response(
+            response,
+            "Announcement updated successfully.",
+        )
+
+    def test_htmx_delete_confirmation_and_successful_post_use_fragments(self):
+        self.client.force_login(self.moderator)
+
+        get_response = self.client.get(
+            self.delete_url(),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(get_response.status_code, 200)
+        self.assertTemplateUsed(
+            get_response,
+            "announcements/_confirm_delete.html",
+        )
+        self.assertTemplateNotUsed(
+            get_response,
+            "announcements/confirm_delete.html",
+        )
+        self.assertContains(get_response, self.announcement.title)
+
+        post_response = self.client.post(
+            self.delete_url(),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertFalse(
+            Announcement.objects.filter(pk=self.announcement.pk).exists()
+        )
+        self.assertNotContains(post_response, self.announcement.title)
+        self.assert_htmx_success_response(
+            post_response,
+            "Announcement deleted successfully.",
+        )
