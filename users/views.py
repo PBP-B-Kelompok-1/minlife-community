@@ -78,7 +78,7 @@ def logout_user(request):
     return redirect('frontpage')
 
 def register_user(request):
-    form = RegisterForm(request.POST or None)
+    form = RegisterForm(request.POST or None, request.FILES or None)
 
     if request.method == 'POST' and form.is_valid():
         form.save()
@@ -92,7 +92,7 @@ def register_user(request):
 @login_required
 def update_profile(request):
     if request.method == 'POST':
-        form = UpdateProfileForm(request.POST, instance=request.user)
+        form = UpdateProfileForm(request.POST, request.FILES, instance=request.user)
         formset = SocialLinkFormSet(request.POST, instance=request.user)
         if form.is_valid() and formset.is_valid():
             form.save()
