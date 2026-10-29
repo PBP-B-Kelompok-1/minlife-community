@@ -20,9 +20,12 @@
     .post__kebab, .comment__kebab { @apply absolute right-0 top-[calc(100%+0.5rem)] z-10 hidden min-w-32 flex-col gap-1 rounded-[var(--radius)] bg-[var(--paper)] p-2; }
     .post__kebab.shown, .comment__kebab.shown { @apply flex; }
     .post__kebab .button, .comment__kebab .button { @apply justify-start; }
-    .post__tags { @apply relative flex gap-1.5; }
+    .post__tags { @apply relative flex gap-1.5 w-fit; }
+    .post__challenge-img-container { @apply flex justify-center }
+    .post__challenge-img { @apply max-h-[70vh] rounded-[var(--radius)] border-[4px] border-[var(--accent)]; }
     .post__content { @apply flex flex-col; }
     .post__content * { @apply rounded-[var(--radius)]; }
+    .post__content figure { @apply flex justify-center; }
     .post__actions { @apply flex items-center justify-between; }
     .post__actions--left, .post__actions--right { @apply relative flex gap-3; }
     .post__actions__vote, .comment__actions__vote { @apply gap-[.3rem] p-0; }

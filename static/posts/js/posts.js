@@ -111,6 +111,14 @@ function generatePostElem(post, show_links=true) {
             </button>`;
     });
     postTagsHtml += `</div>`;
+
+    let challengeImageHtml = post.challenge_image_url
+        ? `<div class="post__challenge-img-container">
+            <img class="post__challenge-img" 
+                src="${post.challenge_image_url}"
+                alt="Challenge image for post ${post.title}">
+            </div>`
+        : ``;
     
     let postContentHtml = `
         <div class="post__content">
@@ -155,6 +163,7 @@ function generatePostElem(post, show_links=true) {
         ${firstRowHtml}
         ${postTitleHtml}
         ${postTagsHtml}
+        ${challengeImageHtml}
         ${postContentHtml}
         ${postActionsHtml}
     `;
