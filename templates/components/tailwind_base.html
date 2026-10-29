@@ -61,7 +61,26 @@
     .navbar .nav-user { @apply font-semibold }
     .navbar .nav-logout { @apply text-[var(--danger-light)] }
     .navbar .nav-logout:hover { @apply border-[var(--danger-light)] }
-    @media (max-width: 600px) { .navbar__nav { @apply hidden; } }
+    .navbar__menu-button { @apply hidden border-0 bg-transparent p-1 text-xl text-[var(--ink-light)]; }
+    .navbar__backdrop, .navbar__drawer { @apply hidden; }
+    @media (max-width: 760px) {
+        .navbar { @apply px-5 py-3; }
+        .navbar__nav { @apply hidden; }
+        .navbar__menu-button { @apply inline-flex items-center justify-center; }
+        .navbar__menu-button:hover { @apply border-0 text-[var(--paper-dim)]; }
+        .navbar__backdrop { @apply fixed inset-0 z-20 bg-black/50 opacity-0 transition-opacity duration-200; }
+        .navbar__drawer { @apply fixed inset-y-0 right-0 z-30 flex w-[min(84vw,22rem)] translate-x-full flex-col bg-[var(--secondary)] p-6 text-[var(--ink-light)] shadow-[-4px_0_16px_rgba(0,0,0,0.25)] transition-transform duration-200 ease-out; }
+        .navbar__drawer-header { @apply flex items-center justify-between gap-4 text-lg; }
+        .navbar__close-button { @apply border-0 bg-transparent p-1 text-2xl text-[var(--ink-light)]; }
+        .navbar__drawer-nav { @apply mt-10 flex flex-col items-stretch gap-2; }
+        .navbar__drawer-nav a, .navbar__drawer-nav button { @apply block w-full rounded-lg border-0 px-3 py-3 text-left text-[var(--ink-light)] transition-colors duration-200; }
+        .navbar__drawer-nav a:hover, .navbar__drawer-nav button:hover { @apply bg-white/10; }
+        .navbar__drawer-nav .nav-user { @apply px-3 py-3 text-sm font-semibold text-[var(--paper-dim)]; }
+        .navbar__drawer-nav .nav-logout { @apply text-[var(--danger-light)]; }
+        .mobile-menu-open { @apply overflow-hidden; }
+        .mobile-menu-open .navbar__backdrop { @apply block opacity-100; }
+        .mobile-menu-open .navbar__drawer { @apply flex translate-x-0; }
+    }
 
     input, textarea { @apply w-full rounded-[var(--radius)] border border-[var(--accent)] bg-[var(--paper)] p-[0.7rem] transition-[border-color,outline-color] duration-200 ease-in-out; font: inherit; }
     input:focus, textarea:focus { @apply border-[var(--accent)] outline-2 outline-[var(--accent)]; }
