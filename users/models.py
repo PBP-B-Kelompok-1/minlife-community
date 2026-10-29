@@ -32,12 +32,6 @@ class User(AbstractUser):
         max_length=160, 
         help_text="Short description of the User."
     )
-
-    zen_points = models.IntegerField(
-        default=0,
-        editable=False,
-        help_text="Upvote accumulation."
-    )
     
     following = models.ManyToManyField(
         "self",

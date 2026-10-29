@@ -85,7 +85,6 @@ class UserModelTests(UsersTestCase):
 
     def test_defaults(self):
         self.assertEqual(self.alice.bio, "")
-        self.assertEqual(self.alice.zen_points, 0)
 
     def test_username_is_unique(self):
         with self.assertRaises(IntegrityError):
