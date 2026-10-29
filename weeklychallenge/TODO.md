@@ -64,12 +64,12 @@ demonstration.
 
 ## Rubric: CRUD and MVT quality
 
-- [ ] Test successful and invalid POST requests for Challenge creation.
-- [ ] Test successful and invalid POST requests for Challenge editing.
-- [ ] Test confirmation and failure behavior for Challenge deletion.
-- [ ] Test Challenge detail, empty states, unknown IDs, and missing tasks.
-- [ ] Test list filters for open, upcoming, past, and all Challenges.
-- [ ] Test title search, pagination boundaries, and leaderboard score/newest sorting.
+- [x] Test successful and invalid POST requests for Challenge creation.
+- [x] Test successful and invalid POST requests for Challenge editing.
+- [x] Test confirmation and failure behavior for Challenge deletion.
+- [x] Test Challenge detail, empty states, unknown IDs, and missing tasks.
+- [x] Test list filters for open, upcoming, past, and all Challenges.
+- [x] Test title search, pagination boundaries, and leaderboard score/newest sorting.
 - [ ] Review all management views for explicit error handling and transaction safety.
 - [ ] Confirm the templates use the shared base template and design-system classes.
 
@@ -77,7 +77,7 @@ demonstration.
 
 - [x] Decide whether create, edit, and delete should also use HTMX or whether the
       current full-page flow is sufficient for the target rubric score. Decision: Use HTMX to go the extra mile
-- [ ] Test HTMX requests and ordinary browser requests separately where behavior differs.
+- [x] Test HTMX requests and ordinary browser requests separately where behavior differs.
 - [ ] Verify task-row controls preserve management-form values and form data.
 - [ ] Test the mobile layout at the target presentation viewport.
 - [ ] Test keyboard focus, labels, error display, and accessible loading/update states.
