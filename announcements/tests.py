@@ -1,12 +1,14 @@
 import json
 import uuid
 from datetime import timedelta
+from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.contrib.staticfiles import finders
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -1059,3 +1061,97 @@ class FCMSubscriptionTests(TestCase):
 
         for url in (self.subscribe_url(), self.unsubscribe_url()):
             self.assertEqual(self.client.get(url).status_code, 405)
+
+
+TEST_FIREBASE_WEB_CONFIG = {
+    "apiKey": "test-api-key",
+    "authDomain": "test-project.firebaseapp.com",
+    "projectId": "test-project",
+    "storageBucket": "test-project.firebasestorage.app",
+    "messagingSenderId": "123456789",
+    "appId": "1:123456789:web:test-app-id",
+}
+
+
+@override_settings(
+    FIREBASE_WEB_CONFIG=TEST_FIREBASE_WEB_CONFIG,
+    FIREBASE_VAPID_KEY="test-public-vapid-key",
+)
+class FCMWebClientTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(
+            username="notification-web-user",
+            password="test-password",
+        )
+
+    def test_notification_control_is_only_loaded_for_authenticated_users(self):
+        list_url = reverse("announcements:list")
+
+        guest_response = self.client.get(list_url)
+        self.client.force_login(self.user)
+        authenticated_response = self.client.get(list_url)
+
+        self.assertNotContains(guest_response, 'id="notification-toggle"')
+        self.assertNotContains(
+            guest_response,
+            "announcements/js/notifications.js",
+        )
+        self.assertContains(authenticated_response, 'id="notification-toggle"')
+        self.assertContains(authenticated_response, "Enable Notifications")
+        self.assertContains(
+            authenticated_response,
+            reverse("announcements:notification_subscribe"),
+        )
+        self.assertContains(
+            authenticated_response,
+            reverse("announcements:notification_unsubscribe"),
+        )
+        self.assertContains(
+            authenticated_response,
+            reverse("firebase_messaging_service_worker"),
+        )
+        self.assertContains(
+            authenticated_response,
+            "announcements/js/notifications.js",
+        )
+
+    @override_settings(FIREBASE_WEB_CONFIG={}, FIREBASE_VAPID_KEY="")
+    def test_incomplete_firebase_config_disables_notification_control(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("announcements:list"))
+
+        self.assertFalse(response.context["firebase_notifications_enabled"])
+        self.assertNotContains(response, 'id="notification-toggle"')
+        self.assertNotContains(response, "announcements/js/notifications.js")
+
+    def test_service_worker_is_served_from_the_domain_root_with_public_config(self):
+        response = self.client.get(reverse("firebase_messaging_service_worker"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            response.headers["Content-Type"].startswith("application/javascript")
+        )
+        self.assertContains(response, "firebase-app-compat.js")
+        self.assertContains(response, "firebase-messaging-compat.js")
+        self.assertContains(response, TEST_FIREBASE_WEB_CONFIG["projectId"])
+        self.assertNotContains(response, "test-public-vapid-key")
+        self.assertNotContains(response, "private_key")
+
+    def test_service_worker_endpoint_only_accepts_get(self):
+        response = self.client.post(reverse("firebase_messaging_service_worker"))
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_notification_client_uses_fid_api_and_explicit_permission_request(self):
+        script_path = finders.find("announcements/js/notifications.js")
+
+        self.assertIsNotNone(script_path)
+        script = Path(script_path).read_text(encoding="utf-8")
+        self.assertIn("Notification.requestPermission()", script)
+        self.assertIn("onRegistered", script)
+        self.assertIn("register", script)
+        self.assertIn("unregister", script)
+        self.assertIn('addEventListener("click"', script)
+        self.assertNotIn("getToken(", script)
