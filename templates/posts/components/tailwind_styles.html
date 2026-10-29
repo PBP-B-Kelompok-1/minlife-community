@@ -37,6 +37,8 @@
     .post-form { @apply flex flex-col gap-5; }
     .post-form__field { @apply flex flex-col gap-2; }
     .post-form__field[hidden] { @apply hidden; } /* the previous flex overrode the hidden property */
+    .post-form__current-image { @apply flex items-center gap-3 rounded-[var(--radius)] bg-[var(--paper-dim)] p-3 text-[var(--tertiary)]; }
+    .post-form__current-image img { @apply size-20 rounded-[calc(var(--radius)/2)] object-cover; }
     .post-form__actions { @apply flex justify-end gap-2; }
     @media (max-width: 600px) { .post-form__actions { @apply flex-col; } }
 

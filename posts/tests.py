@@ -215,6 +215,63 @@ class UpdateAndDeletePostTests(PostsTestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_update_cannot_add_the_weekly_challenge_tag(self):
+        weekly_challenge = Tag.objects.create(title="Weekly Challenge")
+        self.client.force_login(self.author)
+
+        response = self.client.post(
+            self.update_url,
+            {"title": self.post.title, "content": self.post.content, "tags": [weekly_challenge.pk]},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(
+            response.context["form"],
+            "tags",
+            "The Weekly Challenge tag cannot be added or removed when editing a post.",
+        )
+        self.assertFalse(self.post.tags.filter(pk=weekly_challenge.pk).exists())
+
+    def test_update_cannot_remove_the_weekly_challenge_tag(self):
+        weekly_challenge = Tag.objects.create(title="Weekly Challenge")
+        self.post.tags.add(weekly_challenge)
+        self.client.force_login(self.author)
+
+        response = self.client.post(
+            self.update_url,
+            {"title": self.post.title, "content": self.post.content},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(
+            response.context["form"],
+            "tags",
+            "The Weekly Challenge tag cannot be added or removed when editing a post.",
+        )
+        self.assertTrue(self.post.tags.filter(pk=weekly_challenge.pk).exists())
+
+    def test_weekly_challenge_post_keeps_its_existing_image_when_updated_without_a_replacement(self):
+        weekly_challenge = Tag.objects.create(title="Weekly Challenge")
+        image = SimpleUploadedFile(
+            "proof.gif",
+            b"GIF87a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;",
+            content_type="image/gif",
+        )
+        self.post.tags.add(weekly_challenge)
+        self.post.challenge_image = image
+        self.post.save()
+        previous_image_name = self.post.challenge_image.name
+        self.client.force_login(self.author)
+
+        response = self.client.post(
+            self.update_url,
+            {"title": "Updated title", "content": self.post.content, "tags": [weekly_challenge.pk]},
+        )
+
+        self.assertRedirects(response, reverse("posts:show_post", kwargs={"post_id": self.post.pk}))
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.challenge_image.name, previous_image_name)
+
     def test_anonymous_delete_returns_login_details(self):
         response = self.client.post(self.delete_url)
 

@@ -28,7 +28,8 @@ class PostForm(forms.ModelForm):
             "content": "Content",
         }
         widgets = {
-            "content": CKEditor5Widget(config_name="post")
+            "content": CKEditor5Widget(config_name="post"),
+            "challenge_image": forms.FileInput(attrs={"accept": "image/*"}),
         }
 
     def clean_content(self):
@@ -45,7 +46,12 @@ class PostForm(forms.ModelForm):
         if not image:
             return image
 
-        if isinstance(image, UploadedFile) and image.size > MAX_CHALLENGE_IMAGE_SIZE:
+        # Existing images are already validated when they are uploaded. On an
+        # edit with no replacement, Django returns that existing FieldFile.
+        if not isinstance(image, UploadedFile):
+            return image
+
+        if image.size > MAX_CHALLENGE_IMAGE_SIZE:
             raise ValidationError("Image must be 5 MB or smaller.")
 
         # ImageField has already verified the image with Pillow. Limit the decoded
@@ -60,6 +66,19 @@ class PostForm(forms.ModelForm):
         cleaned_data = super().clean()
         tags = cleaned_data.get("tags")
         challenge_image = cleaned_data.get("challenge_image")
+
+        if not self.instance._state.adding and tags is not None:
+            had_weekly_challenge_tag = self.instance.tags.filter(
+                title__iexact="Weekly Challenge"
+            ).exists()
+            has_weekly_challenge_tag = tags.filter(
+                title__iexact="Weekly Challenge"
+            ).exists()
+            if had_weekly_challenge_tag != has_weekly_challenge_tag:
+                self.add_error(
+                    "tags",
+                    "The Weekly Challenge tag cannot be added or removed when editing a post.",
+                )
 
         if tags and tags.filter(title__iexact="Weekly Challenge").exists() and not challenge_image:
             self.add_error(
