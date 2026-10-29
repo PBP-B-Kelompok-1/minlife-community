@@ -53,6 +53,12 @@ class User(AbstractUser):
         """URL of the uploaded profile picture, or an empty string if none."""
         return self.avatar.url if self.avatar else ""
 
+    def get_zen_points(self):
+        points = 0
+        points += sum(post.get_vote_count() for post in self.posts.all())
+        points += sum(comment.get_vote_count() for comment in self.comments.all())
+        return points
+
 class Follow(models.Model):
     follower = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="following_links"

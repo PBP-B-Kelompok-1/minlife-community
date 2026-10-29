@@ -192,6 +192,78 @@ class GetPostsJsonTests(PostsTestCase):
         self.assertEqual(response.status_code, 405)
 
 
+class ShowPostAndGetPostJsonTests(PostsTestCase):
+    def setUp(self):
+        super().setUp()
+        self.post = self.create_post(title="Repair cafe")
+
+    def test_show_post_renders_comment_forms_for_the_requested_post(self):
+        response = self.client.get(reverse("posts:show_post", kwargs={"post_id": self.post.pk}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "posts/show_post.html")
+        self.assertEqual(response.context["post_id"], self.post.pk)
+        self.assertIn("comment_form", response.context)
+        self.assertIn("reply_comment_form", response.context)
+
+    def test_get_post_json_includes_post_data_and_viewers_vote(self):
+        Vote.objects.create(user=self.other_user, post=self.post, value=-1)
+        self.client.force_login(self.other_user)
+
+        response = self.client.get(
+            reverse("api:get_post_json", kwargs={"post_id": self.post.pk})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertEqual(data["id"], str(self.post.pk))
+        self.assertEqual(data["username"], self.author.username)
+        self.assertEqual(data["title"], "Repair cafe")
+        self.assertEqual(data["user_vote_value"], -1)
+
+    def test_get_post_json_returns_not_found_for_an_unknown_post(self):
+        response = self.client.get(
+            reverse("api:get_post_json", kwargs={"post_id": "00000000-0000-0000-0000-000000000001"})
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+
+class GetCommentsJsonTests(PostsTestCase):
+    def setUp(self):
+        super().setUp()
+        self.post = self.create_post()
+        self.url = reverse("api:get_comments_json", kwargs={"post_id": self.post.pk})
+
+    def test_returns_nested_comments_with_recursive_reply_counts_and_votes(self):
+        root = Comment.objects.create(post=self.post, user=self.author, content="Root")
+        reply = Comment.objects.create(
+            post=self.post, user=self.other_user, content="Reply", replies_to_comment=root
+        )
+        Comment.objects.create(
+            post=self.post, user=self.author, content="Nested reply", replies_to_comment=reply
+        )
+        Vote.objects.create(user=self.other_user, comment=root, value=1)
+        self.client.force_login(self.other_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        comments = response.json()["data"]
+        self.assertEqual(len(comments), 1)
+        self.assertEqual(comments[0]["content"], "Root")
+        self.assertEqual(comments[0]["vote_count"], 1)
+        self.assertEqual(comments[0]["user_vote_value"], 1)
+        self.assertEqual(comments[0]["reply_count"], 2)
+        self.assertEqual(comments[0]["replies"][0]["content"], "Reply")
+        self.assertEqual(comments[0]["replies"][0]["reply_count"], 1)
+
+    def test_get_comments_only_allows_get_requests(self):
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 405)
+
+
 class VotePostTests(PostsTestCase):
     def setUp(self):
         super().setUp()
@@ -289,6 +361,27 @@ class CreateCommentTests(PostsTestCase):
         reply = Comment.objects.get(content="This is a reply")
         self.assertEqual(reply.replies_to_comment, parent)
 
+    def test_anonymous_user_cannot_create_a_comment(self):
+        response = self.client.post(self.url, {"content": "Please let me in"})
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["login_url"], reverse("login"))
+        self.assertEqual(Comment.objects.count(), 0)
+
+    def test_invalid_comment_submission_returns_form_errors(self):
+        self.client.force_login(self.other_user)
+        response = self.client.post(self.url, {"content": ""})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("content", response.json()["errors"])
+        self.assertEqual(Comment.objects.count(), 0)
+
+    def test_create_comment_only_allows_post_requests(self):
+        self.client.force_login(self.other_user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 405)
+
     def test_cannot_reply_to_a_comment_from_another_post(self):
         other_post = self.create_post(title="Other")
         parent = Comment.objects.create(post=other_post, user=self.author, content="Elsewhere")
@@ -301,3 +394,43 @@ class CreateCommentTests(PostsTestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertFalse(Comment.objects.filter(content="This should not be created").exists())
+
+
+class VoteCommentTests(PostsTestCase):
+    def setUp(self):
+        super().setUp()
+        self.post = self.create_post()
+        self.comment = Comment.objects.create(post=self.post, user=self.author, content="Helpful")
+        self.url = reverse("api:vote_comment", kwargs={"comment_id": self.comment.pk})
+
+    def vote(self, value):
+        return self.client.post(
+            self.url, data=json.dumps({"vote_value": value}), content_type="application/json"
+        )
+
+    def test_anonymous_user_cannot_vote_on_a_comment(self):
+        response = self.vote(1)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["login_url"], reverse("login"))
+
+    def test_comment_vote_creates_changes_and_toggles_a_vote(self):
+        self.client.force_login(self.other_user)
+
+        created = self.vote(1)
+        changed = self.vote(-1)
+        toggled_off = self.vote(-1)
+
+        self.assertEqual((created.json()["vote_value"], created.json()["vote_count"]), (1, 1))
+        self.assertEqual((changed.json()["vote_value"], changed.json()["vote_count"]), (-1, -1))
+        self.assertEqual((toggled_off.json()["vote_value"], toggled_off.json()["vote_count"]), (0, 0))
+        self.assertFalse(Vote.objects.filter(user=self.other_user, comment=self.comment).exists())
+
+    def test_comment_vote_rejects_invalid_input_and_non_post_requests(self):
+        self.client.force_login(self.other_user)
+        invalid = self.vote(0)
+        wrong_method = self.client.get(self.url)
+
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(invalid.json()["error"], "value must be 1 or -1")
+        self.assertEqual(wrong_method.status_code, 405)

@@ -29,7 +29,10 @@
 
         <form method="POST" id="comment-form" class="comment-form shadow hover--expand">
             {% csrf_token %}
-            <img class="comment-form__pfp" src="{% static 'img/judge.jpg'%}"/>
+            <img class="comment-form__pfp" 
+                src="{{ user.avatar_url }}" 
+                onerror="this.onerror=null; this.src='/static/img/pfp.svg';"
+                alt="{{ user.get_username }}'s profile picture">
             <div class="comment-form__inputs">
                 {% for field in comment_form %}
                         <div class="comment-form__field">
@@ -48,7 +51,10 @@
         <template id="reply-form-template">
             <form method="POST" class="comment-form comment__reply-form shadow">
                 {% csrf_token %}
-                <img class="comment-form__pfp" src="{% static 'img/judge.jpg'%}" alt=""/>
+                <img class="comment-form__pfp" 
+                    src="{{ user.avatar_url }}" 
+                    onerror="this.onerror=null; this.src='/static/img/pfp.svg';"
+                    alt="{{ user.get_username }}'s profile picture">
                 <div class="comment-form__inputs">
                     {% for field in reply_comment_form %}
                         <div class="comment-form__field">

@@ -1,13 +1,20 @@
 <style type="text/tailwindcss">
+    .quote { @apply text-center p-10; animation: 1s ease-in 0s 1 fadeIn; }
+    .quote:has(> :empty) { @apply hidden; }
+    .quote__by { @apply text-base text-[var(--tertiary)] italic; }
+    @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
     .posts { @apply flex flex-col gap-6; }
     .posts__status:empty, .comments__status:empty { @apply hidden; }
     .post { @apply relative flex flex-col gap-3 rounded-[var(--radius)] bg-[var(--paper)] px-5 py-4; }
     .post * { @apply h-auto max-w-full; }
     .post > :empty { @apply hidden; }
     .post__show-anchor { @apply absolute inset-0; }
-    .post__title * { @apply text-[1.75rem] font-bold; }
+    .post__author { @apply relative flex gap-2.5 -mb-1; }
+    .post__author__pfp { @apply my-auto flex size-[1.8125rem] aspect-square items-center gap-2.5 rounded-[100rem]; }
+    .post__author__username { @apply text-base font-normal leading-[1.8125rem] text-[var(--tertiary)]; font-family: Quicksand; }
+    .post__author__username:hover { @apply text-[var(--accent)]; }
     .post__tags { @apply relative flex gap-1.5; }
-    .post__content { @apply flex flex-col gap-3; }
+    .post__content { @apply flex flex-col; }
     .post__content * { @apply rounded-[var(--radius)]; }
     .post__actions { @apply flex items-center justify-between; }
     .post__actions--left, .post__actions--right { @apply relative flex gap-3; }
