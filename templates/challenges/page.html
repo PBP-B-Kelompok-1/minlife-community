@@ -59,7 +59,7 @@
                     <div class="flex flex-col gap-3 text-sm text-[var(--secondary)] sm:flex-row sm:items-end sm:justify-between">
                         <p>
                             Tag challenge:
-                            <span class="font-semibold text-[var(--accent)]">{% if challenge.tag %}#{{ challenge.tag.title }}{% else %}#weeklychallenge{{ challenge.pk }}{% endif %}</span>
+                            <span class="font-semibold text-[var(--accent)]">#Weekly Challenge</span>
                         </p>
                         {% if user.is_authenticated and not has_submitted %}
                             <a class="button button--small w-full sm:w-auto" href="{% url 'posts:create_post' %}">

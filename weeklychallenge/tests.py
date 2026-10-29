@@ -162,7 +162,7 @@ class ChallengeServiceAndFormTests(TestCase):
             )
         return data
 
-    def test_create_challenge_creates_badge_tag_and_tasks(self):
+    def test_create_challenge_creates_badge_and_tasks_without_per_challenge_tag(self):
         form = ChallengeForm(data=self.challenge_form_data())
         formset = ChallengeTaskFormSet(data=self.task_formset_data())
 
@@ -172,7 +172,7 @@ class ChallengeServiceAndFormTests(TestCase):
         challenge = create_challenge(form=form, formset=formset, user=self.user)
 
         self.assertEqual(challenge.badge.name, "Digital minimalism Badge")
-        self.assertEqual(challenge.tag.title, f"weeklychallenge{challenge.pk}")
+        self.assertIsNone(challenge.tag)
         self.assertEqual(challenge.created_by, self.user)
         self.assertEqual(list(challenge.tasks.values_list("title", flat=True)), ["Task 1"])
 
@@ -379,9 +379,10 @@ class ChallengeSignalTests(TestCase):
             week_start=start,
             created_by=self.user,
         )
-        challenge.tag = Tag.objects.create(title=f"weeklychallenge{challenge.pk}")
-        challenge.save(update_fields=["tag"])
         return challenge
+
+    def weekly_challenge_tag(self):
+        return Tag.objects.get_or_create(title="Weekly Challenge")[0]
 
     def test_saving_tagged_active_post_creates_submission(self):
         today = timezone.localdate()
@@ -391,7 +392,7 @@ class ChallengeSignalTests(TestCase):
             title="Challenge progress",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
 
         submission = ChallengeSubmission.objects.get(challenge=challenge)
@@ -406,7 +407,7 @@ class ChallengeSignalTests(TestCase):
             title="Late progress",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
 
         self.assertFalse(
@@ -421,14 +422,14 @@ class ChallengeSignalTests(TestCase):
             title="First progress",
             content="Done",
         )
-        first_post.tags.add(challenge.tag)
+        first_post.tags.add(self.weekly_challenge_tag())
         first_post.save()
         second_post = Post.objects.create(
             author=self.user,
             title="Second progress",
             content="Done again",
         )
-        second_post.tags.add(challenge.tag)
+        second_post.tags.add(self.weekly_challenge_tag())
         second_post.save()
 
         self.assertEqual(
@@ -447,7 +448,7 @@ class ChallengeSignalTests(TestCase):
             title="Voted progress",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
 
         Vote.objects.create(user=self.voter, post=post, value=1)
@@ -464,7 +465,7 @@ class ChallengeSignalTests(TestCase):
             title="Not enough votes",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
 
         Vote.objects.create(user=self.voter, post=post, value=1)
@@ -481,7 +482,7 @@ class ChallengeSignalTests(TestCase):
             title="Persistent badge",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
         vote = Vote.objects.create(user=self.voter, post=post, value=1)
 
@@ -499,7 +500,7 @@ class ChallengeSignalTests(TestCase):
             title="Comment target",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
         comment = Comment.objects.create(
             post=post,
@@ -521,7 +522,7 @@ class ChallengeSignalTests(TestCase):
             title="Deleted progress",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
         Vote.objects.create(user=self.voter, post=post, value=1)
 
@@ -704,7 +705,7 @@ class ChallengeViewsTests(TestCase):
         original_badge = challenge.badge
         from posts.models import Tag
 
-        challenge.tag = Tag.objects.create(title=f"weeklychallenge{challenge.pk}")
+        challenge.tag = Tag.objects.create(title="Weekly Challenge")
         challenge.save(update_fields=["tag"])
         original_tag = challenge.tag
         data = {

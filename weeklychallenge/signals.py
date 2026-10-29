@@ -2,23 +2,28 @@ from django.db import IntegrityError
 from django.db.models.signals import post_delete, post_save
 from django.utils import timezone
 
-from .models import Challenge, ChallengeSubmission
+from .models import CHALLENGE_TAG_NAME, Challenge, ChallengeSubmission
 from .services import award_badge_if_eligible
 
 
 def post_saved(sender, instance, **kwargs):
-    """Create an active challenge submission after a tagged Post is saved."""
+    """Create a submission for the current challenge after a tagged Post is saved."""
     today = timezone.localdate()
-    challenges = Challenge.objects.current(today).filter(tag__in=instance.tags.all())
-    for challenge in challenges:
-        try:
-            ChallengeSubmission.objects.get_or_create(
-                challenge=challenge,
-                post=instance,
-                defaults={"user": instance.author},
-            )
-        except IntegrityError:
-            continue
+    if not instance.tags.filter(title=CHALLENGE_TAG_NAME).exists():
+        return
+
+    challenge = Challenge.objects.current(today).first()
+    if challenge is None:
+        return
+
+    try:
+        ChallengeSubmission.objects.get_or_create(
+            challenge=challenge,
+            post=instance,
+            defaults={"user": instance.author},
+        )
+    except IntegrityError:
+        return
 
 
 def _award_badge_for_vote(vote):

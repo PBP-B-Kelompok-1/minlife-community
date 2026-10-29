@@ -6,18 +6,21 @@ Dokumen koordinasi modul Weekly Challenge. Pemilik modul: Clement Kevin Tanadi (
 
 Moderator membuat challenge mingguan yang berisi latar belakang, deskripsi,
 tujuan, tanggal mulai, dan maksimal tujuh tugas harian. Setiap challenge
-memiliki satu badge dan satu tag khusus yang dibuat oleh sistem.
+memiliki satu badge. Submission menggunakan tag bersama `Weekly Challenge`.
 
-Pengguna mengikuti challenge aktif melalui formulir Post biasa dengan mengisi foto bukti. Post yang diberi tag khusus challenge tercatat sebagai `ChallengeSubmission`. Setelah skor Post mencapai ambang `upvote_threshold`, penulis mendapat badge challenge tersebut.
+Pengguna mengikuti challenge aktif melalui formulir Post biasa dengan mengisi foto
+bukti. Post yang diberi tag `Weekly Challenge` tercatat sebagai
+`ChallengeSubmission` untuk challenge yang sedang aktif. Setelah skor Post
+mencapai ambang `upvote_threshold`, penulis mendapat badge challenge tersebut.
 
 Weekly Challenge menggunakan model dari aplikasi Posts dan Users. Posts mengimpor helper yang diperlukan dari `weeklychallenge/services.py`; Users tidak perlu mengimpor kode dari Weekly Challenge.
 
 ## Alur challenge
 
-1. Moderator membuat challenge. Dalam satu transaksi, sistem membuat challenge, badge, tag khusus, dan tugas-tugasnya.
-2. Nama tag sistem menggunakan format `weeklychallenge<id-challenge>`. Relasinya disimpan di `Challenge.tag`.
-3. Pengguna hanya dapat mengikuti challenge yang sedang aktif. Mereka membuat
-   Post melalui formulir Posts, memilih challenge aktif, dan mengunggah
+1. Moderator membuat challenge. Dalam satu transaksi, sistem membuat challenge,
+   badge, dan tugas-tugasnya.
+2. Pengguna hanya dapat mengikuti challenge yang sedang aktif. Mereka membuat
+   Post melalui formulir Posts, menggunakan tag `Weekly Challenge`, dan mengunggah
    `challenge_image`.
 4. Setelah Post disimpan dengan tag challenge, sinyal `post_save` membuat `ChallengeSubmission`. Satu pengguna hanya dapat memiliki satu submission per challenge.
 5. Sinyal pada perubahan Vote mengevaluasi skor Post, yaitu upvote dikurangi downvote. Jika skor memenuhi ambang challenge, sistem memberikan badge kepada penulis.
@@ -30,15 +33,19 @@ Challenge tidak boleh memiliki rentang tanggal yang tumpang tindih. Dengan demik
 - Sediakan field dan perilaku Post yang dibutuhkan Weekly Challenge: `author`, `title`, `content`, `tags`, `challenge_image`, dan `get_vote_count()`.
 - Gunakan `get_current_challenge()` untuk menemukan challenge aktif, dan `user_has_submitted(user, challenge)` untuk memeriksa apakah pengguna sudah ikut.
 - Tampilkan pilihan ikut challenge hanya saat ada challenge aktif. Nonaktifkan pilihan itu untuk pengguna yang sudah memiliki submission.
-- Tag khusus challenge tidak boleh muncul sebagai pilihan tag umum. Ambil tag umum dengan `Tag.objects.filter(challenge__isnull=True)`.
-- Setelah Post disimpan, tambahkan tag challenge melalui `post.tags.add(challenge.tag)`. Jangan membuat `ChallengeSubmission` secara langsung atau menulis ke tabel perantara; sinyal mengurus pencatatannya.
+- Gunakan tag bersama `Weekly Challenge` untuk submission; jangan membuat tag per
+  challenge.
+- Setelah Post disimpan dengan tag `Weekly Challenge`, sinyal menghubungkan Post
+  ke challenge yang sedang aktif. Jangan membuat `ChallengeSubmission` secara
+  langsung atau menulis ke tabel perantara; sinyal mengurus pencatatannya.
 - Setelah `form.save_m2m()` selesai, simpan Post sekali lagi agar `post_save` melihat tag challenge yang sudah terpasang dan membuat submission.
-- Saat mengedit Post, pertahankan tag challenge yang sudah terpasang ketika menyimpan ulang pilihan tag biasa. `form.save_m2m()` atau `tags.set()` dapat menghapus tag tersebut jika tidak disertakan.
+- Saat mengedit Post, pertahankan tag `Weekly Challenge` yang sudah terpasang
+  ketika menyimpan ulang pilihan tag biasa. `form.save_m2m()` atau `tags.set()`
+  dapat menghapus tag tersebut jika tidak disertakan.
 - Wajibkan `challenge_image` saat pengguna memilih ikut challenge.
 - Gunakan sinyal `post_save` dan `post_delete` pada Vote untuk mengevaluasi badge. Jangan mengubah Vote melalui `update()` atau `bulk_create()` karena cara tersebut tidak memicu sinyal model.
-- Jangan menghapus tag sistem secara terpisah dari challenge; relasi tag challenge
-  menggunakan `SET_NULL` agar penghapusan challenge tidak memblokir penghapusan
-  dan tidak menghapus data tag yang mungkin masih direferensikan oleh Post.
+- Field `Challenge.tag` dipertahankan hanya untuk kompatibilitas data lama dan
+  tidak digunakan untuk challenge baru.
 - URL detail Post menggunakan UUID; tautan dari halaman challenge harus memakai nama URL milik Posts, bukan merangkai URL sendiri.
 - Pastikan `MEDIA_ROOT` dan `MEDIA_URL` dikonfigurasi, serta berkas unggahan tetap tersedia setelah deployment ke PWS.
 - Perbaiki `Vote.__str__` agar aman untuk Vote komentar, yang tidak memiliki Post.
@@ -102,7 +109,8 @@ Sinyal yang digunakan:
 
 ## Keputusan yang disepakati
 
-- Setiap challenge memiliki satu tag sistem; pengguna tidak memilih tag tersebut dari daftar tag umum.
+- Semua challenge memakai tag sistem bersama `Weekly Challenge`; pengguna tidak
+  memilih tag per challenge.
 - Submission dibuat hanya melalui formulir Post milik Posts, bukan melalui formulir atau view submission di Weekly Challenge.
 - Challenge aktif menerima submission; challenge yang sudah lewat tidak.
 - Maksimal tujuh tugas per challenge, bernomor 1 sampai 7, dan nomor hari tidak boleh duplikat dalam challenge yang sama.

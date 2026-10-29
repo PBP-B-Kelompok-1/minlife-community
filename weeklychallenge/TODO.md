@@ -36,14 +36,12 @@ demonstration.
 
 ### Posts and Challenge integration
 
-- [ ] Pass the active Challenge into the Posts form instead of relying on the legacy
-      static `Weekly Challenge` Tag.
-- [ ] Let users explicitly select the active Challenge when creating a submission.
-- [ ] Exclude system Challenge Tags from the general-purpose Tag selector.
-- [ ] Validate that a selected Challenge is currently open before saving the Post.
-- [ ] Require `challenge_image` when a Challenge is selected.
-- [ ] Attach the selected Challenge's dynamic Tag after the Post is saved.
-- [ ] Preserve the Challenge Tag when a Post is edited and ordinary tags are replaced.
+- [x] Use the shared `Weekly Challenge` tag for challenge submissions.
+- [x] Associate a tagged Post with the current Challenge automatically.
+- [x] Stop creating per-challenge system tags.
+- [x] Require `challenge_image` for `Weekly Challenge` Posts.
+- [ ] Preserve the shared `Weekly Challenge` tag when a Post is edited and ordinary
+      tags are replaced.
 - [ ] Keep the second `post.save()` after `form.save_m2m()` so the `post_save` signal
       sees the completed tag set.
 - [ ] Add end-to-end Posts tests covering valid submission, missing image, inactive
@@ -142,8 +140,9 @@ git diff --check
 
 ## Known concerns to resolve or explicitly accept
 
-- [ ] Dynamic Challenge Tags and the legacy static `Weekly Challenge` Tag currently
-      represent two different concepts in Posts.
+- [x] The shared `Weekly Challenge` tag is the only tag used for new submissions.
+- [x] The nullable `Challenge.tag` relation is deprecated and retained for legacy
+      data compatibility.
 - [ ] The `post_save` submission signal depends on the Post being saved after M2M tags
       are assigned.
 - [ ] `Badge.__str__` should be implemented if the Users module requires readable Badge
