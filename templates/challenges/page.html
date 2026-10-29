@@ -15,7 +15,7 @@
                     <div class="flex flex-col gap-2">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <p class="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
-                                Weekly Challenge
+                                Weekly Challenge #{{ challenge.pk }}
                             </p>
                             {% if can_create_challenge %}
                                 <a class="button button--small w-full sm:w-auto" href="{% url 'weeklychallenge:challenge_create' %}">
@@ -25,7 +25,7 @@
                             {% endif %}
                         </div>
                         <h1 class="text-2xl font-bold leading-tight sm:text-3xl">
-                            #{{ challenge.pk }}: {{ challenge.title }}
+                            {{ challenge.title }}
                         </h1>
                         <a class="self-start text-sm font-semibold text-[var(--accent)] hover:underline" href="{% url 'weeklychallenge:challenge_detail' challenge.pk %}">
                             Detail challenge
@@ -59,7 +59,7 @@
                     <div class="flex flex-col gap-3 text-sm text-[var(--secondary)] sm:flex-row sm:items-end sm:justify-between">
                         <p>
                             Tag challenge:
-                            <span class="font-semibold text-[var(--accent)]">{% if challenge.tag %}#{{ challenge.tag.title }}{% else %}#weeklychallenge{{ challenge.pk }}{% endif %}</span>
+                            <span class="font-semibold text-[var(--accent)]">#Weekly Challenge</span>
                         </p>
                         {% if user.is_authenticated and not has_submitted %}
                             <a class="button button--small w-full sm:w-auto" href="{% url 'posts:create_post' %}">
@@ -79,7 +79,7 @@
             <section class="rounded-[var(--radius)] bg-[var(--paper)] px-6 pb-6 pt-8 shadow sm:px-10">
                 <div class="mx-auto max-w-2xl">
                     {% if current_task %}
-                        <h2 class="-mt-12 mb-4 inline-flex max-w-full rounded-[var(--radius)] bg-[var(--secondary)] px-5 py-2 text-lg font-bold text-white shadow sm:text-xl">
+                        <h2 class="-mt-12 mb-4 flex w-fit max-w-full mx-auto rounded-[var(--radius)] bg-[var(--secondary)] px-5 py-2 text-lg font-bold text-white shadow sm:text-xl">
                             Hari {{ current_task.day_number }}: {{ current_task.title }}
                         </h2>
                         <p class="whitespace-pre-line leading-relaxed text-[var(--secondary)]">

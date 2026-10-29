@@ -65,6 +65,7 @@ class Challenge(models.Model):
     background = models.TextField(help_text="Latar belakang masalah")
     description = models.TextField(help_text="Deskripsi challenge")
     goal = models.TextField(help_text="Tujuan/ekspektasi setelah challenge")
+    # Deprecated legacy relation; new challenges use the shared Weekly Challenge tag.
     tag = models.OneToOneField(
         "posts.Tag",
         on_delete=models.SET_NULL,

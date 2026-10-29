@@ -21,8 +21,7 @@ def user_has_submitted(user, challenge):
 
 @transaction.atomic
 def create_challenge(*, form, formset, user):
-    """Create a challenge, its badge and tag, and its validated task formset atomically."""
-    from posts.models import Tag
+    """Create a challenge, its badge, and validated task formset atomically."""
     from users.models import Badge
 
     challenge = form.save(commit=False)
@@ -32,9 +31,6 @@ def create_challenge(*, form, formset, user):
     )
     challenge.created_by = user
     challenge.save()
-
-    challenge.tag = Tag.objects.create(title=f"weeklychallenge{challenge.pk}")
-    challenge.save(update_fields=["tag"])
 
     formset.instance = challenge
     formset.save()
