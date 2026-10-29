@@ -2,6 +2,14 @@
     .quote { @apply text-center p-10; animation: 1s ease-in 0s 1 fadeIn; }
     .quote:has(> :empty) { @apply hidden; }
     .quote__by { @apply text-base text-[var(--tertiary)] italic; }
+    .latest-announcement { @apply mb-6 flex flex-col gap-3 rounded-[var(--radius)] bg-[var(--paper)] px-5 py-4 no-underline; }
+    .latest-announcement__heading, .latest-announcement__meta { @apply text-[var(--tertiary)]; }
+    .latest-announcement__heading { @apply m-0 text-sm font-semibold uppercase tracking-wide; }
+    .latest-announcement__body { @apply flex items-center justify-between gap-4 text-[var(--secondary)]; }
+    .latest-announcement__body h3 { @apply m-0 truncate text-base font-semibold; }
+    .latest-announcement__body p, .latest-announcement__empty { @apply m-0 text-sm text-[var(--tertiary)]; }
+    .latest-announcement__meta { @apply flex shrink-0 items-center gap-3 text-xs; }
+    .latest-announcement__empty { @apply italic; }
     @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
     .posts { @apply flex flex-col gap-6; }
     .posts__status:empty, .comments__status:empty { @apply hidden; }
