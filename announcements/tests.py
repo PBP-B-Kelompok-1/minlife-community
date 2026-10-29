@@ -891,3 +891,171 @@ class AnnouncementHtmxMutationTests(TestCase):
             post_response,
             "Announcement deleted successfully.",
         )
+
+
+class FCMSubscriptionTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.user = user_model.objects.create_user(
+            username="notification-subscriber",
+            password="test-password",
+        )
+        cls.other_user = user_model.objects.create_user(
+            username="other-notification-subscriber",
+            password="test-password",
+        )
+
+    def subscription_model(self):
+        from .models import FCMSubscription
+
+        return FCMSubscription
+
+    def subscribe_url(self):
+        return reverse("announcements:notification_subscribe")
+
+    def unsubscribe_url(self):
+        return reverse("announcements:notification_unsubscribe")
+
+    def post_json(self, url, payload):
+        return self.client.post(
+            url,
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+    def test_subscription_uses_expected_field_configuration(self):
+        subscription_model = self.subscription_model()
+        subscription = subscription_model.objects.create(
+            user=self.user,
+            installation_id="firebase-installation-id",
+        )
+
+        self.assertIsInstance(subscription.pk, uuid.UUID)
+        self.assertFalse(subscription_model._meta.get_field("id").editable)
+        self.assertEqual(
+            subscription_model._meta.get_field("installation_id").max_length,
+            255,
+        )
+        self.assertTrue(
+            subscription_model._meta.get_field("installation_id").unique
+        )
+        self.assertEqual(
+            subscription_model._meta.get_field("user").remote_field.related_name,
+            "fcm_subscriptions",
+        )
+        self.assertEqual(
+            subscription_model._meta.ordering,
+            ["-updated_at", "-id"],
+        )
+
+    def test_guest_is_redirected_to_login_for_subscription_endpoints(self):
+        for url in (self.subscribe_url(), self.unsubscribe_url()):
+            response = self.post_json(
+                url,
+                {"installation_id": "firebase-installation-id"},
+            )
+
+            self.assertRedirects(
+                response,
+                f"{reverse('login')}?next={url}",
+                fetch_redirect_response=False,
+            )
+
+    def test_authenticated_user_can_subscribe_an_installation(self):
+        self.client.force_login(self.user)
+
+        response = self.post_json(
+            self.subscribe_url(),
+            {"installation_id": "firebase-installation-id"},
+        )
+
+        subscription = self.subscription_model().objects.get()
+        self.assertEqual(response.status_code, 201)
+        self.assertJSONEqual(response.content, {"subscribed": True})
+        self.assertEqual(subscription.user, self.user)
+        self.assertEqual(subscription.installation_id, "firebase-installation-id")
+
+    def test_subscribing_an_existing_installation_reassigns_it_to_current_user(self):
+        subscription_model = self.subscription_model()
+        subscription = subscription_model.objects.create(
+            user=self.other_user,
+            installation_id="shared-browser-installation-id",
+        )
+        self.client.force_login(self.user)
+
+        response = self.post_json(
+            self.subscribe_url(),
+            {"installation_id": subscription.installation_id},
+        )
+
+        subscription.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(subscription_model.objects.count(), 1)
+        self.assertEqual(subscription.user, self.user)
+
+    def test_subscribe_rejects_invalid_json_and_installation_ids(self):
+        self.client.force_login(self.user)
+        invalid_requests = [
+            ("not-json", "application/json"),
+            (json.dumps({}), "application/json"),
+            (json.dumps({"installation_id": ""}), "application/json"),
+            (json.dumps({"installation_id": 123}), "application/json"),
+            (json.dumps({"installation_id": "x" * 256}), "application/json"),
+        ]
+
+        for body, content_type in invalid_requests:
+            with self.subTest(body=body):
+                response = self.client.post(
+                    self.subscribe_url(),
+                    data=body,
+                    content_type=content_type,
+                )
+                self.assertEqual(response.status_code, 400)
+
+        self.assertEqual(self.subscription_model().objects.count(), 0)
+
+    def test_user_can_unsubscribe_their_own_installation_idempotently(self):
+        subscription_model = self.subscription_model()
+        subscription_model.objects.create(
+            user=self.user,
+            installation_id="firebase-installation-id",
+        )
+        self.client.force_login(self.user)
+
+        first_response = self.post_json(
+            self.unsubscribe_url(),
+            {"installation_id": "firebase-installation-id"},
+        )
+        second_response = self.post_json(
+            self.unsubscribe_url(),
+            {"installation_id": "firebase-installation-id"},
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertJSONEqual(first_response.content, {"subscribed": False})
+        self.assertJSONEqual(second_response.content, {"subscribed": False})
+        self.assertFalse(subscription_model.objects.exists())
+
+    def test_user_cannot_unsubscribe_another_users_installation(self):
+        subscription_model = self.subscription_model()
+        subscription = subscription_model.objects.create(
+            user=self.other_user,
+            installation_id="other-users-installation-id",
+        )
+        self.client.force_login(self.user)
+
+        response = self.post_json(
+            self.unsubscribe_url(),
+            {"installation_id": subscription.installation_id},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(subscription_model.objects.filter(pk=subscription.pk).exists())
+
+    def test_subscription_endpoints_only_accept_post(self):
+        self.client.force_login(self.user)
+
+        for url in (self.subscribe_url(), self.unsubscribe_url()):
+            self.assertEqual(self.client.get(url).status_code, 405)
