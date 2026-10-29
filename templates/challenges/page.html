@@ -17,7 +17,7 @@
                             <p class="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
                                 Weekly Challenge
                             </p>
-                            {% if is_moderator %}
+                            {% if can_create_challenge %}
                                 <a class="button button--small w-full sm:w-auto" href="{% url 'weeklychallenge:challenge_create' %}">
                                     <i class="fa-solid fa-plus" aria-hidden="true"></i>
                                     Buat challenge
@@ -151,7 +151,7 @@
                     Challenge mingguan berikutnya akan muncul di sini. Sementara itu, kamu tetap bisa berbagi cerita di komunitas.
                 </p>
                 <a class="button mt-6" href="{% url 'frontpage' %}">Jelajahi komunitas</a>
-                {% if is_moderator %}
+                {% if can_create_challenge %}
                     <a class="button button--border mt-3" href="{% url 'weeklychallenge:challenge_create' %}">Buat challenge</a>
                 {% endif %}
             </section>
@@ -168,8 +168,6 @@
                         <a class="rounded-[var(--radius)] bg-[var(--paper)] p-5 shadow transition hover:shadow-lg" href="{% url 'weeklychallenge:challenge_detail' upcoming.pk %}">
                             <p class="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">{{ upcoming.week_start|date:"j M Y" }}</p>
                             <h3 class="mt-1 font-bold">{{ upcoming.title }}</h3>
-                            <p class="mt-1 line-clamp-2 text-sm text-[var(--tertiary)]">{{ upcoming.description }}</p>
-                            <p class="mt-2 text-xs text-[var(--tertiary)]">{{ upcoming.submission_count }} progres</p>
                         </a>
                     {% endfor %}
                 </div>

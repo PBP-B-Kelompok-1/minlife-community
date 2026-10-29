@@ -4,7 +4,9 @@ Dokumen koordinasi modul Weekly Challenge. Pemilik modul: Clement Kevin Tanadi (
 
 ## Ringkasan
 
-Moderator membuat challenge mingguan yang berisi latar belakang, deskripsi, tujuan, dan maksimal tujuh tugas harian. Setiap challenge memiliki satu badge dan satu tag khusus yang dibuat oleh sistem.
+Moderator membuat challenge mingguan yang berisi latar belakang, deskripsi,
+tujuan, tanggal mulai, dan maksimal tujuh tugas harian. Setiap challenge
+memiliki satu badge dan satu tag khusus yang dibuat oleh sistem.
 
 Pengguna mengikuti challenge aktif melalui formulir Post biasa dengan mengisi foto bukti. Post yang diberi tag khusus challenge tercatat sebagai `ChallengeSubmission`. Setelah skor Post mencapai ambang `upvote_threshold`, penulis mendapat badge challenge tersebut.
 
@@ -14,7 +16,9 @@ Weekly Challenge menggunakan model dari aplikasi Posts dan Users. Posts mengimpo
 
 1. Moderator membuat challenge. Dalam satu transaksi, sistem membuat challenge, badge, tag khusus, dan tugas-tugasnya.
 2. Nama tag sistem menggunakan format `weeklychallenge<id-challenge>`. Relasinya disimpan di `Challenge.tag`.
-3. Pengguna hanya dapat mengikuti challenge yang sedang aktif. Mereka membuat Post melalui formulir Posts, mencentang pilihan ikut challenge, dan mengunggah `challenge_image`.
+3. Pengguna hanya dapat mengikuti challenge yang sedang aktif. Mereka membuat
+   Post melalui formulir Posts, memilih challenge aktif, dan mengunggah
+   `challenge_image`.
 4. Setelah Post disimpan dengan tag challenge, sinyal `post_save` membuat `ChallengeSubmission`. Satu pengguna hanya dapat memiliki satu submission per challenge.
 5. Sinyal pada perubahan Vote mengevaluasi skor Post, yaitu upvote dikurangi downvote. Jika skor memenuhi ambang challenge, sistem memberikan badge kepada penulis.
 6. Badge yang sudah diberikan tidak dicabut jika skor turun atau Post dihapus.
@@ -32,18 +36,22 @@ Challenge tidak boleh memiliki rentang tanggal yang tumpang tindih. Dengan demik
 - Saat mengedit Post, pertahankan tag challenge yang sudah terpasang ketika menyimpan ulang pilihan tag biasa. `form.save_m2m()` atau `tags.set()` dapat menghapus tag tersebut jika tidak disertakan.
 - Wajibkan `challenge_image` saat pengguna memilih ikut challenge.
 - Gunakan sinyal `post_save` dan `post_delete` pada Vote untuk mengevaluasi badge. Jangan mengubah Vote melalui `update()` atau `bulk_create()` karena cara tersebut tidak memicu sinyal model.
-- Tangani `ProtectedError` jika penghapusan tag dicoba pada tag yang dipakai oleh challenge (`PROTECT`).
+- Jangan menghapus tag sistem secara terpisah dari challenge; relasi tag challenge
+  menggunakan `SET_NULL` agar penghapusan challenge tidak memblokir penghapusan
+  dan tidak menghapus data tag yang mungkin masih direferensikan oleh Post.
 - URL detail Post menggunakan UUID; tautan dari halaman challenge harus memakai nama URL milik Posts, bukan merangkai URL sendiri.
 - Pastikan `MEDIA_ROOT` dan `MEDIA_URL` dikonfigurasi, serta berkas unggahan tetap tersedia setelah deployment ke PWS.
 - Perbaiki `Vote.__str__` agar aman untuk Vote komentar, yang tidak memiliki Post.
 
 ## Integrasi dengan Users (Husainah)
 
-- Sediakan model `Badge` dan `UserBadge`. `Challenge.badge` merujuk ke Badge; satu pengguna tidak dapat menerima Badge yang sama lebih dari sekali.
+- Sediakan model `Badge` dan `UserBadge`. Setiap `Challenge` memiliki tepat satu Badge, dan satu Badge hanya dapat dimiliki oleh satu Challenge. Satu pengguna tidak dapat menerima Badge yang sama lebih dari sekali.
+- `UserBadge.badge` tetap menggunakan kebijakan penghapusan yang menjaga Badge
+  dan riwayat UserBadge yang sudah diperoleh ketika Challenge dihapus.
 - Badge dibuat oleh layanan Weekly Challenge saat moderator membuat challenge. `UserBadge` diberikan oleh layanan badge menggunakan `get_or_create`; jangan membuat keduanya dari alur lain.
 - Pastikan `Badge.__str__` mengembalikan nama badge.
 - Profil pengguna dapat menampilkan badge melalui `user.user_badges`, diurutkan menurut `earned_at`.
-- Moderator menggunakan Django Group bernama `Moderator`, bukan pemeriksaan `is_staff`. Berikan izin `add_challenge`, `change_challenge`, dan `delete_challenge` untuk aplikasi `weeklychallenge` setelah migrasi membuat izin tersebut.
+- Tampilkan tombol membuat challenge kepada user yang memiliki izin `weeklychallenge.add_challenge`; anggota Group `Moderator` biasanya menerima izin tersebut, dan superuser juga dapat mengaksesnya. Berikan izin `add_challenge`, `change_challenge`, dan `delete_challenge` untuk aplikasi `weeklychallenge` setelah migrasi membuat izin tersebut.
 - Gunakan `from django.conf import settings` untuk mengakses `AUTH_USER_MODEL` dari model Users.
 
 ## Setup dan pemeriksaan bersama
@@ -66,6 +74,13 @@ Challenge tidak boleh memiliki rentang tanggal yang tumpang tindih. Dengan demik
 - [x] Form challenge dengan date picker, validasi rentang tanggal, validasi overlap, dan batas maksimal tujuh tugas.
 - [x] View dan URL untuk halaman challenge, daftar/filter, detail, edit, hapus dengan konfirmasi, leaderboard, serta endpoint HTMX untuk form tugas.
 - [x] Template responsif untuk desktop dan mobile menggunakan Tailwind dan HTMX.
+- [x] HTMX untuk filter/search/pagination direktori, navigasi detail, leaderboard,
+  form create/edit, task-row controls, dan konfirmasi delete.
+- [x] Fallback non-HTMX untuk seluruh alur CRUD, termasuk form `action`, link
+  `href`, request POST biasa, dan redirect HTTP standar.
+- [x] Permission checks server-side, `HX-Redirect` untuk request anonim, CSRF
+  header, error feedback, modal native `<dialog>`, dan event refresh
+  `challengeChanged`.
 - [x] Tes terfokus untuk service, form, model constraint, permission, filtering, rendering, update, delete, badge persistence, dan sinyal sudah tersedia.
 - [x] Sinyal Django untuk submission berbasis tag dan pemberian badge berbasis Vote sudah diimplementasikan.
 
@@ -96,7 +111,33 @@ Sinyal yang digunakan:
 - Badge tidak dicabut setelah diberikan, termasuk jika skor turun atau Post dihapus.
 - Perubahan Vote ditangani melalui sinyal model di Weekly Challenge.
 
-## Hal yang masih perlu diputuskan
+## Keputusan implementasi
 
-- Apa yang seharusnya terjadi jika moderator menghapus challenge yang sudah memiliki submission? Perilaku saat ini: submission terkait terhapus, sedangkan Post dan tag tetap ada.
+- Jika moderator menghapus challenge yang sudah memiliki submission, submission
+  terkait terhapus, sedangkan Post, tag, Badge, dan UserBadge yang sudah
+  diperoleh tetap ada. Badge yang sudah diperoleh tidak pernah dicabut.
+- Badge challenge menggunakan relasi satu-ke-satu dan `SET_NULL` saat challenge
+  dihapus. Badge tidak ikut terhapus karena tetap menjadi bukti pencapaian.
+- Request HTMX tidak pernah menerima fragment untuk navigasi boosted atau history
+  restore; kedua jenis request tersebut menerima halaman penuh agar reload dan
+  tombol back tetap berfungsi.
+
+## Validasi
+
+Jalankan dari root project:
+
+```powershell
+python manage.py check
+python manage.py test weeklychallenge posts
+python manage.py makemigrations --check --dry-run
+git diff --check
+```
+
+Test modul Weekly Challenge mencakup model, service, form, permission,
+filtering, rendering, update, delete, persistence Badge, signal, dan interaksi
+HTMX. Manual browser checks untuk responsive layout, keyboard focus, screen
+reader, JS-disabled fallback, dan deployment tetap perlu dilakukan sebelum demo.
+
+Pertanyaan terbuka yang tidak memblokir implementasi saat ini:
+
 - Apakah nomor tugas perlu dibatasi oleh durasi challenge, selain batas tetap 1–7?

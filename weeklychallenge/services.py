@@ -1,18 +1,11 @@
 from django.db import transaction
-from django.utils import timezone
 
 from .models import Challenge, ChallengeSubmission
 
 
 def get_current_challenge(today=None):
     """Return the challenge whose date range includes today, if one exists."""
-    if today is None:
-        today = timezone.localdate()
-
-    return Challenge.objects.filter(
-        week_start__lte=today,
-        week_end__gte=today,
-    ).first()
+    return Challenge.objects.current(today).first()
 
 
 def user_has_submitted(user, challenge):

@@ -8,11 +8,8 @@ from .services import award_badge_if_eligible
 
 def post_saved(sender, instance, **kwargs):
     """Create an active challenge submission after a tagged Post is saved."""
-    challenges = Challenge.objects.filter(
-        tag__in=instance.tags.all(),
-        week_start__lte=timezone.localdate(),
-        week_end__gte=timezone.localdate(),
-    )
+    today = timezone.localdate()
+    challenges = Challenge.objects.current(today).filter(tag__in=instance.tags.all())
     for challenge in challenges:
         try:
             ChallengeSubmission.objects.get_or_create(

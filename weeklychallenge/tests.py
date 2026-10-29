@@ -12,7 +12,7 @@ from django.utils import timezone
 from posts.models import Comment, Post, Tag, Vote
 from users.models import Badge, UserBadge
 from .forms import ChallengeForm, ChallengeTaskFormSet
-from .models import Challenge, ChallengeSubmission
+from .models import Challenge, ChallengeSubmission, MAX_TASKS_PER_CHALLENGE
 from .services import (
     award_badge_if_eligible,
     create_challenge,
@@ -47,17 +47,24 @@ class ChallengeTaskRowHTMXTests(TestCase):
             username="regular-user",
             password="test-password",
         )
-        permission = Permission.objects.get(
-            content_type__app_label="weeklychallenge",
-            codename="add_challenge",
-        )
-        normal_user.user_permissions.add(permission)
         self.client.force_login(normal_user)
 
         response = self.client.get(reverse("weeklychallenge:show_weekly_challenge"))
 
         self.assertNotContains(response, reverse("weeklychallenge:challenge_create"))
         self.assertNotContains(response, "Buat challenge")
+
+    def test_create_button_is_shown_to_superuser(self):
+        superuser = get_user_model().objects.create_superuser(
+            username="superuser",
+            password="test-password",
+        )
+        self.client.force_login(superuser)
+
+        response = self.client.get(reverse("weeklychallenge:show_weekly_challenge"))
+
+        self.assertContains(response, reverse("weeklychallenge:challenge_create"))
+        self.assertContains(response, "Buat challenge")
 
     def test_add_task_row_updates_formset_management_count(self):
         response = self.client.get(
@@ -115,7 +122,7 @@ class ChallengeServiceAndFormTests(TestCase):
             password="test-password",
         )
 
-    def make_challenge(self, *, week_start, week_end, threshold=2):
+    def make_challenge(self, *, week_start, threshold=2):
         badge = Badge.objects.create(name="Test Badge")
         return Challenge.objects.create(
             title="Test challenge",
@@ -125,11 +132,10 @@ class ChallengeServiceAndFormTests(TestCase):
             upvote_threshold=threshold,
             badge=badge,
             week_start=week_start,
-            week_end=week_end,
             created_by=self.user,
         )
 
-    def challenge_form_data(self, *, start="2026-11-01", end="2026-11-07"):
+    def challenge_form_data(self, *, start="2026-11-01"):
         return {
             "title": "Digital minimalism",
             "background": "Too many distractions.",
@@ -137,7 +143,6 @@ class ChallengeServiceAndFormTests(TestCase):
             "goal": "Build focus.",
             "upvote_threshold": "2",
             "week_start": start,
-            "week_end": end,
         }
 
     def task_formset_data(self, count=1):
@@ -172,23 +177,24 @@ class ChallengeServiceAndFormTests(TestCase):
         self.assertEqual(list(challenge.tasks.values_list("title", flat=True)), ["Task 1"])
 
     def test_form_rejects_overlapping_challenge_ranges(self):
-        self.make_challenge(
-            week_start=date(2026, 10, 25),
-            week_end=date(2026, 11, 1),
-        )
+        # Oct 26 to Nov 1 (inclusive) overlaps a challenge starting Nov 1
+        self.make_challenge(week_start=date(2026, 10, 26))
         form = ChallengeForm(data=self.challenge_form_data())
 
         self.assertFalse(form.is_valid())
         self.assertIn(
             "Rentang tanggal challenge tidak boleh tumpang tindih dengan challenge lain.",
-            form.non_field_errors(),
+            form.errors["week_start"],
         )
+    
+    def test_form_allows_back_to_back_challenges(self):
+        self.make_challenge(week_start=date(2026, 10, 25))  # ends Oct 31
+        form = ChallengeForm(data=self.challenge_form_data(start="2026-11-01"))
+
+        self.assertTrue(form.is_valid(), form.errors)
 
     def test_form_allows_edit_without_overlapping_itself(self):
-        challenge = self.make_challenge(
-            week_start=date(2026, 11, 1),
-            week_end=date(2026, 11, 7),
-        )
+        challenge = self.make_challenge(week_start=date(2026, 11, 1))
         form = ChallengeForm(
             data=self.challenge_form_data(),
             instance=challenge,
@@ -196,13 +202,12 @@ class ChallengeServiceAndFormTests(TestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
 
-    def test_form_rejects_end_before_start(self):
-        form = ChallengeForm(
-            data=self.challenge_form_data(start="2026-11-08", end="2026-11-01")
-        )
+    def test_form_rejects_overlapping_window_on_week_start(self):
+        self.make_challenge(week_start=date(2026, 11, 1))
+        form = ChallengeForm(data=self.challenge_form_data(start="2026-11-05"))
 
         self.assertFalse(form.is_valid())
-        self.assertIn("week_end", form.errors)
+        self.assertIn("week_start", form.errors)
 
     def test_formset_rejects_more_than_seven_tasks(self):
         formset = ChallengeTaskFormSet(data=self.task_formset_data(count=8))
@@ -214,14 +219,10 @@ class ChallengeServiceAndFormTests(TestCase):
         form = ChallengeForm()
 
         self.assertEqual(form.fields["week_start"].widget.input_type, "date")
-        self.assertEqual(form.fields["week_end"].widget.input_type, "date")
 
     @patch("weeklychallenge.models.timezone.localdate")
     def test_challenge_is_open_on_both_boundary_dates_only(self, localdate):
-        challenge = self.make_challenge(
-            week_start=date(2026, 11, 1),
-            week_end=date(2026, 11, 7),
-        )
+        challenge = self.make_challenge(week_start=date(2026, 11, 1))
 
         localdate.return_value = date(2026, 10, 31)
         self.assertFalse(challenge.is_open)
@@ -232,11 +233,24 @@ class ChallengeServiceAndFormTests(TestCase):
         localdate.return_value = date(2026, 11, 8)
         self.assertFalse(challenge.is_open)
 
+    def test_challenge_status_querysets_cover_all_boundaries(self):
+        start = date(2026, 11, 1)
+        challenge = self.make_challenge(week_start=start)
+        before = start - timedelta(days=1)
+        last_day = start + timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
+        after = last_day + timedelta(days=1)
+
+        self.assertNotIn(challenge, Challenge.objects.current(before))
+        self.assertIn(challenge, Challenge.objects.upcoming(before))
+        self.assertIn(challenge, Challenge.objects.current(start))
+        self.assertNotIn(challenge, Challenge.objects.past(start))
+        self.assertIn(challenge, Challenge.objects.current(last_day))
+        self.assertNotIn(challenge, Challenge.objects.past(last_day))
+        self.assertIn(challenge, Challenge.objects.past(after))
+        self.assertNotIn(challenge, Challenge.objects.current(after))
+
     def test_submission_is_unique_per_user_and_challenge(self):
-        challenge = self.make_challenge(
-            week_start=date(2026, 11, 1),
-            week_end=date(2026, 11, 7),
-        )
+        challenge = self.make_challenge(week_start=date(2026, 11, 1))
         post = Post.objects.create(author=self.user, title="Progress", content="Done")
         ChallengeSubmission.objects.create(
             challenge=challenge,
@@ -258,28 +272,19 @@ class ChallengeServiceAndFormTests(TestCase):
                 )
 
     def test_get_current_challenge_includes_start_and_end_dates(self):
-        challenge = self.make_challenge(
-            week_start=date(2026, 11, 1),
-            week_end=date(2026, 11, 7),
-        )
+        challenge = self.make_challenge(week_start=date(2026, 11, 1))
 
         self.assertEqual(get_current_challenge(date(2026, 11, 1)), challenge)
         self.assertEqual(get_current_challenge(date(2026, 11, 7)), challenge)
         self.assertIsNone(get_current_challenge(date(2026, 11, 8)))
 
     def test_user_has_submitted_returns_false_for_anonymous_users(self):
-        challenge = self.make_challenge(
-            week_start=date(2026, 11, 1),
-            week_end=date(2026, 11, 7),
-        )
+        challenge = self.make_challenge(week_start=date(2026, 11, 1))
 
         self.assertFalse(user_has_submitted(AnonymousUser(), challenge))
 
     def test_user_has_submitted_checks_challenge_submission(self):
-        challenge = self.make_challenge(
-            week_start=date(2026, 11, 1),
-            week_end=date(2026, 11, 7),
-        )
+        challenge = self.make_challenge(week_start=date(2026, 11, 1))
         post = Post.objects.create(author=self.user, title="Progress", content="Done")
         ChallengeSubmission.objects.create(
             challenge=challenge,
@@ -290,11 +295,7 @@ class ChallengeServiceAndFormTests(TestCase):
         self.assertTrue(user_has_submitted(self.user, challenge))
 
     def test_badge_is_awarded_only_when_net_score_meets_threshold(self):
-        challenge = self.make_challenge(
-            week_start=date(2026, 11, 1),
-            week_end=date(2026, 11, 7),
-            threshold=2,
-        )
+        challenge = self.make_challenge(week_start=date(2026, 11, 1), threshold=2)
         post = Post.objects.create(author=self.user, title="Progress", content="Done")
         ChallengeSubmission.objects.create(
             challenge=challenge,
@@ -314,11 +315,7 @@ class ChallengeServiceAndFormTests(TestCase):
         )
 
     def test_awarded_badge_is_not_revoked_after_score_drops(self):
-        challenge = self.make_challenge(
-            week_start=date(2026, 11, 1),
-            week_end=date(2026, 11, 7),
-            threshold=1,
-        )
+        challenge = self.make_challenge(week_start=date(2026, 11, 1), threshold=1)
         post = Post.objects.create(author=self.user, title="Progress", content="Done")
         ChallengeSubmission.objects.create(
             challenge=challenge,
@@ -337,13 +334,40 @@ class ChallengeServiceAndFormTests(TestCase):
             UserBadge.objects.filter(user=self.user, badge=challenge.badge).exists()
         )
 
+    def test_awarded_badge_survives_submission_deletion(self):
+        challenge = self.make_challenge(week_start=date(2026, 11, 1), threshold=1)
+        post = Post.objects.create(author=self.user, title="Progress", content="Done")
+        submission = ChallengeSubmission.objects.create(
+            challenge=challenge,
+            post=post,
+            user=self.user,
+        )
+        UserBadge.objects.create(user=self.user, badge=challenge.badge)
+
+        submission.delete()
+
+        self.assertTrue(
+            UserBadge.objects.filter(user=self.user, badge=challenge.badge).exists()
+        )
+
+    def test_challenge_has_one_badge_and_deletion_preserves_earned_badge(self):
+        challenge = self.make_challenge(week_start=date(2026, 11, 1))
+        UserBadge.objects.create(user=self.user, badge=challenge.badge)
+
+        challenge.delete()
+
+        self.assertTrue(Badge.objects.filter(pk=challenge.badge_id).exists())
+        self.assertTrue(
+            UserBadge.objects.filter(user=self.user, badge_id=challenge.badge_id).exists()
+        )
+
 
 class ChallengeSignalTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="signal-user")
         self.voter = get_user_model().objects.create_user(username="signal-voter")
 
-    def make_challenge(self, *, start, end, threshold=1):
+    def make_challenge(self, *, start, threshold=1):
         badge = Badge.objects.create(name="Signal Badge")
         challenge = Challenge.objects.create(
             title="Signal challenge",
@@ -353,7 +377,6 @@ class ChallengeSignalTests(TestCase):
             upvote_threshold=threshold,
             badge=badge,
             week_start=start,
-            week_end=end,
             created_by=self.user,
         )
         challenge.tag = Tag.objects.create(title=f"weeklychallenge{challenge.pk}")
@@ -362,10 +385,7 @@ class ChallengeSignalTests(TestCase):
 
     def test_saving_tagged_active_post_creates_submission(self):
         today = timezone.localdate()
-        challenge = self.make_challenge(
-            start=today,
-            end=today + timedelta(days=6),
-        )
+        challenge = self.make_challenge(start=today)
         post = Post.objects.create(
             author=self.user,
             title="Challenge progress",
@@ -380,10 +400,7 @@ class ChallengeSignalTests(TestCase):
 
     def test_saving_tagged_inactive_post_does_not_create_submission(self):
         today = timezone.localdate()
-        challenge = self.make_challenge(
-            start=today - timedelta(days=8),
-            end=today - timedelta(days=1),
-        )
+        challenge = self.make_challenge(start=today - timedelta(days=8))
         post = Post.objects.create(
             author=self.user,
             title="Late progress",
@@ -398,10 +415,7 @@ class ChallengeSignalTests(TestCase):
 
     def test_duplicate_user_submission_does_not_break_post_save(self):
         today = timezone.localdate()
-        challenge = self.make_challenge(
-            start=today,
-            end=today + timedelta(days=6),
-        )
+        challenge = self.make_challenge(start=today)
         first_post = Post.objects.create(
             author=self.user,
             title="First progress",
@@ -427,10 +441,7 @@ class ChallengeSignalTests(TestCase):
 
     def test_vote_save_awards_badge_at_threshold(self):
         today = timezone.localdate()
-        challenge = self.make_challenge(
-            start=today,
-            end=today + timedelta(days=6),
-        )
+        challenge = self.make_challenge(start=today)
         post = Post.objects.create(
             author=self.user,
             title="Voted progress",
@@ -447,11 +458,7 @@ class ChallengeSignalTests(TestCase):
 
     def test_vote_save_does_not_award_before_threshold(self):
         today = timezone.localdate()
-        challenge = self.make_challenge(
-            start=today,
-            end=today + timedelta(days=6),
-            threshold=2,
-        )
+        challenge = self.make_challenge(start=today, threshold=2)
         post = Post.objects.create(
             author=self.user,
             title="Not enough votes",
@@ -468,10 +475,7 @@ class ChallengeSignalTests(TestCase):
 
     def test_vote_delete_does_not_revoke_awarded_badge(self):
         today = timezone.localdate()
-        challenge = self.make_challenge(
-            start=today,
-            end=today + timedelta(days=6),
-        )
+        challenge = self.make_challenge(start=today)
         post = Post.objects.create(
             author=self.user,
             title="Persistent badge",
@@ -489,10 +493,7 @@ class ChallengeSignalTests(TestCase):
 
     def test_comment_vote_does_not_award_challenge_badge(self):
         today = timezone.localdate()
-        challenge = self.make_challenge(
-            start=today,
-            end=today + timedelta(days=6),
-        )
+        challenge = self.make_challenge(start=today)
         post = Post.objects.create(
             author=self.user,
             title="Comment target",
@@ -514,10 +515,7 @@ class ChallengeSignalTests(TestCase):
 
     def test_deleting_post_with_votes_does_not_raise_from_vote_signal(self):
         today = timezone.localdate()
-        challenge = self.make_challenge(
-            start=today,
-            end=today + timedelta(days=6),
-        )
+        challenge = self.make_challenge(start=today)
         post = Post.objects.create(
             author=self.user,
             title="Deleted progress",
@@ -545,7 +543,7 @@ class ChallengeViewsTests(TestCase):
         self.user.user_permissions.add(*permissions)
         self.client.force_login(self.user)
 
-    def make_challenge(self, title, *, start, end):
+    def make_challenge(self, title, *, start):
         return Challenge.objects.create(
             title=title,
             background="Background",
@@ -553,27 +551,14 @@ class ChallengeViewsTests(TestCase):
             goal="Goal",
             badge=Badge.objects.create(name=f"{title} Badge"),
             week_start=start,
-            week_end=end,
             created_by=self.user,
         )
 
     def test_challenge_directory_filters_by_status_and_search(self):
         today = timezone.localdate()
-        self.make_challenge(
-            "Current digital reset",
-            start=today,
-            end=today + timedelta(days=2),
-        )
-        self.make_challenge(
-            "Upcoming closet reset",
-            start=today + timedelta(days=4),
-            end=today + timedelta(days=10),
-        )
-        self.make_challenge(
-            "Past mindful shopping",
-            start=today - timedelta(days=10),
-            end=today - timedelta(days=4),
-        )
+        self.make_challenge("Current digital reset", start=today)
+        self.make_challenge("Upcoming closet reset", start=today + timedelta(days=4))
+        self.make_challenge("Past mindful shopping", start=today - timedelta(days=10))
 
         response = self.client.get(
             reverse("weeklychallenge:challenge_list_partial"),
@@ -587,17 +572,9 @@ class ChallengeViewsTests(TestCase):
 
     def test_challenge_directory_status_all_includes_open_upcoming_and_past(self):
         today = timezone.localdate()
-        self.make_challenge("Open challenge", start=today, end=today)
-        self.make_challenge(
-            "Upcoming challenge",
-            start=today + timedelta(days=2),
-            end=today + timedelta(days=3),
-        )
-        self.make_challenge(
-            "Past challenge",
-            start=today - timedelta(days=3),
-            end=today - timedelta(days=2),
-        )
+        self.make_challenge("Open challenge", start=today)
+        self.make_challenge("Upcoming challenge", start=today + timedelta(days=2))
+        self.make_challenge("Past challenge", start=today - timedelta(days=10))
 
         response = self.client.get(
             reverse("weeklychallenge:challenge_list_partial"),
@@ -611,11 +588,7 @@ class ChallengeViewsTests(TestCase):
 
     def test_landing_page_renders_empty_state_when_no_challenge_is_active(self):
         today = timezone.localdate()
-        self.make_challenge(
-            "Future challenge",
-            start=today + timedelta(days=2),
-            end=today + timedelta(days=8),
-        )
+        self.make_challenge("Future challenge", start=today + timedelta(days=2))
 
         response = self.client.get(reverse("weeklychallenge:show_weekly_challenge"))
 
@@ -634,6 +607,27 @@ class ChallengeViewsTests(TestCase):
         response = self.client.get(create_url)
         self.assertEqual(response.status_code, 403)
 
+    def test_update_and_delete_routes_require_permissions(self):
+        challenge = self.make_challenge(
+            "Protected challenge",
+            start=timezone.localdate() + timedelta(days=10),
+        )
+        normal_user = get_user_model().objects.create_user(
+            username="cannot-manage-challenge"
+        )
+        self.client.force_login(normal_user)
+
+        update_response = self.client.get(
+            reverse("weeklychallenge:challenge_update", args=[challenge.pk])
+        )
+        delete_response = self.client.get(
+            reverse("weeklychallenge:challenge_delete", args=[challenge.pk])
+        )
+
+        self.assertEqual(update_response.status_code, 403)
+        self.assertEqual(delete_response.status_code, 403)
+        self.assertTrue(Challenge.objects.filter(pk=challenge.pk).exists())
+
     def test_detail_returns_not_found_for_unknown_challenge(self):
         response = self.client.get(
             reverse("weeklychallenge:challenge_detail", args=[999999])
@@ -645,7 +639,6 @@ class ChallengeViewsTests(TestCase):
         challenge = self.make_challenge(
             "Focused mornings",
             start=timezone.localdate(),
-            end=timezone.localdate() + timedelta(days=6),
         )
         challenge.tasks.create(day_number=1, title="Clear the desk", description="One step.")
 
@@ -659,11 +652,54 @@ class ChallengeViewsTests(TestCase):
         self.assertContains(response, "Focused mornings Badge")
         self.assertContains(response, "Belum ada submission")
 
+    @patch("weeklychallenge.views.timezone.localdate")
+    def test_challenge_detail_reveals_tasks_cumulatively_without_spoilers(
+        self, localdate
+    ):
+        start = date(2026, 11, 1)
+        challenge = self.make_challenge("Cumulative tasks", start=start)
+        for day_number in range(1, 8):
+            challenge.tasks.create(
+                day_number=day_number,
+                title=f"Task {day_number}",
+                description=f"Details {day_number}",
+            )
+
+        normal_user = get_user_model().objects.create_user(username="challenge-reader")
+        detail_url = reverse("weeklychallenge:challenge_detail", args=[challenge.pk])
+
+        self.client.logout()
+        localdate.return_value = start - timedelta(days=1)
+        anonymous_response = self.client.get(detail_url)
+        self.assertTrue(anonymous_response.context["is_teaser"])
+        for day_number in range(1, 8):
+            self.assertNotContains(anonymous_response, f"Task {day_number}")
+
+        self.client.force_login(normal_user)
+        teaser_response = self.client.get(detail_url)
+        self.assertTrue(teaser_response.context["is_teaser"])
+        for day_number in range(1, 8):
+            self.assertNotContains(teaser_response, f"Task {day_number}")
+
+        for current_day in (1, 3, 7):
+            localdate.return_value = start + timedelta(days=current_day - 1)
+            response = self.client.get(detail_url)
+            self.assertFalse(response.context.get("is_teaser", False))
+            for day_number in range(1, 8):
+                if day_number <= current_day:
+                    self.assertContains(response, f"Task {day_number}")
+                else:
+                    self.assertNotContains(response, f"Task {day_number}")
+
+        localdate.return_value = start + timedelta(days=7)
+        completed_response = self.client.get(detail_url)
+        for day_number in range(1, 8):
+            self.assertContains(completed_response, f"Task {day_number}")
+
     def test_update_changes_challenge_and_tasks_without_replacing_badge_or_tag(self):
         challenge = self.make_challenge(
             "Old title",
             start=timezone.localdate() + timedelta(days=10),
-            end=timezone.localdate() + timedelta(days=16),
         )
         original_badge = challenge.badge
         from posts.models import Tag
@@ -678,7 +714,6 @@ class ChallengeViewsTests(TestCase):
             "goal": "New goal",
             "upvote_threshold": "12",
             "week_start": (timezone.localdate() + timedelta(days=10)).isoformat(),
-            "week_end": (timezone.localdate() + timedelta(days=16)).isoformat(),
             "tasks-TOTAL_FORMS": "1",
             "tasks-INITIAL_FORMS": "0",
             "tasks-MIN_NUM_FORMS": "0",
@@ -707,7 +742,6 @@ class ChallengeViewsTests(TestCase):
         challenge = self.make_challenge(
             "Remove me",
             start=timezone.localdate() + timedelta(days=20),
-            end=timezone.localdate() + timedelta(days=26),
         )
         url = reverse("weeklychallenge:challenge_delete", args=[challenge.pk])
 

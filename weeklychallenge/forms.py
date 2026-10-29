@@ -1,6 +1,8 @@
-# forms.py
+from datetime import timedelta
+
 from django import forms
 from django.forms import inlineformset_factory
+
 from .models import Challenge, ChallengeTask, MAX_TASKS_PER_CHALLENGE
 
 
@@ -14,15 +16,10 @@ class ChallengeForm(forms.ModelForm):
             "goal",
             "upvote_threshold",
             "week_start",
-            "week_end",
         ]
         # badge and created_by are set in the view, not by the moderator
         widgets = {
             "week_start": forms.DateInput(
-                format="%Y-%m-%d",
-                attrs={"type": "date"},
-            ),
-            "week_end": forms.DateInput(
                 format="%Y-%m-%d",
                 attrs={"type": "date"},
             ),
@@ -31,28 +28,22 @@ class ChallengeForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         week_start = cleaned_data.get("week_start")
-        week_end = cleaned_data.get("week_end")
-
-        if not week_start or not week_end:
+        if not week_start:
             return cleaned_data
 
-        if week_end < week_start:
-            self.add_error("week_end", "Tanggal selesai harus sama atau setelah tanggal mulai.")
-            return cleaned_data
-
-        overlapping_challenges = Challenge.objects.filter(
-            week_start__lte=week_end,
-            week_end__gte=week_start,
+        window = timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
+        overlapping = Challenge.objects.filter(
+            week_start__gte=week_start - window,
+            week_start__lte=week_start + window,
         )
         if self.instance.pk:
-            overlapping_challenges = overlapping_challenges.exclude(pk=self.instance.pk)
+            overlapping = overlapping.exclude(pk=self.instance.pk)
 
-        if overlapping_challenges.exists():
+        if overlapping.exists():
             self.add_error(
-                None,
+                "week_start",
                 "Rentang tanggal challenge tidak boleh tumpang tindih dengan challenge lain.",
             )
-
         return cleaned_data
 
 

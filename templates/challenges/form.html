@@ -15,51 +15,7 @@
                 </p>
             </div>
 
-            <form method="post" class="flex flex-col gap-7">
-                {% csrf_token %}
-                {% if form.non_field_errors %}
-                    <div class="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800" role="alert">
-                        {{ form.non_field_errors }}
-                    </div>
-                {% endif %}
-
-                <section class="flex flex-col gap-4">
-                    <h2 class="border-b border-[var(--paper-dim)] pb-2 text-lg font-bold">Informasi challenge</h2>
-                    {% for field in form %}
-                        <div class="flex min-w-0 flex-col gap-1.5">
-                            <label class="font-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                            {{ field }}
-                            {% if field.help_text %}<p class="text-sm text-[var(--tertiary)]">{{ field.help_text }}</p>{% endif %}
-                            {% for error in field.errors %}<p class="text-sm text-red-700" role="alert">{{ error }}</p>{% endfor %}
-                        </div>
-                    {% endfor %}
-                </section>
-
-                <section class="flex flex-col gap-4">
-                    <div>
-                        <h2 class="border-b border-[var(--paper-dim)] pb-2 text-lg font-bold">Tugas harian</h2>
-                        <p class="mt-2 text-sm text-[var(--tertiary)]">Tambahkan hingga tujuh tugas. Setiap hari hanya boleh memiliki satu tugas.</p>
-                    </div>
-                    {{ formset.management_form }}
-                    {% if formset.non_form_errors %}
-                        <div class="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800" role="alert">
-                            {{ formset.non_form_errors }}
-                        </div>
-                    {% endif %}
-
-                    <div id="task-form-list" class="flex flex-col gap-4">
-                        {% for task_form in formset %}
-                            {% include "challenges/components/_task_form_row.html" with task_form=task_form task_index=forloop.counter0 %}
-                        {% endfor %}
-                    </div>
-                    {% include "challenges/components/_task_form_add_button.html" %}
-                </section>
-
-                <div class="flex flex-col-reverse gap-3 border-t border-[var(--paper-dim)] pt-5 sm:flex-row sm:justify-end">
-                    <a class="button button--border button--small" href="{% if challenge %}{% url 'weeklychallenge:challenge_detail' challenge.pk %}{% else %}{% url 'weeklychallenge:show_weekly_challenge' %}{% endif %}">Batal</a>
-                    <button class="button button--small" type="submit">{% if challenge %}Simpan perubahan{% else %}Simpan challenge{% endif %}</button>
-                </div>
-            </form>
+            {% include "challenges/components/_challenge_form.html" %}
         </section>
     </main>
 {% endblock content %}

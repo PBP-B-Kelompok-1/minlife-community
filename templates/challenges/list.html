@@ -13,7 +13,7 @@
                     <h1 class="mt-1 text-2xl font-bold sm:text-3xl">Weekly Challenge</h1>
                     <p class="mt-2 text-[var(--tertiary)]">Temukan challenge aktif, yang akan datang, dan arsip sebelumnya.</p>
                 </div>
-                {% if is_moderator %}
+                {% if can_create_challenge %}
                     <a class="button button--small w-full sm:w-auto" href="{% url 'weeklychallenge:challenge_create' %}">
                         <i class="fa-solid fa-plus" aria-hidden="true"></i>
                         Buat challenge
@@ -21,7 +21,8 @@
                 {% endif %}
             </div>
 
-            <form method="get" action="{% url 'weeklychallenge:challenge_list' %}" class="mt-6 grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto]">
+            <form id="challenge-filters" method="get" action="{% url 'weeklychallenge:challenge_list' %}" class="mt-6 grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto]"
+                hx-get="{% url 'weeklychallenge:challenge_list_partial' %}" hx-trigger="change, submit" hx-target="#challenge-list">
                 <label class="sr-only" for="challenge-search">Cari challenge</label>
                 <input
                     id="challenge-search"
@@ -30,9 +31,9 @@
                     value="{{ search }}"
                     placeholder="Cari berdasarkan judul..."
                     hx-get="{% url 'weeklychallenge:challenge_list_partial' %}"
-                    hx-trigger="keyup changed delay:350ms, search"
-                    hx-include="closest form"
-                    hx-target="#challenge-results"
+                    hx-trigger="input changed delay:300ms, search"
+                    hx-include="#challenge-filters"
+                    hx-sync="this:replace"
                 >
                 <label class="sr-only" for="challenge-status">Status challenge</label>
                 <select
@@ -40,8 +41,6 @@
                     name="status"
                     hx-get="{% url 'weeklychallenge:challenge_list_partial' %}"
                     hx-trigger="change"
-                    hx-include="closest form"
-                    hx-target="#challenge-results"
                 >
                     <option value="open" {% if status == "open" %}selected{% endif %}>Sedang berlangsung</option>
                     <option value="upcoming" {% if status == "upcoming" %}selected{% endif %}>Akan datang</option>
@@ -52,7 +51,9 @@
             </form>
         </section>
 
-        <section id="challenge-results" aria-live="polite">
+        <section id="challenge-list" aria-live="polite" hx-boost="true" hx-target="#main-content"
+            hx-select="#main-content" hx-swap="outerHTML" hx-trigger="challengeChanged from:body"
+            hx-get="{% url 'weeklychallenge:challenge_list_partial' %}" hx-include="#challenge-filters">
             {% include "challenges/components/_challenge_list.html" %}
         </section>
     </main>
