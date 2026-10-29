@@ -8,10 +8,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
-from django.views.decorators.http import require_GET, require_http_methods
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .forms import AnnouncementForm
-from .models import Announcement
+from .models import Announcement, FCMSubscription
 
 
 SORT_ORDERS = {
@@ -22,6 +22,26 @@ SORT_ORDERS = {
 
 def _is_htmx(request):
     return request.headers.get("HX-Request") == "true"
+
+
+def _get_installation_id(request):
+    try:
+        payload = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    installation_id = payload.get("installation_id")
+    if not isinstance(installation_id, str):
+        return None
+
+    installation_id = installation_id.strip()
+    if not installation_id or len(installation_id) > 255:
+        return None
+
+    return installation_id
 
 
 def _get_filter_values(request):
@@ -230,6 +250,34 @@ def delete_announcement(request, announcement_id):
             "sort": sort,
         },
     )
+
+
+@login_required
+@require_POST
+def subscribe_notifications(request):
+    installation_id = _get_installation_id(request)
+    if installation_id is None:
+        return JsonResponse({"error": "Invalid installation_id."}, status=400)
+
+    _, created = FCMSubscription.objects.update_or_create(
+        installation_id=installation_id,
+        defaults={"user": request.user},
+    )
+    return JsonResponse({"subscribed": True}, status=201 if created else 200)
+
+
+@login_required
+@require_POST
+def unsubscribe_notifications(request):
+    installation_id = _get_installation_id(request)
+    if installation_id is None:
+        return JsonResponse({"error": "Invalid installation_id."}, status=400)
+
+    FCMSubscription.objects.filter(
+        user=request.user,
+        installation_id=installation_id,
+    ).delete()
+    return JsonResponse({"subscribed": False})
 
 
 @require_GET
