@@ -17,6 +17,7 @@
         --accent: #7373A6;
         --success: #52DE4F;
         --danger: #F12E42;
+        --danger-hover: #C11A12;
         --danger-light: #FFB6C1;
         --line: var(--accent);
         --radius: 1.25rem;
@@ -46,6 +47,8 @@
     .button--no-hover { border-color: initial !important; background-color: initial !important; }
     .button--border { @apply bg-transparent text-[var(--secondary)]; }
     .button--small { @apply px-3 py-[0.3rem] text-base; }
+    .button--danger { @apply bg-[var(--danger)] text-[var(--paper)] border-none; }
+    .button--danger:hover { background-color: var(--danger-hover) !important; }
 
     header { @apply sticky top-4 z-10 m-4; }
     .navbar { @apply flex w-auto items-center justify-between rounded-[var(--radius)] bg-[var(--secondary)] px-6 py-4 text-[var(--ink-light)] lowercase; color: var(--ink-light) !important; }

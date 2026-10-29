@@ -17,6 +17,39 @@ const GET_COMMENTS_ENDPOINT = scriptElem.dataset.getCommentsEndpoint;
 const CREATE_COMMENT_ENDPOINT = scriptElem.dataset.createCommentEndpoint;
 const VOTE_COMMENT_ENDPOINT_TEMPLATE = scriptElem.dataset.voteCommentEndpointTemplate;
 
+const KEBAB_CONTAINER_SELECTOR = ".post__kebab-container, .comment__kebab-container";
+
+function closeKebabMenus(except = null) {
+    document.querySelectorAll(KEBAB_CONTAINER_SELECTOR).forEach((container) => {
+        if (container === except) return;
+
+        container.querySelector(".post__kebab, .comment__kebab").classList.remove("shown");
+        container.querySelector(".post__kebab-btn, .comment__kebab-btn")
+            .setAttribute("aria-expanded", "false");
+    });
+}
+
+function toggleKebabMenu(container) {
+    closeKebabMenus(container);
+
+    const kebab = container.querySelector(".post__kebab, .comment__kebab");
+    const button = container.querySelector(".post__kebab-btn, .comment__kebab-btn");
+    const isShown = kebab.classList.toggle("shown");
+    button.setAttribute("aria-expanded", isShown);
+}
+
+document.addEventListener("click", (event) => {
+    closeKebabMenus(event.target.closest(KEBAB_CONTAINER_SELECTOR));
+});
+
+document.addEventListener("focusin", (event) => {
+    closeKebabMenus(event.target.closest(KEBAB_CONTAINER_SELECTOR));
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeKebabMenus();
+});
+
 let postsAbortController;
 function generatePostElem(post, show_links=true) {
     let postElem = document.createElement("article");
@@ -24,7 +57,6 @@ function generatePostElem(post, show_links=true) {
     postElem.classList.add("post", "shadow", "hover--expand");
 
     const userProfilePage = USER_PROFILE_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, post.user_id);
-    // const pfp_url = 
     let authorInfoHtml = `
         <a href="${userProfilePage}" class="post__author">
             <img class="post__author__pfp" 
@@ -33,6 +65,33 @@ function generatePostElem(post, show_links=true) {
                 alt="${post.username}'s profile picture">
             <span class="post__author__username">${post.username}</span>
         </a>`;
+
+    let firstRowHtml = `
+        <div class="post__first-row">
+            ${authorInfoHtml}
+            <div class="post__kebab-container">
+                <button
+                    class="post__kebab-btn"
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    aria-controls="post-${post.id}__kebab"
+                    aria-label="More post actions">
+                    <i class="fa-solid fa-ellipsis"></i>
+                </button>
+                <div id="post-${post.id}__kebab" class="post__kebab shadow" role="menu">
+                    <button class="button button--border button--small" type="button" role="menuitem">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        Update
+                    </button>
+                    <button class="button button--danger button--small" type="button" role="menuitem">
+                        <i class="fa-solid fa-trash-can"></i>
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
 
     let postTitleHtml = `
         <div class="post__title">
@@ -88,7 +147,7 @@ function generatePostElem(post, show_links=true) {
 
     const postInnerHtml = `
         ${postLink}
-        ${authorInfoHtml}
+        ${firstRowHtml}
         ${postTitleHtml}
         ${postTagsHtml}
         ${postContentHtml}
@@ -108,6 +167,10 @@ function generatePostElem(post, show_links=true) {
     postElem.querySelector(".post__actions__share").addEventListener("click", (e) => {
         e.preventDefault();
         copy_post_url_to_clipboard(e.target);
+    });
+    postElem.querySelector(".post__kebab-btn").addEventListener("click", (event) => {
+        event.preventDefault();
+        toggleKebabMenu(event.currentTarget.closest(".post__kebab-container"));
     });
 
     return postElem;
@@ -308,6 +371,23 @@ function generateCommentTree(comments, repliesToElemId=null, repliesToUser=null)
                 <a href="${userProfilePage}" class="comment__body__username">${comment.username}</a>
                 <div class="comment__body__content">${comment.content}</div>
             </div>
+            <div class="comment__kebab-container">
+                <button
+                    class="comment__kebab-btn"
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    aria-controls="comment-${comment.id}__kebab"
+                    aria-label="More comment actions">
+                    <i class="fa-solid fa-ellipsis"></i>
+                </button>
+                <div id="comment-${comment.id}__kebab" class="comment__kebab shadow" role="menu">
+                    <button class="button button--danger button--small" type="button" role="menuitem">
+                        <i class="fa-solid fa-trash-can"></i>
+                        Delete
+                    </button>
+                </div>
+            </div>
             <div class="comment__actions">
                 <div class="comment__actions__vote button button--small button--border button--no-hover">
                     <button class="comment__actions__upvote fa-solid fa-chevron-up${updootClass}"></button>
@@ -340,6 +420,9 @@ function generateCommentTree(comments, repliesToElemId=null, repliesToUser=null)
         commentElem.querySelector(".comment__actions__reply").addEventListener("click", (e) => {
             e.preventDefault();
             toggleReplyForm(commentElem, comment.id);
+        });
+        commentElem.querySelector(".comment__kebab-btn").addEventListener("click", (event) => {
+            toggleKebabMenu(event.currentTarget.closest(".comment__kebab-container"));
         });
     });
 
