@@ -2,6 +2,7 @@ import json
 
 from django.db import IntegrityError, transaction
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.auth.models import Permission
 from django.test import TestCase
 from django.urls import reverse
 
@@ -189,6 +190,63 @@ class FrontpageAndCreatePostTests(PostsTestCase):
         self.assertTemplateUsed(response, "posts/create_form.html")
         self.assertFormError(response.context["form"], "title", "This field is required.")
         self.assertEqual(Post.objects.count(), 0)
+
+
+class UpdateAndDeletePostTests(PostsTestCase):
+    def setUp(self):
+        super().setUp()
+        self.post = self.create_post(title="Original", content="Original content")
+        self.update_url = reverse("posts:update_post", kwargs={"post_id": self.post.pk})
+        self.delete_url = reverse("api:delete_post", kwargs={"post_id": self.post.pk})
+
+    def test_author_can_update_a_post(self):
+        self.client.force_login(self.author)
+
+        response = self.client.post(self.update_url, {"title": "Updated", "content": "New content"})
+
+        self.assertRedirects(response, reverse("posts:show_post", kwargs={"post_id": self.post.pk}))
+        self.post.refresh_from_db()
+        self.assertEqual((self.post.title, self.post.content, self.post.author), ("Updated", "New content", self.author))
+
+    def test_other_user_cannot_update_a_post_without_permission(self):
+        self.client.force_login(self.other_user)
+
+        response = self.client.get(self.update_url)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_anonymous_delete_returns_login_details(self):
+        response = self.client.post(self.delete_url)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["login_url"], reverse("login"))
+        self.assertTrue(Post.objects.filter(pk=self.post.pk).exists())
+
+    def test_author_can_delete_a_post_via_api(self):
+        self.client.force_login(self.author)
+
+        response = self.client.post(self.delete_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Post.objects.filter(pk=self.post.pk).exists())
+
+    def test_other_user_cannot_delete_a_post_without_permission(self):
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.delete_url)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Post.objects.filter(pk=self.post.pk).exists())
+
+    def test_user_with_delete_post_permission_can_delete_another_users_post(self):
+        permission = Permission.objects.get(codename="delete_post")
+        self.other_user.user_permissions.add(permission)
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.delete_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Post.objects.filter(pk=self.post.pk).exists())
 
 
 class GetPostsJsonTests(PostsTestCase):
@@ -435,6 +493,64 @@ class CreateCommentTests(PostsTestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertFalse(Comment.objects.filter(content="This should not be created").exists())
+
+
+class DeleteCommentTests(PostsTestCase):
+    def setUp(self):
+        super().setUp()
+        self.post = self.create_post()
+        self.comment = Comment.objects.create(post=self.post, user=self.author, content="Remove me")
+        self.url = reverse("api:delete_comment", kwargs={"comment_id": self.comment.pk})
+
+    def test_author_can_delete_a_comment_via_api(self):
+        self.client.force_login(self.author)
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.comment.refresh_from_db()
+        self.assertTrue(self.comment.is_deleted)
+        self.assertEqual(self.comment.content, "✖ This comment has been deleted")
+
+    def test_other_user_cannot_delete_a_comment_without_permission(self):
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Comment.objects.filter(pk=self.comment.pk).exists())
+
+    def test_user_with_delete_comment_permission_can_delete_another_users_comment(self):
+        permission = Permission.objects.get(codename="delete_comment")
+        self.other_user.user_permissions.add(permission)
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.comment.refresh_from_db()
+        self.assertTrue(self.comment.is_deleted)
+
+    def test_soft_deleting_a_comment_preserves_its_replies_and_masks_its_author(self):
+        reply = Comment.objects.create(
+            post=self.post, user=self.other_user, content="Still here", replies_to_comment=self.comment
+        )
+        self.client.force_login(self.author)
+
+        self.client.post(self.url)
+        response = self.client.get(
+            reverse("api:get_comments_json", kwargs={"post_id": self.post.pk})
+        )
+
+        self.comment.refresh_from_db()
+        self.assertTrue(self.comment.is_deleted)
+        self.assertTrue(Comment.objects.filter(pk=reply.pk).exists())
+        deleted_comment = response.json()["data"][0]
+        self.assertEqual(deleted_comment["username"], "[deleted comment]")
+        self.assertEqual(deleted_comment["avatar_url"], "")
+        self.assertIsNone(deleted_comment["user_id"])
+        self.assertFalse(deleted_comment["can_delete"])
+        self.assertEqual(deleted_comment["replies"][0]["id"], str(reply.pk))
 
 
 class VoteCommentTests(PostsTestCase):

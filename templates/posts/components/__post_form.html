@@ -1,5 +1,5 @@
 {# required: form_action, form #}
-<form method="POST" action="{% url "posts:create_post" %}" class="post-form" enctype="multipart/form-data">
+<form method="POST" action="{{ form_action }}" class="post-form" enctype="multipart/form-data">
     {% csrf_token %}
     {% for field in form %}
         <div class="post-form__field"{% if field.name == "challenge_image" %} data-challenge-image-field hidden{% endif %}>

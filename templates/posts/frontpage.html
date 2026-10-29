@@ -8,6 +8,8 @@
         data-get-posts-endpoint="{% url 'api:get_posts_json' %}"
         data-show-post-endpoint-template="{% url 'posts:show_post' post_id='00000000-0000-0000-0000-000000000000' %}"
         data-vote-post-endpoint-template="{% url 'api:vote_post' post_id='00000000-0000-0000-0000-000000000000' %}"
+        data-update-post-endpoint-template="{% url 'posts:update_post' post_id='00000000-0000-0000-0000-000000000000' %}"
+        data-delete-post-endpoint-template="{% url 'api:delete_post' post_id='00000000-0000-0000-0000-000000000000' %}"
         data-user-profile-endpoint-template="{% url 'users:show_profile' user_id='00000000-0000-0000-0000-000000000000' %}"
         data-login-url="{% url 'login' %}"
         data-csrf-token="{{ csrf_token }}"
