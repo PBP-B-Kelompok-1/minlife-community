@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load static %}
+{% block meta %}
+    {% include "posts/components/tailwind_styles.html" %}
+    <title>Minlife Community - Edit Post</title>
+    {{ form.media }}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@11.1.0/public/assets/styles/choices.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/choices.js@11.1.0/public/assets/scripts/choices.min.js"></script>
+{% endblock meta %}
+{% block content %}
+    <div class="container">
+        <section class="post-form-container shadow">
+            <h1 class="post-form__title">Edit post</h1>
+            <p>The Weekly Challenge tag cannot be added or removed after a post is created.</p>
+            {% url "posts:update_post" post_id=form.instance.id as post_update_endpoint %}
+            {% include "posts/components/__post_form.html" with form_action=post_update_endpoint form=form %}
+        </section>
+    </div>
+    <script>
+        const tagSelect = document.getElementById("id_tags");
+        const challengeImageField = document.querySelector("[data-challenge-image-field]");
+        const challengeImageInput = document.getElementById("id_challenge_image");
+        const hasExistingChallengeImage = {% if form.instance.challenge_image %}true{% else %}false{% endif %};
+        const updateChallengeImageVisibility = () => {
+            const weeklyChallengeSelected = Array.from(tagSelect.selectedOptions).some(
+                option => option.text.trim().toLowerCase() === "weekly challenge"
+            );
+            challengeImageField.hidden = !weeklyChallengeSelected;
+            challengeImageInput.required = weeklyChallengeSelected && !hasExistingChallengeImage;
+        };
+        tagSelect.addEventListener("change", updateChallengeImageVisibility);
+        updateChallengeImageVisibility();
+        new Choices(tagSelect, { removeItemButton: true });
+    </script>
+{% endblock content %}

@@ -1,6 +1,9 @@
 // retrieve data embedded in referrer <script>
 const scriptElem = document.currentScript;
 const VOTE_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.votePostEndpointTemplate;
+const UPDATE_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.updatePostEndpointTemplate;
+const DELETE_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.deletePostEndpointTemplate;
+const DELETE_COMMENT_ENDPOINT_TEMPLATE = scriptElem.dataset.deleteCommentEndpointTemplate;
 const LOGIN_URL = scriptElem.dataset.loginUrl;
 const USER_PROFILE_ENDPOINT_TEMPLATE = scriptElem.dataset.userProfileEndpointTemplate;
 const CSRF_TOKEN = scriptElem.dataset.csrfToken;
@@ -17,6 +20,39 @@ const GET_COMMENTS_ENDPOINT = scriptElem.dataset.getCommentsEndpoint;
 const CREATE_COMMENT_ENDPOINT = scriptElem.dataset.createCommentEndpoint;
 const VOTE_COMMENT_ENDPOINT_TEMPLATE = scriptElem.dataset.voteCommentEndpointTemplate;
 
+const KEBAB_CONTAINER_SELECTOR = ".post__kebab-container, .comment__kebab-container";
+
+function closeKebabMenus(except = null) {
+    document.querySelectorAll(KEBAB_CONTAINER_SELECTOR).forEach((container) => {
+        if (container === except) return;
+
+        container.querySelector(".post__kebab, .comment__kebab").classList.remove("shown");
+        container.querySelector(".post__kebab-btn, .comment__kebab-btn")
+            .setAttribute("aria-expanded", "false");
+    });
+}
+
+function toggleKebabMenu(container) {
+    closeKebabMenus(container);
+
+    const kebab = container.querySelector(".post__kebab, .comment__kebab");
+    const button = container.querySelector(".post__kebab-btn, .comment__kebab-btn");
+    const isShown = kebab.classList.toggle("shown");
+    button.setAttribute("aria-expanded", isShown);
+}
+
+document.addEventListener("click", (event) => {
+    closeKebabMenus(event.target.closest(KEBAB_CONTAINER_SELECTOR));
+});
+
+document.addEventListener("focusin", (event) => {
+    closeKebabMenus(event.target.closest(KEBAB_CONTAINER_SELECTOR));
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeKebabMenus();
+});
+
 let postsAbortController;
 function generatePostElem(post, show_links=true) {
     let postElem = document.createElement("article");
@@ -24,7 +60,6 @@ function generatePostElem(post, show_links=true) {
     postElem.classList.add("post", "shadow", "hover--expand");
 
     const userProfilePage = USER_PROFILE_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, post.user_id);
-    // const pfp_url = 
     let authorInfoHtml = `
         <a href="${userProfilePage}" class="post__author">
             <img class="post__author__pfp" 
@@ -33,6 +68,35 @@ function generatePostElem(post, show_links=true) {
                 alt="${post.username}'s profile picture">
             <span class="post__author__username">${post.username}</span>
         </a>`;
+
+    const updateDisabled = post.can_update ? "" : " button--disabled";
+    const deleteDisabled = post.can_delete ? "" : " button--disabled";
+    let firstRowHtml = `
+        <div class="post__first-row">
+            ${authorInfoHtml}
+            <div class="post__kebab-container">
+                <button
+                    class="post__kebab-btn"
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    aria-controls="post-${post.id}__kebab"
+                    aria-label="More post actions">
+                    <i class="fa-solid fa-ellipsis"></i>
+                </button>
+                <div id="post-${post.id}__kebab" class="post__kebab shadow" role="menu">
+                    <button class="button button--border button--small post__update-btn${updateDisabled}" type="button" role="menuitem"${post.can_update ? "" : " disabled"}>
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        Update
+                    </button>
+                    <button class="button button--danger button--small post__delete-btn${deleteDisabled}" type="button" role="menuitem"${post.can_delete ? "" : " disabled"}>
+                        <i class="fa-solid fa-trash-can"></i>
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
 
     let postTitleHtml = `
         <div class="post__title">
@@ -88,7 +152,7 @@ function generatePostElem(post, show_links=true) {
 
     const postInnerHtml = `
         ${postLink}
-        ${authorInfoHtml}
+        ${firstRowHtml}
         ${postTitleHtml}
         ${postTagsHtml}
         ${postContentHtml}
@@ -109,8 +173,74 @@ function generatePostElem(post, show_links=true) {
         e.preventDefault();
         copy_post_url_to_clipboard(e.target);
     });
+    postElem.querySelector(".post__kebab-btn").addEventListener("click", (event) => {
+        event.preventDefault();
+        toggleKebabMenu(event.currentTarget.closest(".post__kebab-container"));
+    });
+    postElem.querySelector(".post__update-btn").addEventListener("click", (event) => {
+        window.location.assign(UPDATE_POST_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, post.id));
+    });
+    postElem.querySelector(".post__delete-btn").addEventListener("click", (event) => {
+        deletePost(event.currentTarget);
+    });
 
     return postElem;
+}
+
+async function deletePost(deleteButton) {
+    const postElem = deleteButton.closest("article.post");
+    if (!postElem || deleteButton.disabled || deleteButton.dataset.requestPending === "true" || deleteButton.dataset.confirming === "true") return;
+
+    deleteButton.dataset.confirming = "true";
+    const confirmation = await Swal.fire({
+        title: "Delete this post?",
+        text: "This will permanently delete the post and all of its comments.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Delete post",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "var(--danger)",
+    });
+    deleteButton.dataset.confirming = "false";
+    if (!confirmation.isConfirmed) return;
+
+    deleteButton.dataset.requestPending = "true";
+    deleteButton.disabled = true;
+    try {
+        const response = await fetch(
+            DELETE_POST_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, postElem.id),
+            {
+                method: "POST",
+                headers: { "Accept": "application/json", "X-CSRFToken": CSRF_TOKEN || getCookie("csrftoken") },
+            }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+            const loginUrl = data.login_url || LOGIN_URL;
+            window.location.assign(`${loginUrl}?next=${encodeURIComponent(window.location.href)}`);
+            return;
+        }
+        if (!response.ok) throw new Error(`Delete request failed with status ${response.status}`);
+
+        toast.fire({ icon: "success", title: "Post deleted successfully." });
+        // A post detail page cannot display a deleted post; the feed can simply
+        // remove its card without navigating away.
+        if (GET_POST_ENDPOINT) {
+            window.location.assign("/");
+        } else {
+            postElem.remove();
+            const postsContainer = document.getElementById("posts");
+            if (!postsContainer.children.length) {
+                document.getElementById("posts__status").innerText = "No posts were found... Come again later!";
+            }
+        }
+    } catch (error) {
+        console.error("Error deleting post:", error);
+        toast.fire({ icon: "error", title: "Something went wrong while deleting the post..." });
+        deleteButton.disabled = false;
+    } finally {
+        deleteButton.dataset.requestPending = "false";
+    }
 }
 
 async function getPost() {
@@ -297,16 +427,39 @@ function generateCommentTree(comments, repliesToElemId=null, repliesToUser=null)
         let updootClass = comment.user_vote_value == 1 ? ` upvoted` : ``;
         let downdootClass = comment.user_vote_value == -1 ? ` downvoted` : ``;
 
-        const userProfilePage = USER_PROFILE_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, comment.user_id);
+        const userProfilePage = comment.is_deleted
+            ? null
+            : USER_PROFILE_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, comment.user_id);
+        const commentAuthorHtml = comment.is_deleted
+            ? `<span class="comment__body__username">${comment.username}</span>`
+            : `<a href="${userProfilePage}" class="comment__body__username">${comment.username}</a>`;
+        const deleteDisabled = comment.can_delete ? "" : " button--disabled";
         commentElem.innerHTML = `
             <img class="comment__pfp" 
-                src="${comment.avatar_url}" 
+                src="${comment.is_deleted ? FALLBACK_PFP : comment.avatar_url}"
                 onerror="this.onerror=null; this.src='${FALLBACK_PFP}';"
                 alt="${comment.username}'s profile picture">
             ${commentRepliesToHtml}
             <div class="comment__body">
-                <a href="${userProfilePage}" class="comment__body__username">${comment.username}</a>
+                ${commentAuthorHtml}
                 <div class="comment__body__content">${comment.content}</div>
+            </div>
+            <div class="comment__kebab-container">
+                <button
+                    class="comment__kebab-btn"
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    aria-controls="comment-${comment.id}__kebab"
+                    aria-label="More comment actions">
+                    <i class="fa-solid fa-ellipsis"></i>
+                </button>
+                <div id="comment-${comment.id}__kebab" class="comment__kebab shadow" role="menu">
+                    <button class="button button--danger button--small comment__delete-btn${deleteDisabled}" type="button" role="menuitem"${comment.can_delete ? "" : " disabled"}>
+                        <i class="fa-solid fa-trash-can"></i>
+                        Delete
+                    </button>
+                </div>
             </div>
             <div class="comment__actions">
                 <div class="comment__actions__vote button button--small button--border button--no-hover">
@@ -341,9 +494,61 @@ function generateCommentTree(comments, repliesToElemId=null, repliesToUser=null)
             e.preventDefault();
             toggleReplyForm(commentElem, comment.id);
         });
+        commentElem.querySelector(".comment__kebab-btn").addEventListener("click", (event) => {
+            toggleKebabMenu(event.currentTarget.closest(".comment__kebab-container"));
+        });
+        commentElem.querySelector(".comment__delete-btn").addEventListener("click", (event) => {
+            deleteComment(event.currentTarget);
+        });
     });
 
     return commentTree;
+}
+
+async function deleteComment(deleteButton) {
+    const commentElem = deleteButton.closest("article.comment");
+    if (!commentElem || deleteButton.disabled || deleteButton.dataset.requestPending === "true" || deleteButton.dataset.confirming === "true") return;
+
+    deleteButton.dataset.confirming = "true";
+    const confirmation = await Swal.fire({
+        title: "Delete this comment?",
+        text: "This cannot be undone. Replies to this comment will also be deleted.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Delete comment",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "var(--danger)",
+    });
+    deleteButton.dataset.confirming = "false";
+    if (!confirmation.isConfirmed) return;
+
+    deleteButton.dataset.requestPending = "true";
+    deleteButton.disabled = true;
+    try {
+        const response = await fetch(
+            DELETE_COMMENT_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, commentElem.id),
+            {
+                method: "POST",
+                headers: { "Accept": "application/json", "X-CSRFToken": CSRF_TOKEN || getCookie("csrftoken") },
+            }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+            const loginUrl = data.login_url || LOGIN_URL;
+            window.location.assign(`${loginUrl}?next=${encodeURIComponent(window.location.href)}`);
+            return;
+        }
+        if (!response.ok) throw new Error(`Delete request failed with status ${response.status}`);
+
+        toast.fire({ icon: "success", title: "Comment deleted successfully." });
+        await getComments();
+    } catch (error) {
+        console.error("Error deleting comment:", error);
+        toast.fire({ icon: "error", title: "Something went wrong while deleting the comment..." });
+        deleteButton.disabled = false;
+    } finally {
+        deleteButton.dataset.requestPending = "false";
+    }
 }
 
 function toggleReplyForm(commentElem, commentId) {
@@ -481,6 +686,15 @@ async function vote_comment(vote_button, vote_value) {
         }
         
         if (!response.ok) {
+            if (data.error) { // expected error that should be user friendly.
+                vote_count_elem.textContent = prev_vote_value;
+                toast.fire({
+                    icon: "error",
+                    title: `An error occured: ${data.error}`
+                });
+                console.error(`An error occured while voting: ${data.error}`)
+                return;
+            }
             throw new Error(`Vote request failed with status ${response.status}`);
         }
         

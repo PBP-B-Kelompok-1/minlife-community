@@ -9,10 +9,17 @@
     .post * { @apply h-auto max-w-full; }
     .post > :empty { @apply hidden; }
     .post__show-anchor { @apply absolute inset-0; }
-    .post__author { @apply relative flex gap-2.5 -mb-1; }
+    .post__first-row { @apply flex justify-between -mb-1; }
+    .post__author { @apply relative flex gap-2.5; }
     .post__author__pfp { @apply my-auto flex size-[1.8125rem] aspect-square items-center gap-2.5 rounded-[100rem]; }
     .post__author__username { @apply text-base font-normal leading-[1.8125rem] text-[var(--tertiary)]; font-family: Quicksand; }
     .post__author__username:hover { @apply text-[var(--accent)]; }
+    .post__kebab-container, .comment__kebab-container { @apply relative; }
+    .post__kebab-btn, .comment__kebab-btn { @apply grid size-8 place-items-center rounded-[100rem] transition-all duration-200 ease-in-out; }
+    body.has-hover .post__kebab-btn:hover, body.has-hover .comment__kebab-btn:hover { @apply bg-[var(--accent)] text-[var(--ink-light)]; }
+    .post__kebab, .comment__kebab { @apply absolute right-0 top-[calc(100%+0.5rem)] z-10 hidden min-w-32 flex-col gap-1 rounded-[var(--radius)] bg-[var(--paper)] p-2; }
+    .post__kebab.shown, .comment__kebab.shown { @apply flex; }
+    .post__kebab .button, .comment__kebab .button { @apply justify-start; }
     .post__tags { @apply relative flex gap-1.5; }
     .post__content { @apply flex flex-col; }
     .post__content * { @apply rounded-[var(--radius)]; }
@@ -30,16 +37,21 @@
     .post-form { @apply flex flex-col gap-5; }
     .post-form__field { @apply flex flex-col gap-2; }
     .post-form__field[hidden] { @apply hidden; } /* the previous flex overrode the hidden property */
+    .post-form__current-image { @apply flex items-center gap-3 rounded-[var(--radius)] bg-[var(--paper-dim)] p-3 text-[var(--tertiary)]; }
+    .post-form__current-image img { @apply size-20 rounded-[calc(var(--radius)/2)] object-cover; }
     .post-form__actions { @apply flex justify-end gap-2; }
     @media (max-width: 600px) { .post-form__actions { @apply flex-col; } }
 
     .comments { @apply flex flex-col gap-4; }
     .comment, .comment-form { @apply grid gap-x-5 gap-y-4 rounded-[var(--radius)] bg-[var(--paper)] p-5; grid-template-rows: repeat(2, fit-content(100%)); grid-template-columns: fit-content(100%) minmax(0, 1fr); }
+    .comment { @apply relative; }
     .comment:target { -webkit-animation: highlight 1s linear forwards; animation: highlight 1s linear forwards; }
     @-webkit-keyframes highlight { 0%, 100% { background: var(--paper); } 50% { background: var(--accent); } }
     @keyframes highlight { 0%, 100% { background: var(--paper); } 50% { background: var(--accent); } }
     .comment__pfp, .comment-form__pfp { @apply my-auto flex size-[2.8125rem] aspect-square items-center gap-2.5 rounded-[100rem]; grid-row: 1 / span 1; grid-column: 1 / span 1; }
     .comment__body, .comment-form__inputs { @apply flex flex-col items-start gap-[0.3125rem] justify-self-stretch; grid-row: 1 / span 1; grid-column: 2 / span 1; }
+    .comment__body { @apply pr-8; }
+    .comment__kebab-container { @apply absolute right-5 top-5; }
     .comment__actions, .comment-form__actions { @apply flex items-center justify-start gap-2.5 justify-self-stretch; grid-row: 2 / span 1; grid-column: 1 / span 2; }
     .comment-form__actions { @apply justify-end; }
     .comment__reply-form { @apply mt-1 border border-[var(--accent)] shadow-none; grid-column: 1 / span 2; }

@@ -40,6 +40,7 @@ class Comment(models.Model):
         )
     user = models.ForeignKey(User, on_delete=CASCADE, null=False, related_name="comments")
     content = models.TextField(blank=False, null=False)
+    is_deleted = models.BooleanField(default=False)
     replies_to_comment = models.ForeignKey("self", 
             on_delete=CASCADE, null=True, blank=True,
             related_name="replies", related_query_name="reply"

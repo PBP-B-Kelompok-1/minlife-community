@@ -162,6 +162,8 @@ LOGIN_URL = "login"
 
 # Django CKEditor 5
 CKEDITOR_5_FILE_UPLOAD_PERMISSION = "authenticated"
+CKEDITOR_5_MAX_FILE_SIZE = 5  # MB; applies to images uploaded from the editor.
+CKEDITOR_5_UPLOAD_FILE_TYPES = ["jpg", "jpeg", "png", "gif", "webp"]
 CKEDITOR_5_CONFIGS = {
     'post': {
         'toolbar': {
