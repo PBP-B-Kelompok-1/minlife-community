@@ -160,6 +160,19 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = "users.User"
 LOGIN_URL = "login"
 
+# Firebase Web configuration is public client configuration. Service-account
+# credentials remain separate and must never be exposed through these values.
+FIREBASE_WEB_CONFIG = {
+    "apiKey": os.getenv("FIREBASE_API_KEY", ""),
+    "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN", ""),
+    "projectId": os.getenv("FIREBASE_PROJECT_ID", ""),
+    "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET", ""),
+    "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID", ""),
+    "appId": os.getenv("FIREBASE_APP_ID", ""),
+}
+FIREBASE_VAPID_KEY = os.getenv("FIREBASE_VAPID_KEY", "")
+FIREBASE_WEB_SDK_VERSION = "13.1.0"
+
 # Django CKEditor 5
 CKEDITOR_5_FILE_UPLOAD_PERMISSION = "authenticated"
 CKEDITOR_5_CONFIGS = {

@@ -1,5 +1,6 @@
 import json
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Q
@@ -18,6 +19,20 @@ SORT_ORDERS = {
     "newest": ("-created_at", "-id"),
     "oldest": ("created_at", "id"),
 }
+
+
+def _firebase_notifications_context(request):
+    web_config = settings.FIREBASE_WEB_CONFIG
+    config_is_complete = bool(settings.FIREBASE_VAPID_KEY) and all(
+        web_config.values()
+    )
+    return {
+        "firebase_notifications_enabled": (
+            request.user.is_authenticated and config_is_complete
+        ),
+        "firebase_web_config": web_config,
+        "firebase_vapid_key": settings.FIREBASE_VAPID_KEY,
+    }
 
 
 def _is_htmx(request):
@@ -80,7 +95,7 @@ def _serialize_announcement(announcement):
 
 def _list_context(request, selected_announcement=None):
     announcements, query, sort = _get_filtered_announcements(request)
-    return {
+    context = {
         "announcements": announcements,
         "selected_announcement": selected_announcement,
         "query": query,
@@ -95,6 +110,8 @@ def _list_context(request, selected_announcement=None):
             "announcements.delete_announcement"
         ),
     }
+    context.update(_firebase_notifications_context(request))
+    return context
 
 
 def _render_announcement_list(request, context):
@@ -278,6 +295,21 @@ def unsubscribe_notifications(request):
         installation_id=installation_id,
     ).delete()
     return JsonResponse({"subscribed": False})
+
+
+@require_GET
+def firebase_messaging_service_worker(request):
+    return render(
+        request,
+        "announcements/firebase-messaging-sw.js",
+        {
+            "firebase_web_config_json": json.dumps(
+                settings.FIREBASE_WEB_CONFIG
+            ),
+            "firebase_web_sdk_version": settings.FIREBASE_WEB_SDK_VERSION,
+        },
+        content_type="application/javascript",
+    )
 
 
 @require_GET

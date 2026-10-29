@@ -1135,7 +1135,7 @@ class FCMWebClientTests(TestCase):
         )
         self.assertContains(response, "firebase-app-compat.js")
         self.assertContains(response, "firebase-messaging-compat.js")
-        self.assertContains(response, TEST_FIREBASE_WEB_CONFIG["projectId"])
+        self.assertContains(response, "test\\u002Dproject")
         self.assertNotContains(response, "test-public-vapid-key")
         self.assertNotContains(response, "private_key")
 
