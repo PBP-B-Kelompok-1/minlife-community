@@ -13,8 +13,9 @@ authorization berbasis Django permission. Checkpoint 4 melengkapi Update/Delete 
 permission server-side dan halaman konfirmasi. Interaktivitas tanpa reload, integrasi
 Checkpoint 5A menambahkan Read, search, sorting, serta expand/collapse dinamis dengan
 HTMX. Checkpoint 5B menambahkan modal Create, Edit, dan Delete berbasis HTMX dengan
-halaman terpisah sebagai fallback. Integrasi frontpage dan Firebase Cloud Messaging belum
-diimplementasikan.
+halaman terpisah sebagai fallback. Checkpoint 6A menambahkan penyimpanan Firebase
+Installation ID dan endpoint subscribe/unsubscribe. Integrasi frontpage, Web SDK,
+service worker, serta pengiriman Firebase Cloud Messaging belum diimplementasikan.
 
 ## Arsitektur Django MVT
 
@@ -28,6 +29,8 @@ diimplementasikan.
   `/api/announcements` dan `/api/announcement/<uuid>`.
 - **Form:** `AnnouncementForm` dipakai ulang oleh Create dan Update serta hanya
   mengekspos title dan content.
+- **Subscription:** endpoint login-only di bawah `/announcements/notifications/`
+  menyimpan atau menghapus Installation ID tanpa memanggil Firebase dari server.
 
 ## Model dan Relasi Data
 
@@ -52,6 +55,11 @@ hasil tetap deterministik ketika timestamp sama.
 
 Image, event date, published date, category, dan notification data tidak dimasukkan ke
 migration awal karena belum diperlukan pada core model.
+
+Model `FCMSubscription` ditambahkan melalui migration `0002_fcmsubscription`. Satu user
+dapat mempunyai beberapa instalasi browser melalui relasi `fcm_subscriptions`, sedangkan
+`installation_id` bersifat unik agar satu browser hanya terkait dengan satu user aktif.
+Model memakai UUID, `created_at`, `updated_at`, dan `CASCADE` ketika user dihapus.
 
 ## Read, Search, dan Sorting
 
@@ -96,6 +104,12 @@ Update memerlukan `announcements.change_announcement`, sedangkan Delete memerluk
 sehingga `created_by` dan `created_at` tetap, sementara `updated_at` diperbarui ketika
 form disimpan. GET Delete hanya menampilkan konfirmasi; penghapusan dilakukan melalui
 POST yang dilindungi CSRF.
+
+Subscribe dan unsubscribe FCM memerlukan user login serta hanya menerima POST JSON.
+Subscribe memakai user dari session, bukan payload. Installation ID yang sama dapat
+dipindahkan ke user yang sedang login agar browser bersama tidak tetap terhubung ke akun
+lama. Unsubscribe hanya menghapus subscription milik user aktif dan bersifat idempotent;
+user tidak dapat menghapus Installation ID milik user lain.
 
 ## Interaktivitas
 
@@ -310,6 +324,35 @@ Hasil aktual:
   wrapping kata pada title/content desktop maupun mobile.
 - Coverage belum diukur dan tidak ada angka coverage yang diklaim.
 
+## Testing Checkpoint 6A
+
+Test subscription FCM mencakup:
+
+- UUID, field unik Installation ID, relasi User, dan ordering model.
+- Guest diarahkan ke login untuk subscribe/unsubscribe.
+- User login dapat mendaftarkan Installation ID.
+- Installation ID yang sudah ada dipindahkan ke user yang sedang login tanpa duplikasi.
+- JSON rusak, ID kosong, tipe non-string, dan ID terlalu panjang ditolak dengan 400.
+- User dapat unsubscribe secara idempotent.
+- User tidak dapat menghapus subscription milik user lain.
+- Endpoint hanya menerima POST.
+
+Hasil aktual:
+
+- Fase Red: 8 test menghasilkan error karena model dan route subscription belum tersedia.
+  Lima subtest invalid payload menyebabkan jumlah error pada output lebih besar dari
+  jumlah test, sesuai kontrak yang belum diimplementasikan.
+- Migration `announcements.0002_fcmsubscription` dibuat dan diterapkan manual oleh
+  developer.
+- Green terfokus: seluruh 8/8 test subscription lulus dalam 2.715 detik.
+- Regresi app: seluruh 56/56 test Announcements lulus sebelum commit Green.
+- Full suite kelompok memiliki satu kegagalan eksternal pada `users.tests` karena test
+  membandingkan bound method `get_zen_points` dengan integer tanpa memanggil method;
+  203 test lain lulus dan masalah telah dilaporkan kepada pemilik modul.
+- Belum ada dependency `firebase-admin`, panggilan jaringan, Web SDK, service worker,
+  atau pengiriman push nyata pada Checkpoint 6A.
+- Coverage belum diukur dan tidak ada angka coverage yang diklaim.
+
 ## Kontribusi AI
 
 ### 2026-10-27 - Checkpoint 1: Model Announcement
@@ -465,6 +508,33 @@ Hasil aktual:
 - **Commit terkait:** `a423850 test(announcements): definisikan mutasi dinamis dengan
   htmx` dan `0e7902c feat(announcements): tambahkan modal crud dinamis dengan htmx`.
 
+### 2026-10-29 - Checkpoint 6A: Subscription FCM
+
+- **Tool:** OpenAI Codex.
+- **Tujuan:** menyediakan penyimpanan Firebase Installation ID dan endpoint aman untuk
+  opt-in/opt-out sebelum mengintegrasikan Firebase Web SDK atau pengiriman push.
+- **Instruksi penting:** memakai API FID terbaru, tidak melakukan request Firebase nyata,
+  tidak menginstal dependency sebelum dibutuhkan, dan tidak mengubah modul teman yang
+  mempunyai kegagalan test eksternal.
+- **File yang dibuat/diubah:** `announcements/tests.py`, `announcements/models.py`,
+  `announcements/views.py`, `announcements/urls.py`, migration
+  `0002_fcmsubscription.py`, dan dokumentasi ini.
+- **Saran/implementasi AI:** model UUID dengan Installation ID unik, relasi multi-browser
+  ke User, endpoint JSON login-only, validasi payload, reassignment browser ke akun aktif,
+  serta unsubscribe idempotent dan terisolasi per user.
+- **Kontribusi manual developer:** menyiapkan Firebase project/config/VAPID/service
+  account lokal, menyinkronkan `dev`, menjalankan migration dan Red/Green test, serta
+  melakukan commit test dan fitur.
+- **Koreksi manual developer:** meminta klarifikasi virtual environment, konfigurasi
+  lokal vs PWS, Firebase API, dan service-account credential sebelum implementasi.
+- **Limitasi/kesalahan AI:** full test suite tidak seluruhnya hijau karena satu test
+  modul `users` memanggil method secara tidak tepat; AI hanya mendiagnosis dan tidak
+  mengubah modul milik anggota lain.
+- **Hasil pengujian:** 8/8 subscription test dan 56/56 seluruh test Announcements lulus;
+  full suite kelompok 203 lulus dan 1 gagal pada modul `users`; coverage belum diukur.
+- **Commit terkait:** `35acfdd test(announcements): definisikan langganan notifikasi fcm`
+  dan `e87436f feat(announcements): tambahkan langganan notifikasi fcm`.
+
 ## Riwayat Checkpoint dan Conventional Commit
 
 | Checkpoint | Status | Commit |
@@ -487,3 +557,6 @@ Hasil aktual:
 | Red Checkpoint 5B - Mutation HTMX | Selesai | `a423850 test(announcements): definisikan mutasi dinamis dengan htmx` |
 | Green Checkpoint 5B - Modal CRUD HTMX | Selesai | `0e7902c feat(announcements): tambahkan modal crud dinamis dengan htmx` |
 | Dokumentasi Checkpoint 5B | Selesai | commit dokumentasi ini |
+| Red Checkpoint 6A - Subscription FCM | Selesai | `35acfdd test(announcements): definisikan langganan notifikasi fcm` |
+| Green Checkpoint 6A - Subscription FCM | Selesai | `e87436f feat(announcements): tambahkan langganan notifikasi fcm` |
+| Dokumentasi Checkpoint 6A | Selesai | commit dokumentasi ini |
