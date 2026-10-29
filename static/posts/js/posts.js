@@ -53,6 +53,34 @@ document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeKebabMenus();
 });
 
+document.addEventListener("click", async (event) => {
+    const link = event.target.closest(".post__content a[href], .comment__body__content a[href]");
+    if (!link || event.defaultPrevented || event.button !== 0) return;
+    if (link.href.startsWith(window.location)) return;
+
+    event.preventDefault();
+
+    const confirmation = await Swal.fire({
+        title: "Hold up!",
+        text: `This will take you to an external site: ${link.href}. Proceed with caution!`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Proceed",
+        cancelButtonText: "Cancel",
+    });
+
+    if (!confirmation.isConfirmed) return;
+
+    // Respect links configured by the editor to open in a new tab, as well as
+    // a reader's Ctrl/Cmd-click intent.
+    if (link.target === "_blank" || event.ctrlKey || event.metaKey) {
+        window.open(link.href, "_blank", "noopener");
+        return;
+    }
+
+    window.location.assign(link.href);
+});
+
 let postsAbortController;
 function generatePostElem(post, show_links=true) {
     let postElem = document.createElement("article");

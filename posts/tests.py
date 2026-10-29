@@ -70,6 +70,20 @@ class PostModelAndFormTests(PostsTestCase):
             '<a>bad link</a>',
         )
 
+    def test_post_form_keeps_safe_ckeditor_links(self):
+        form = PostForm(
+            data={
+                "title": "Useful resource",
+                "content": '<p><a href="https://example.com/guide">Read the guide</a></p>',
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(
+            form.cleaned_data["content"],
+            '<p><a href="https://example.com/guide">Read the guide</a></p>',
+        )
+
     def test_weekly_challenge_post_requires_a_challenge_image(self):
         weekly_challenge = Tag.objects.create(title="Weekly Challenge")
         form = PostForm(
