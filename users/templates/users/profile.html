@@ -31,6 +31,7 @@
                 {% endif %}
 
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-1 sm:justify-start">
+                    <span><i class="fa-solid fa-leaf"></i> {{ profile_user.get_zen_points }} zen points</span>
                     <a class="user-link" href="{% url 'users:following_list' profile_user.id %}">
                         <strong id="following-count">{{ profile_user.following.count }}</strong> following
                     </a>

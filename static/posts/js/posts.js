@@ -5,6 +5,8 @@ const LOGIN_URL = scriptElem.dataset.loginUrl;
 const USER_PROFILE_ENDPOINT_TEMPLATE = scriptElem.dataset.userProfileEndpointTemplate;
 const CSRF_TOKEN = scriptElem.dataset.csrfToken;
 const UUID4_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
+const QUOTES_ENDPOINT = "https://jovan-finesta-minimalist-quotes-api.pws.cs.ui.ac.id/random"
+const FALLBACK_PFP = "/static/img/pfp.svg";
 
 // frontpage
 const SHOW_POST_ENDPOINT_TEMPLATE = scriptElem.dataset.showPostEndpointTemplate;
@@ -20,6 +22,18 @@ function generatePostElem(post, show_links=true) {
     let postElem = document.createElement("article");
     postElem.id = post.id;
     postElem.classList.add("post", "shadow", "hover--expand");
+
+    const userProfilePage = USER_PROFILE_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, post.user_id);
+    // const pfp_url = 
+    let authorInfoHtml = `
+        <a href="${userProfilePage}" class="post__author">
+            <img class="post__author__pfp" 
+                src="${post.avatar_url}" 
+                onerror="this.onerror=null; this.src='${FALLBACK_PFP}';"
+                alt="${post.username}'s profile picture">
+            <span class="post__author__username">${post.username}</span>
+        </a>`;
+
     let postTitleHtml = `
         <div class="post__title">
             <h1>${post.title}</h1>
@@ -60,10 +74,11 @@ function generatePostElem(post, show_links=true) {
                 </a>
             </div>
             <div class="post__actions--right">
-                <a class="button button--small post__actions__share" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
+                <button class="button button--small post__actions__share"
+                    data-show-post-url=${show_post_url}>
                     <i class="fa-solid fa-link"></i>
                     Share
-                </a>
+                </button>
             </div>
         </div>`;
     
@@ -73,6 +88,7 @@ function generatePostElem(post, show_links=true) {
 
     const postInnerHtml = `
         ${postLink}
+        ${authorInfoHtml}
         ${postTitleHtml}
         ${postTagsHtml}
         ${postContentHtml}
@@ -88,6 +104,10 @@ function generatePostElem(post, show_links=true) {
     postElem.querySelector(".post__actions__downvote").addEventListener("click", (e) => {
         e.preventDefault();
         vote_post(e.target, -1);
+    });
+    postElem.querySelector(".post__actions__share").addEventListener("click", (e) => {
+        e.preventDefault();
+        copy_post_url_to_clipboard(e.target);
     });
 
     return postElem;
@@ -279,7 +299,10 @@ function generateCommentTree(comments, repliesToElemId=null, repliesToUser=null)
 
         const userProfilePage = USER_PROFILE_ENDPOINT_TEMPLATE.replace(UUID4_PLACEHOLDER, comment.user_id);
         commentElem.innerHTML = `
-            <img class="comment__pfp" src="/static/img/judge.jpg" alt="">
+            <img class="comment__pfp" 
+                src="${comment.avatar_url}" 
+                onerror="this.onerror=null; this.src='${FALLBACK_PFP}';"
+                alt="${comment.username}'s profile picture">
             ${commentRepliesToHtml}
             <div class="comment__body">
                 <a href="${userProfilePage}" class="comment__body__username">${comment.username}</a>
@@ -470,8 +493,55 @@ async function vote_comment(vote_button, vote_value) {
     } catch(error){
         vote_count_elem.textContent = prev_vote_value;
         console.error(`An error occured while voting: ${error}`)
+        toast.fire({
+            icon: "error",
+            title: "Something went wrong while voting..."
+        });
     } finally {
         vote_button_set.dataset.requestPending = "false";
         vote_button_set.removeAttribute("aria-busy");
+    }
+}
+
+function copy_post_url_to_clipboard(share_btn) {
+    try {
+        const location_str = String(document.location);
+        const location_str_trimmed = location_str.endsWith('/') ? location_str.slice(0, -1) : str;
+        const show_post_url = location_str_trimmed + share_btn.dataset.showPostUrl;
+        navigator.clipboard.writeText(show_post_url);
+        toast.fire({
+            icon: "success",
+            title: "Copied to clipboard!"
+        });
+    } catch (error) {
+        toast.fire({
+            icon: "error",
+            title: "Failed to copy to clipboard..."
+        });
+        console.error(`An error occured while copying: ${error}`)
+    }
+}
+
+async function showQuote() {
+    quoteTextElem = document.getElementById("quote__text");
+    quoteByElem = document.getElementById("quote__by");
+
+    try {
+        const response = await fetch(QUOTES_ENDPOINT, {
+            method: "GET",
+            headers: { "Accept": "application/json" },
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Get request failed with status ${response.status}`);
+        }
+        const data = (await response.json()).data;
+        if (data.length === 0) {
+            throw new Error(`Quote API returned empty.`);
+        }
+        quoteTextElem.innerText = `"${data["quote"]}"`;
+        quoteByElem.innerText = `— ${data["author"]}, ${data["year"]}`;
+    } catch (error) {
+        console.error(`An error occured: ${error}`);
     }
 }

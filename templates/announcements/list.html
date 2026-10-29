@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load static %}
+{% block meta %}
+    <title>Announcements - Minlife Community</title>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
+    <script defer src="{% static 'announcements/js/dialog.js' %}"></script>
+{% endblock meta %}
+
+{% block content %}
+    <div
+        id="announcements-app"
+        class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-12 pt-4 sm:px-6 lg:px-8"
+    >
+        <section class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex flex-col gap-1">
+                <h1 class="m-0 text-3xl font-semibold text-[var(--secondary)]">Announcements</h1>
+                <p class="m-0 text-sm text-[var(--tertiary)]">Community updates</p>
+            </div>
+            {% if can_add_announcement %}
+                <a
+                    href="{% url 'announcements:create' %}"
+                    hx-get="{% url 'announcements:create' %}"
+                    hx-target="#announcement-dialog-content"
+                    hx-swap="innerHTML"
+                    hx-include="#announcement-filter-form"
+                    class="button shadow self-stretch sm:self-start"
+                >
+                    <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                    Add Announcement
+                </a>
+            {% endif %}
+        </section>
+
+        <form
+            id="announcement-filter-form"
+            method="get"
+            action="{% url 'announcements:list' %}"
+            hx-get="{% url 'announcements:list' %}"
+            hx-target="#announcement-results"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            hx-indicator="#announcement-loading"
+            class="flex flex-col gap-3 rounded-[var(--radius)] bg-[var(--paper)] p-4 shadow sm:flex-row"
+        >
+            <label class="flex flex-1 flex-col gap-1 text-sm font-medium text-[var(--secondary)]">
+                Search announcements
+                <input
+                    type="search"
+                    id="announcement-search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Search by title or content"
+                    hx-get="{% url 'announcements:list' %}"
+                    hx-trigger="input changed delay:300ms"
+                    hx-include="#announcement-filter-form"
+                >
+            </label>
+            <label class="flex flex-col gap-1 text-sm font-medium text-[var(--secondary)] sm:w-48">
+                Sort by
+                <select
+                    id="announcement-sort"
+                    name="sort"
+                    class="min-h-12 px-3 py-2.5"
+                    hx-get="{% url 'announcements:list' %}"
+                    hx-trigger="change"
+                    hx-include="#announcement-filter-form"
+                >
+                    <option value="newest" {% if sort == "newest" %}selected{% endif %}>Newest</option>
+                    <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>Oldest</option>
+                </select>
+            </label>
+        </form>
+
+        <div
+            id="announcement-loading"
+            class="htmx-indicator empty-state"
+            role="status"
+            aria-live="polite"
+        >
+            Loading announcements...
+        </div>
+
+        {% include "announcements/_results.html" %}
+
+        <dialog
+            id="announcement-dialog"
+            class="fixed inset-0 m-auto max-h-[90vh] w-[min(92vw,42rem)] overflow-y-auto rounded-[var(--radius)] border-0 bg-transparent p-0 backdrop:bg-black/50"
+            aria-labelledby="announcement-dialog-title"
+        >
+            <div id="announcement-dialog-content"></div>
+        </dialog>
+    </div>
+{% endblock content %}

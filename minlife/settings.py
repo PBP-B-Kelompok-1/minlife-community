@@ -161,6 +161,7 @@ AUTH_USER_MODEL = "users.User"
 LOGIN_URL = "login"
 
 # Django CKEditor 5
+CKEDITOR_5_FILE_UPLOAD_PERMISSION = "authenticated"
 CKEDITOR_5_CONFIGS = {
     'post': {
         'toolbar': {

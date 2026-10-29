@@ -6,11 +6,11 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Sum
 from django.urls import reverse
 
 from .models import Post, Vote, Comment
 from .forms import PostForm, CommentForm
+from weeklychallenge.services import award_badge_if_eligible
 
 # Create your views here.
 def frontpage(request):
@@ -35,13 +35,13 @@ def get_post(post_id, user):
             "id": str(tag.id),
             "title": tag.title,
         } for tag in post.tags.all()]
-    user_vote_value = 0
-    if user.is_authenticated:
-        user_vote = post.votes.filter(user=user).first()
-        user_vote_value = user_vote.value if user_vote else 0
+    user_vote_value = post.get_user_vote_value(user);
     comment_count = post.comments.count()
     data = {
         "id": str(post.id),
+        "user_id": post.author.id,
+        "username": post.author.username,
+        "avatar_url": post.author.avatar_url,
         "title": post.title,
         "content": post.content,
         "tags": tags_data,
@@ -124,6 +124,8 @@ def vote_post(request, post_id):
             vote_value = 0
             vote.delete()
 
+    award_badge_if_eligible(post)
+
     return JsonResponse(
         data={
             "message": "Upvoted successfully!",
@@ -150,14 +152,12 @@ def get_comments_recursive(comments, user):
         reply_count = 0
         for reply in replies:
             reply_count += 1 + reply["reply_count"]
-        user_vote_value = 0
-        if user.is_authenticated:
-            user_vote = comment.votes.filter(user=user).first()
-            user_vote_value = user_vote.value if user_vote else 0
+        user_vote_value = comment.get_user_vote_value(user);
         data.append({
             "id": comment.id,
             "user_id": comment.user.id,
             "username": comment.user.username,
+            "avatar_url": comment.user.avatar_url,
             "content": comment.content,
             "user_vote_value": user_vote_value,
             "replies": replies,

@@ -12,8 +12,8 @@
                 <a href="{% url 'users:show_my_profile' %}">profile</a>
                 <span class="nav-user">{{ user.username }}</span>
                 <form method="post" action="{% url 'users:logout' %}">
-                {% csrf_token %}
-                <button type="submit">logout</button>
+                    {% csrf_token %}
+                    <button type="submit" class="nav-logout">logout</button>
                 </form>
             {% else %}
                 <a href="{% url 'users:login' %}">Login</a>
