@@ -27,6 +27,10 @@ demonstration.
       signals, and Badge persistence.
 - [x] Enforce one Badge per Challenge and preserve earned Badges after submission or
       Challenge deletion.
+- [x] Add shared HTMX request detection, redirects, event triggers, canonical URL
+      headers, CSRF handling, indicators, and accessible error feedback.
+- [x] Add HTMX list/detail navigation, filter/search updates, leaderboard updates,
+      create/edit form swaps, and delete confirmation modal with non-HTMX fallbacks.
 
 ## Highest-priority implementation
 
@@ -58,11 +62,11 @@ demonstration.
 
 - [ ] Decide whether Group membership is only a role convention or a strict
       authorization requirement.
-- [ ] Ensure every management route checks the intended rule server-side, not only
+- [x] Ensure every management route checks the intended rule server-side, not only
       through hidden buttons.
-- [ ] Test anonymous users, normal users, users with individual permissions,
+- [x] Test anonymous users, normal users, users with individual permissions,
       Moderator-group users, and superusers.
-- [ ] Ensure unauthorized responses provide an understandable 403 or login flow.
+- [x] Ensure unauthorized responses provide an understandable 403 or login flow.
 
 ## Rubric: CRUD and MVT quality
 
@@ -77,7 +81,7 @@ demonstration.
 
 ## Rubric: HTMX and responsive interactivity
 
-- [ ] Decide whether create, edit, and delete should also use HTMX or whether the
+- [x] Decide whether create, edit, and delete should also use HTMX or whether the
       current full-page flow is sufficient for the target rubric score. Decision: Use HTMX to go the extra mile
 - [ ] Test HTMX requests and ordinary browser requests separately where behavior differs.
 - [ ] Verify task-row controls preserve management-form values and form data.

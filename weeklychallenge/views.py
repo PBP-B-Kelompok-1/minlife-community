@@ -1,19 +1,22 @@
 from datetime import timedelta
 from functools import wraps
 
-from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from django.db.models import Count, IntegerField, Sum, Value
 from django.db.models.functions import Coalesce
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.urls import reverse
+from django.views.decorators.vary import vary_on_headers
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from .forms import ChallengeForm, ChallengeTaskFormSet
+from .htmx import htmx_redirect, htmx_trigger, is_htmx
 from .models import Challenge, ChallengeSubmission, MAX_TASKS_PER_CHALLENGE
 from .services import create_challenge
 
@@ -36,12 +39,31 @@ def challenge_management_required(view):
     @wraps(view)
     def wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect_to_login(request.get_full_path())
+            if is_htmx(request):
+                return htmx_redirect(redirect_to_login(request.get_full_path()).url)
+            raise PermissionDenied
         if not _can_manage_challenges(request.user):
             raise PermissionDenied
         return view(request, *args, **kwargs)
 
     return wrapped
+
+
+def challenge_permission_required(permission):
+    def decorator(view):
+        @wraps(view)
+        def wrapped(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                if is_htmx(request):
+                    return htmx_redirect(redirect_to_login(request.get_full_path()).url)
+                raise PermissionDenied
+            if not request.user.has_perm(permission):
+                raise PermissionDenied
+            return view(request, *args, **kwargs)
+
+        return wrapped
+
+    return decorator
 
 
 def show_weekly_challenge(request):
@@ -52,6 +74,9 @@ def show_weekly_challenge(request):
     )
     can_manage = request.user.is_authenticated and request.user.has_perm(
         "weeklychallenge.change_challenge"
+    )
+    can_delete = request.user.is_authenticated and request.user.has_perm(
+        "weeklychallenge.delete_challenge"
     )
     challenge = _challenge_queryset().current().prefetch_related("tasks").first()
     upcoming_challenges = _challenge_queryset().upcoming().order_by("week_start")[:3]
@@ -65,6 +90,7 @@ def show_weekly_challenge(request):
                 "challenge": None,
                 "can_create_challenge": can_create_challenge,
                 "can_manage": can_manage,
+                "can_delete": can_delete,
                 "upcoming_challenges": upcoming_challenges,
                 "past_challenges": past_challenges,
             },
@@ -108,12 +134,14 @@ def show_weekly_challenge(request):
             "submissions": submissions,
             "has_submitted": has_submitted,
             "can_manage": can_manage,
+            "can_delete": can_delete,
             "upcoming_challenges": upcoming_challenges,
             "past_challenges": past_challenges,
         },
     )
 
 
+@vary_on_headers("HX-Request", "HX-Boosted", "HX-History-Restore-Request")
 def challenge_list(request):
     """Render the challenge directory with its HTMX-filterable list partial."""
     return render(
@@ -125,11 +153,13 @@ def challenge_list(request):
 
 def challenge_list_partial(request):
     """Return a paginated challenge list filtered by status and title search."""
-    return render(
+    response = render(
         request,
         "challenges/components/_challenge_list.html",
         _challenge_list_context(request),
     )
+    response["HX-Push-Url"] = _canonical_url(request, "weeklychallenge:challenge_list")
+    return response
 
 
 def _challenge_list_context(request):
@@ -161,6 +191,8 @@ def _challenge_list_context(request):
         "today": today,
         "can_manage": request.user.is_authenticated
         and request.user.has_perm("weeklychallenge.change_challenge"),
+        "can_delete": request.user.is_authenticated
+        and request.user.has_perm("weeklychallenge.delete_challenge"),
         "can_create_challenge": request.user.is_authenticated
         and request.user.has_perm("weeklychallenge.add_challenge"),
         "page_query": query_params.urlencode(),
@@ -171,6 +203,11 @@ def _challenge_list_context(request):
             Challenge.objects.past(today).values_list("pk", flat=True)
         ),
     }
+
+
+def _canonical_url(request, name, **kwargs):
+    query = request.GET.copy()
+    return f"{reverse(name, kwargs=kwargs)}?{query.urlencode()}" if query else reverse(name, kwargs=kwargs)
 
 
 def _challenge_queryset():
@@ -215,13 +252,15 @@ def _submission_list_context(request, challenge):
     }
 
 
+@vary_on_headers("HX-Request", "HX-Boosted", "HX-History-Restore-Request")
 def challenge_detail(request, pk):
     challenge = get_object_or_404(Challenge, pk=pk)
     can_manage = request.user.has_perm("weeklychallenge.change_challenge")
     is_upcoming = Challenge.objects.upcoming().filter(pk=pk).exists()
     if is_upcoming and not can_manage:
         return render(request, "challenges/detail.html",
-                      {"challenge": challenge, "is_teaser": True, "can_manage": can_manage})
+                      {"challenge": challenge, "is_teaser": True, "can_manage": can_manage,
+                       "can_delete": request.user.has_perm("weeklychallenge.delete_challenge")})
 
     challenge = Challenge.objects.select_related("badge", "tag").get(pk=pk)
     today = timezone.localdate()
@@ -240,6 +279,7 @@ def challenge_detail(request, pk):
         "current_day": current_day,
         "visible_tasks": visible_tasks,
         "can_manage": can_manage,
+        "can_delete": request.user.has_perm("weeklychallenge.delete_challenge"),
     })
     return render(request, "challenges/detail.html", context)
 
@@ -251,14 +291,19 @@ def submission_list_partial(request, pk):
         "weeklychallenge.change_challenge"
     ):
         raise Http404
-    return render(
+    response = render(
         request,
         "challenges/components/_submission_list.html",
         _submission_list_context(request, challenge),
     )
+    response["HX-Push-Url"] = _canonical_url(
+        request, "weeklychallenge:challenge_detail", pk=challenge.pk
+    )
+    return response
 
 
-@permission_required("weeklychallenge.add_challenge", raise_exception=True)
+@vary_on_headers("HX-Request", "HX-Boosted", "HX-History-Restore-Request")
+@challenge_permission_required("weeklychallenge.add_challenge")
 def challenge_create(request):
     """Validate and create a challenge with its badge and task formset atomically."""
     if request.method == "POST":
@@ -266,13 +311,15 @@ def challenge_create(request):
         formset = ChallengeTaskFormSet(request.POST)
         if form.is_valid() and formset.is_valid():
             challenge = create_challenge(form=form, formset=formset, user=request.user)
-            return redirect("weeklychallenge:show_weekly_challenge")
+            detail_url = reverse("weeklychallenge:challenge_detail", args=[challenge.pk])
+            return htmx_redirect(detail_url) if is_htmx(request) else redirect(detail_url)
     else:
         form = ChallengeForm()
         formset = ChallengeTaskFormSet()
+    template = "challenges/components/_challenge_form.html" if is_htmx(request) else "challenges/form.html"
     return render(
         request,
-        "challenges/form.html",
+        template,
         {
             "form": form,
             "formset": formset,
@@ -282,7 +329,8 @@ def challenge_create(request):
     )
 
 
-@permission_required("weeklychallenge.change_challenge", raise_exception=True)
+@vary_on_headers("HX-Request", "HX-Boosted", "HX-History-Restore-Request")
+@challenge_permission_required("weeklychallenge.change_challenge")
 def challenge_update(request, pk):
     """Update a challenge and its task formset without replacing its badge or tag."""
     challenge = get_object_or_404(Challenge, pk=pk)
@@ -293,13 +341,15 @@ def challenge_update(request, pk):
             with transaction.atomic():
                 form.save()
                 formset.save()
-            return redirect("weeklychallenge:challenge_detail", pk=challenge.pk)
+            detail_url = reverse("weeklychallenge:challenge_detail", args=[challenge.pk])
+            return htmx_redirect(detail_url) if is_htmx(request) else redirect(detail_url)
     else:
         form = ChallengeForm(instance=challenge)
         formset = ChallengeTaskFormSet(instance=challenge)
+    template = "challenges/components/_challenge_form.html" if is_htmx(request) else "challenges/form.html"
     return render(
         request,
-        "challenges/form.html",
+        template,
         {
             "challenge": challenge,
             "form": form,
@@ -311,13 +361,30 @@ def challenge_update(request, pk):
 
 
 @require_http_methods(["GET", "POST"])
-@permission_required("weeklychallenge.delete_challenge", raise_exception=True)
+@vary_on_headers("HX-Request", "HX-Boosted", "HX-History-Restore-Request")
+@challenge_permission_required("weeklychallenge.delete_challenge")
 def challenge_delete(request, pk):
     """Confirm a moderator's challenge deletion and delete only after a POST."""
     challenge = get_object_or_404(Challenge, pk=pk)
     if request.method == "POST":
-        challenge.delete()
+        try:
+            challenge.delete()
+        except ProtectedError:
+            context = {"challenge": challenge, "error": "Challenge tidak dapat dihapus karena masih digunakan."}
+            if is_htmx(request):
+                return render(request, "challenges/components/_delete_modal.html", context, status=200)
+            return render(request, "challenges/confirm_delete.html", context, status=409)
+        if is_htmx(request) and request.POST.get("origin") == "detail":
+            return htmx_redirect(reverse("weeklychallenge:challenge_list"))
+        if is_htmx(request):
+            return htmx_trigger(HttpResponse(""), "challengeChanged")
         return redirect("weeklychallenge:challenge_list")
+    if is_htmx(request):
+        return render(
+            request,
+            "challenges/components/_delete_modal.html",
+            {"challenge": challenge},
+        )
     return render(
         request,
         "challenges/confirm_delete.html",

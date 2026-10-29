@@ -24,6 +24,7 @@
         hx-include="closest form"
         hx-target="closest fieldset"
         hx-swap="outerHTML"
+        hx-disabled-elt="this"
     >
         {% if task_form.DELETE.value %}Pulihkan tugas{% else %}Hapus tugas{% endif %}
     </button>

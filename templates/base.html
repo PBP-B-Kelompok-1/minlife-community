@@ -21,10 +21,47 @@
 </head>
 <body>
     {% include "components/navbar.html" %}
-    <main>
+    <div id="main-content">
         {% block content %}{% endblock content %}
-    </main>
+    </div>
+    <div id="modal-slot"></div>
+    <div id="toast-region" aria-live="polite"></div>
     {% include "components/_trigger_toast_messages.html" %}
+    <style>
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
+    </style>
+    <script>
+        document.addEventListener("htmx:configRequest", function (event) {
+            event.detail.headers["X-CSRFToken"] = getCookie("csrftoken");
+        });
+        document.addEventListener("htmx:responseError", function (event) {
+            const region = document.getElementById("toast-region");
+            if (region) region.textContent = event.detail.xhr.status === 403
+                ? "Kamu tidak punya izin untuk tindakan ini."
+                : event.detail.xhr.status === 404
+                    ? "Data tidak ditemukan."
+                    : "Terjadi kesalahan. Coba lagi.";
+        });
+        document.addEventListener("htmx:sendError", function () {
+            const region = document.getElementById("toast-region");
+            if (region) region.textContent = "Terjadi kesalahan. Coba lagi.";
+        });
+        document.addEventListener("htmx:beforeRequest", function (event) {
+            if (event.detail.elt.matches("[hx-get*='/delete/']")) {
+                event.detail.elt.dataset.modalOpener = "true";
+            }
+        });
+        document.addEventListener("htmx:afterSwap", function (event) {
+            const dialog = document.querySelector("#modal-slot dialog");
+            if (dialog && !dialog.open) dialog.showModal();
+        });
+        document.addEventListener("close", function (event) {
+            if (event.target.matches("#modal-slot dialog")) {
+                document.getElementById("modal-slot").replaceChildren();
+            }
+        });
+    </script>
 </body>
 <footer>
 </footer>

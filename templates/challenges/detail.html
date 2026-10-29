@@ -14,7 +14,9 @@
             {% if can_manage %}
                 <div class="flex gap-2">
                     <a class="button button--border button--small" href="{% url 'weeklychallenge:challenge_update' challenge.pk %}">Edit</a>
-                    <a class="button button--border button--small" href="{% url 'weeklychallenge:challenge_delete' challenge.pk %}">Hapus</a>
+                    {% if can_delete %}<a class="button button--border button--small" href="{% url 'weeklychallenge:challenge_delete' challenge.pk %}"
+                        hx-get="{% url 'weeklychallenge:challenge_delete' challenge.pk %}?origin=detail"
+                        hx-target="#modal-slot" hx-swap="innerHTML">Hapus</a>{% endif %}
                 </div>
             {% endif %}
         </nav>
@@ -80,7 +82,7 @@
                 <h2 class="text-2xl font-bold">Submission dan leaderboard</h2>
                 <p class="text-sm text-[var(--tertiary)]">Skor dihitung dari upvote dikurangi downvote.</p>
             </div>
-            <div id="submission-results" aria-live="polite">
+            <div aria-live="polite">
                 {% include "challenges/components/_submission_list.html" %}
             </div>
         </section>

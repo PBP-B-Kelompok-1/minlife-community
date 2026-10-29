@@ -67,7 +67,7 @@ class Challenge(models.Model):
     goal = models.TextField(help_text="Tujuan/ekspektasi setelah challenge")
     tag = models.OneToOneField(
         "posts.Tag",
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         editable=False,
@@ -78,7 +78,10 @@ class Challenge(models.Model):
         default=DEFAULT_UPVOTE_THRESHOLD, help_text="Skor bersih yang dibutuhkan submission untuk mendapat badge."
     )
     badge = models.OneToOneField(
-        "users.Badge", on_delete=models.PROTECT, related_name="challenge"
+        "users.Badge",
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="challenge",
     )
 
     week_start = models.DateField()

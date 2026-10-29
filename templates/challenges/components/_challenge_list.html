@@ -1,7 +1,7 @@
 {% if challenges %}
     <div class="grid gap-4 md:grid-cols-2">
         {% for challenge in challenges %}
-            <article class="flex flex-col gap-3 rounded-[var(--radius)] bg-[var(--paper)] p-5 shadow">
+            <article id="challenge-card-{{ challenge.pk }}" class="flex flex-col gap-3 rounded-[var(--radius)] bg-[var(--paper)] p-5 shadow">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <p class="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">
@@ -21,6 +21,12 @@
                     Lihat detail
                     <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
                 </a>
+                {% if can_delete %}
+                    <a class="button button--border button--small self-start"
+                        href="{% url 'weeklychallenge:challenge_delete' challenge.pk %}"
+                        hx-get="{% url 'weeklychallenge:challenge_delete' challenge.pk %}"
+                        hx-target="#modal-slot" hx-swap="innerHTML">Hapus</a>
+                {% endif %}
             </article>
         {% endfor %}
     </div>
@@ -32,7 +38,7 @@
                     class="button button--border button--small"
                     href="?{{ page_query }}{% if page_query %}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
                     hx-get="{% url 'weeklychallenge:challenge_list_partial' %}?{{ page_query }}{% if page_query %}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
-                    hx-target="#challenge-results"
+                    hx-target="#challenge-list"
                 >Sebelumnya</a>
             {% endif %}
             <span class="text-sm text-[var(--tertiary)]">Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}</span>

@@ -4,7 +4,7 @@
     class="button button--border button--small self-start"
     {% if active_task_count >= formset.max_num %}hidden{% else %}
         hx-get="{% url 'weeklychallenge:task_form_row' %}?index={{ next_form_index }}&amp;active={{ active_task_count }}"
-        hx-target="#task-form-list"
+        hx-target="#task-rows"
         hx-swap="beforeend"
     {% endif %}
     {% if is_oob %}hx-swap-oob="outerHTML"{% endif %}
