@@ -32,12 +32,6 @@ class User(AbstractUser):
         max_length=160, 
         help_text="Short description of the User."
     )
-
-    zen_points = models.IntegerField(
-        default=0,
-        editable=False,
-        help_text="Upvote accumulation."
-    )
     
     following = models.ManyToManyField(
         "self",
@@ -141,7 +135,7 @@ class Badge(models.Model):
 
 class UserBadge(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="user_badges")
-    badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name="awards")
+    badge = models.ForeignKey(Badge, on_delete=models.PROTECT, related_name="awards")
     earned_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
