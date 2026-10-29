@@ -51,8 +51,7 @@
             </form>
         </section>
 
-        <section id="challenge-list" aria-live="polite" hx-boost="true" hx-target="#main-content"
-            hx-select="#main-content" hx-swap="outerHTML" hx-trigger="challengeChanged from:body"
+        <section id="challenge-list" aria-live="polite" hx-trigger="challengeChanged from:body"
             hx-get="{% url 'weeklychallenge:challenge_list_partial' %}" hx-include="#challenge-filters">
             {% include "challenges/components/_challenge_list.html" %}
         </section>

@@ -55,13 +55,9 @@ demonstration.
 - [x] Deleting a Challenge deletes its submissions but preserves its Badge and all
       previously earned UserBadge records.
 - [x] Deleting a submission or its Post does not revoke an earned UserBadge.
-- [ ] Decide whether hard deletion should eventually be replaced with archive/
-      deactivation behavior for audit history.
 
 ### Authorization consistency
 
-- [ ] Decide whether Group membership is only a role convention or a strict
-      authorization requirement.
 - [x] Ensure every management route checks the intended rule server-side, not only
       through hidden buttons.
 - [x] Test anonymous users, normal users, users with individual permissions,
@@ -112,14 +108,13 @@ git diff --check
 
 ## Rubric: documentation and project submission
 
-- [ ] Update the root README with the final module list, ownership, user roles,
+- [x] Update the root README with the final module list, ownership, user roles,
       application description, setup instructions, and deployment link.
-- [ ] Document the actual public API or external mock API source and implementation.
-- [ ] Verify whether Firebase Cloud Messaging is implemented; do not list it as
+- [x] Document the actual public API or external mock API source and implementation.
+- [x] Verify whether Firebase Cloud Messaging is implemented; do not list it as
       completed if it is only planned.
-- [ ] Add the required Figma/design link and confirm the deployed UI matches it.
+- [x] Add the required Figma/design link and confirm the deployed UI matches it.
 - [ ] Add an AI-use disclosure covering tools, purpose, manual review, and limitations.
-- [ ] Link to [STUDY.md](./STUDY.md) for the module architecture and demonstration flow.
 - [ ] Add screenshots or a short GIF if required for the strongest documentation score.
 
 ## Rubric: deployment and live demonstration
@@ -129,21 +124,21 @@ git diff --check
       deployed environment.
 - [ ] Confirm media uploads work for Challenge submissions.
 - [ ] Seed enough initial project data for the project-wide deployment requirement.
-- [ ] Test the deployed flow with a moderator, normal user, and superuser.
-- [ ] Demonstrate Challenge creation, task HTMX controls, Post submission, leaderboard
+- [x] Test the deployed flow with a moderator, normal user, and superuser.
+- [x] Demonstrate Challenge creation, task HTMX controls, Post submission, leaderboard
       updates, voting, Badge awarding, and Badge persistence after vote removal.
-- [ ] Demonstrate unauthorized management access and the Challenge directory filters.
+- [x] Demonstrate unauthorized management access and the Challenge directory filters.
 - [ ] Prepare fallback demo data in case the deployed database is unavailable.
 
 ## Rubric: Git collaboration evidence
 
-- [ ] Keep implementation, tests, documentation, and cross-app integration in
+- [x] Keep implementation, tests, documentation, and cross-app integration in
       focused descriptive commits.
-- [ ] Use independent branches for member work.
-- [ ] Open Pull Requests for integration changes.
-- [ ] Obtain peer review before merging.
-- [ ] Preserve test and validation results in the relevant Pull Request descriptions.
-- [ ] Avoid one large deadline commit; ensure the history shows incremental progress.
+- [x] Use independent branches for member work.
+- [x] Open Pull Requests for integration changes.
+- [x] Obtain peer review before merging.
+- [x] Preserve test and validation results in the relevant Pull Request descriptions.
+- [x] Avoid one large deadline commit; ensure the history shows incremental progress.
 
 ## Known concerns to resolve or explicitly accept
 
