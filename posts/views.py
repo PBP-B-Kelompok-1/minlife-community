@@ -11,11 +11,16 @@ from django.urls import reverse
 
 from .models import Post, Vote, Comment
 from .forms import PostForm, CommentForm
+from announcements.models import Announcement
 from weeklychallenge.services import award_badge_if_eligible
 
 # Create your views here.
 def frontpage(request):
-    return render(request, "posts/frontpage.html")
+    return render(
+        request,
+        "posts/frontpage.html",
+        {"latest_announcement": Announcement.objects.first()},
+    )
 
 @require_GET
 def show_post(request, post_id):
@@ -38,12 +43,14 @@ def get_post(post_id, user):
         } for tag in post.tags.all()]
     user_vote_value = post.get_user_vote_value(user);
     comment_count = post.comments.count()
+    challenge_image_url = post.challenge_image.url if post.challenge_image else None
     data = {
         "id": str(post.id),
         "user_id": post.author.id,
         "username": post.author.username,
         "avatar_url": post.author.avatar_url,
         "title": post.title,
+        "challenge_image_url": challenge_image_url,
         "content": post.content,
         "tags": tags_data,
         "vote_count": post.get_vote_count(),

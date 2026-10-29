@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from users.models import User
+from announcements.models import Announcement
 
 from .forms import PostForm
 from .models import Comment, Post, Tag, Vote
@@ -68,6 +69,20 @@ class PostModelAndFormTests(PostsTestCase):
             '<p>Hello <strong>there</strong></p>'
             '<img src="https://example.com/photo.png">'
             '<a>bad link</a>',
+        )
+
+    def test_post_form_keeps_safe_ckeditor_links(self):
+        form = PostForm(
+            data={
+                "title": "Useful resource",
+                "content": '<p><a href="https://example.com/guide">Read the guide</a></p>',
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(
+            form.cleaned_data["content"],
+            '<p><a href="https://example.com/guide">Read the guide</a></p>',
         )
 
     def test_weekly_challenge_post_requires_a_challenge_image(self):
@@ -150,6 +165,38 @@ class FrontpageAndCreatePostTests(PostsTestCase):
         self.assertContains(response, 'id="posts"')
         self.assertContains(response, reverse("api:get_posts_json"))
         self.assertContains(response, reverse("posts:create_post"))
+
+    def test_frontpage_shows_the_latest_announcement_and_links_to_it(self):
+        older = Announcement.objects.create(
+            created_by=self.author,
+            title="Older update",
+            content="An older announcement.",
+        )
+        latest = Announcement.objects.create(
+            created_by=self.author,
+            title="Latest update",
+            content="The most recent announcement.",
+        )
+
+        response = self.client.get(reverse("frontpage"))
+
+        self.assertEqual(response.context["latest_announcement"], latest)
+        self.assertContains(response, "latest announcements")
+        self.assertContains(response, latest.title)
+        self.assertContains(
+            response,
+            reverse(
+                "announcements:detail",
+                kwargs={"announcement_id": latest.pk},
+            ),
+        )
+        self.assertNotContains(response, older.title)
+
+    def test_frontpage_shows_an_empty_announcement_state(self):
+        response = self.client.get(reverse("frontpage"))
+
+        self.assertIsNone(response.context["latest_announcement"])
+        self.assertContains(response, "no recent announcements.")
 
     def test_create_post_requires_authentication(self):
         response = self.client.get(reverse("posts:create_post"))

@@ -168,16 +168,7 @@ CKEDITOR_5_CONFIGS = {
     'post': {
         'toolbar': {
             'items': ['heading', '|', 'bold', 'italic', 'link',
-                      'bulletedList', 'numberedList', 'blockQuote', 'imageUpload',
-                      '|', 'imageStyle:alignLeft', 'imageStyle:alignRight', 
-                      'imageStyle:alignCenter', 'imageStyle:side',  '|'],
-            'styles': [
-                'full',
-                'side',
-                'alignLeft',
-                'alignRight',
-                'alignCenter',
-            ]
+                      'bulletedList', 'numberedList', 'blockQuote', 'imageUpload'],
         }
     },
     'comment': {

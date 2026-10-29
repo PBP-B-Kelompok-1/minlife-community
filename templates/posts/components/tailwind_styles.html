@@ -2,6 +2,14 @@
     .quote { @apply text-center p-10; animation: 1s ease-in 0s 1 fadeIn; }
     .quote:has(> :empty) { @apply hidden; }
     .quote__by { @apply text-base text-[var(--tertiary)] italic; }
+    .latest-announcement { @apply mb-6 flex flex-col gap-3 rounded-[var(--radius)] bg-[var(--paper)] px-5 py-4 no-underline; }
+    .latest-announcement__heading, .latest-announcement__meta { @apply text-[var(--tertiary)]; }
+    .latest-announcement__heading { @apply m-0 text-sm font-semibold uppercase tracking-wide; }
+    .latest-announcement__body { @apply flex items-center justify-between gap-4 text-[var(--secondary)]; }
+    .latest-announcement__body h3 { @apply m-0 truncate text-base font-semibold; }
+    .latest-announcement__body p, .latest-announcement__empty { @apply m-0 text-sm text-[var(--tertiary)]; }
+    .latest-announcement__meta { @apply flex shrink-0 items-center gap-3 text-xs; }
+    .latest-announcement__empty { @apply italic; }
     @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
     .posts { @apply flex flex-col gap-6; }
     .posts__status:empty, .comments__status:empty { @apply hidden; }
@@ -20,9 +28,13 @@
     .post__kebab, .comment__kebab { @apply absolute right-0 top-[calc(100%+0.5rem)] z-10 hidden min-w-32 flex-col gap-1 rounded-[var(--radius)] bg-[var(--paper)] p-2; }
     .post__kebab.shown, .comment__kebab.shown { @apply flex; }
     .post__kebab .button, .comment__kebab .button { @apply justify-start; }
-    .post__tags { @apply relative flex gap-1.5; }
+    .post__tags { @apply relative flex gap-1.5 w-fit; }
+    .post__challenge-img-container { @apply flex justify-center }
+    .post__challenge-img { @apply max-h-[70vh] rounded-[var(--radius)] border-[4px] border-[var(--accent)]; }
     .post__content { @apply flex flex-col; }
-    .post__content * { @apply rounded-[var(--radius)]; }
+    .post__content figure { @apply flex justify-center rounded-[var(--radius)]; }
+    .post__content a { @apply text-[var(--accent)]; }
+    .post__content blockquote { @apply border-l-[var(--tertiary)] border-l-[4px] pl-[1rem]; }
     .post__actions { @apply flex items-center justify-between; }
     .post__actions--left, .post__actions--right { @apply relative flex gap-3; }
     .post__actions__vote, .comment__actions__vote { @apply gap-[.3rem] p-0; }
