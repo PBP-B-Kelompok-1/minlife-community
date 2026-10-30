@@ -23,6 +23,7 @@ from django.conf.urls.static import static
 from users.views import login_user, register_user
 from posts.views import frontpage
 from announcements.views import firebase_messaging_service_worker
+from .views import favicon
 
 urlpatterns = [
     path('', frontpage, name="frontpage"),
@@ -41,6 +42,7 @@ urlpatterns = [
     path('weeklychallenge/', include("weeklychallenge.urls")),
     path('login', login_user, name="login"),
     path('register', register_user, name="register"),
+    path('favicon.ico', favicon, name="favicon"),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
