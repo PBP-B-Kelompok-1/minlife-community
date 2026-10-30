@@ -1,15 +1,24 @@
 {# required: form_action, form #}
-<form method="POST" action="{% url "posts:create_post" %}" class="post-form" enctype="multipart/form-data">
+<form method="POST" action="{{ form_action }}" class="post-form" enctype="multipart/form-data">
     {% csrf_token %}
     {% for field in form %}
         <div class="post-form__field"{% if field.name == "challenge_image" %} data-challenge-image-field hidden{% endif %}>
             <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {% if field.name == "challenge_image" and form.instance.challenge_image %}
+                <div class="post-form__current-image">
+                    <img src="{{ form.instance.challenge_image.url }}" alt="Current challenge image">
+                    <span>Current image — choose a new file only to replace it.</span>
+                </div>
+            {% endif %}
             {{ field }}
             {{ field.errors }}
         </div>
     {% endfor %}
     <div class="post-form__actions">
         <button class="button" type="submit">Upload</button>
-        <a href="" class="button button--border">Cancel</a>
+        <a href="" id="post-form__button--cancel" class="button button--border">Cancel</a>
     </div>
 </form>
+<script>
+    document.getElementById("post-form__button--cancel").href = document.referrer;
+</script>

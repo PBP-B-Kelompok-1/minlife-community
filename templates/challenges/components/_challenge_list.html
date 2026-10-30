@@ -21,11 +21,21 @@
                     Lihat detail
                     <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
                 </a>
-                {% if can_delete %}
-                    <a class="button button--border button--small self-start"
-                        href="{% url 'weeklychallenge:challenge_delete' challenge.pk %}"
-                        hx-get="{% url 'weeklychallenge:challenge_delete' challenge.pk %}"
-                        hx-target="#modal-slot" hx-swap="innerHTML">Hapus</a>
+                {% if can_manage or can_delete %}
+                    <div class="flex flex-wrap gap-2">
+                        {% if can_manage %}
+                            <a class="button button--border button--small"
+                                href="{% url 'weeklychallenge:challenge_update' challenge.pk %}"
+                                hx-boost="false">Edit</a>
+                        {% endif %}
+                        {% if can_delete %}
+                            <a class="button button--border button--small"
+                                href="{% url 'weeklychallenge:challenge_delete' challenge.pk %}"
+                                hx-get="{% url 'weeklychallenge:challenge_delete' challenge.pk %}"
+                                hx-boost="false"
+                                hx-target="#modal-slot" hx-swap="innerHTML">Hapus</a>
+                        {% endif %}
+                    </div>
                 {% endif %}
             </article>
         {% endfor %}

@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'announcements',
     'journal',
     'weeklychallenge',
+    'tailwind',
+    'tailwindtheme',
 ]
 
 MIDDLEWARE = [
@@ -182,22 +184,18 @@ FIREBASE_SERVICE_ACCOUNT_B64 = os.getenv(
     "",
 )
 
+# Tailwind app
+TAILWIND_APP_NAME = 'tailwindtheme'
+
 # Django CKEditor 5
 CKEDITOR_5_FILE_UPLOAD_PERMISSION = "authenticated"
+CKEDITOR_5_MAX_FILE_SIZE = 5  # MB; applies to images uploaded from the editor.
+CKEDITOR_5_UPLOAD_FILE_TYPES = ["jpg", "jpeg", "png", "gif", "webp"]
 CKEDITOR_5_CONFIGS = {
     'post': {
         'toolbar': {
             'items': ['heading', '|', 'bold', 'italic', 'link',
-                      'bulletedList', 'numberedList', 'blockQuote', 'imageUpload',
-                      '|', 'imageStyle:alignLeft', 'imageStyle:alignRight', 
-                      'imageStyle:alignCenter', 'imageStyle:side',  '|'],
-            'styles': [
-                'full',
-                'side',
-                'alignLeft',
-                'alignRight',
-                'alignCenter',
-            ]
+                      'bulletedList', 'numberedList', 'blockQuote', 'imageUpload'],
         }
     },
     'comment': {

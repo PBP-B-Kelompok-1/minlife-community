@@ -2,10 +2,12 @@ import json
 
 from django.db import IntegrityError, transaction
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.auth.models import Permission
 from django.test import TestCase
 from django.urls import reverse
 
 from users.models import User
+from announcements.models import Announcement
 
 from .forms import PostForm
 from .models import Comment, Post, Tag, Vote
@@ -48,6 +50,41 @@ class PostModelAndFormTests(PostsTestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("title", form.errors)
 
+    def test_post_form_removes_executable_html_but_keeps_editor_markup(self):
+        form = PostForm(
+            data={
+                "title": "Safe HTML",
+                "content": (
+                    '<p>Hello <strong>there</strong></p>'
+                    '<img src="https://example.com/photo.png" onerror="alert(1)">'
+                    '<a href="javascript:alert(1)">bad link</a>'
+                    '<script>alert(1)</script>'
+                ),
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(
+            form.cleaned_data["content"],
+            '<p>Hello <strong>there</strong></p>'
+            '<img src="https://example.com/photo.png">'
+            '<a>bad link</a>',
+        )
+
+    def test_post_form_keeps_safe_ckeditor_links(self):
+        form = PostForm(
+            data={
+                "title": "Useful resource",
+                "content": '<p><a href="https://example.com/guide">Read the guide</a></p>',
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(
+            form.cleaned_data["content"],
+            '<p><a href="https://example.com/guide">Read the guide</a></p>',
+        )
+
     def test_weekly_challenge_post_requires_a_challenge_image(self):
         weekly_challenge = Tag.objects.create(title="Weekly Challenge")
         form = PostForm(
@@ -76,6 +113,26 @@ class PostModelAndFormTests(PostsTestCase):
         )
 
         self.assertTrue(form.is_valid(), form.errors)
+
+    def test_weekly_challenge_post_rejects_an_oversized_image(self):
+        weekly_challenge = Tag.objects.create(title="Weekly Challenge")
+        image = SimpleUploadedFile(
+            "proof.gif",
+            b"GIF87a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+            + (b"x" * (5 * 1024 * 1024)),
+            content_type="image/gif",
+        )
+        form = PostForm(
+            data={
+                "title": "My submission",
+                "content": "I completed the challenge.",
+                "tags": [weekly_challenge.pk],
+            },
+            files={"challenge_image": image},
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("challenge_image", form.errors)
 
     def test_vote_constraints_allow_only_one_valid_target_and_value(self):
         post = self.create_post()
@@ -108,6 +165,38 @@ class FrontpageAndCreatePostTests(PostsTestCase):
         self.assertContains(response, 'id="posts"')
         self.assertContains(response, reverse("api:get_posts_json"))
         self.assertContains(response, reverse("posts:create_post"))
+
+    def test_frontpage_shows_the_latest_announcement_and_links_to_it(self):
+        older = Announcement.objects.create(
+            created_by=self.author,
+            title="Older update",
+            content="An older announcement.",
+        )
+        latest = Announcement.objects.create(
+            created_by=self.author,
+            title="Latest update",
+            content="The most recent announcement.",
+        )
+
+        response = self.client.get(reverse("frontpage"))
+
+        self.assertEqual(response.context["latest_announcement"], latest)
+        self.assertContains(response, "latest announcements")
+        self.assertContains(response, latest.title)
+        self.assertContains(
+            response,
+            reverse(
+                "announcements:detail",
+                kwargs={"announcement_id": latest.pk},
+            ),
+        )
+        self.assertNotContains(response, older.title)
+
+    def test_frontpage_shows_an_empty_announcement_state(self):
+        response = self.client.get(reverse("frontpage"))
+
+        self.assertIsNone(response.context["latest_announcement"])
+        self.assertContains(response, "no recent announcements.")
 
     def test_create_post_requires_authentication(self):
         response = self.client.get(reverse("posts:create_post"))
@@ -148,6 +237,120 @@ class FrontpageAndCreatePostTests(PostsTestCase):
         self.assertTemplateUsed(response, "posts/create_form.html")
         self.assertFormError(response.context["form"], "title", "This field is required.")
         self.assertEqual(Post.objects.count(), 0)
+
+
+class UpdateAndDeletePostTests(PostsTestCase):
+    def setUp(self):
+        super().setUp()
+        self.post = self.create_post(title="Original", content="Original content")
+        self.update_url = reverse("posts:update_post", kwargs={"post_id": self.post.pk})
+        self.delete_url = reverse("api:delete_post", kwargs={"post_id": self.post.pk})
+
+    def test_author_can_update_a_post(self):
+        self.client.force_login(self.author)
+
+        response = self.client.post(self.update_url, {"title": "Updated", "content": "New content"})
+
+        self.assertRedirects(response, reverse("posts:show_post", kwargs={"post_id": self.post.pk}))
+        self.post.refresh_from_db()
+        self.assertEqual((self.post.title, self.post.content, self.post.author), ("Updated", "New content", self.author))
+
+    def test_other_user_cannot_update_a_post_without_permission(self):
+        self.client.force_login(self.other_user)
+
+        response = self.client.get(self.update_url)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_update_cannot_add_the_weekly_challenge_tag(self):
+        weekly_challenge = Tag.objects.create(title="Weekly Challenge")
+        self.client.force_login(self.author)
+
+        response = self.client.post(
+            self.update_url,
+            {"title": self.post.title, "content": self.post.content, "tags": [weekly_challenge.pk]},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(
+            response.context["form"],
+            "tags",
+            "The Weekly Challenge tag cannot be added or removed when editing a post.",
+        )
+        self.assertFalse(self.post.tags.filter(pk=weekly_challenge.pk).exists())
+
+    def test_update_cannot_remove_the_weekly_challenge_tag(self):
+        weekly_challenge = Tag.objects.create(title="Weekly Challenge")
+        self.post.tags.add(weekly_challenge)
+        self.client.force_login(self.author)
+
+        response = self.client.post(
+            self.update_url,
+            {"title": self.post.title, "content": self.post.content},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(
+            response.context["form"],
+            "tags",
+            "The Weekly Challenge tag cannot be added or removed when editing a post.",
+        )
+        self.assertTrue(self.post.tags.filter(pk=weekly_challenge.pk).exists())
+
+    def test_weekly_challenge_post_keeps_its_existing_image_when_updated_without_a_replacement(self):
+        weekly_challenge = Tag.objects.create(title="Weekly Challenge")
+        image = SimpleUploadedFile(
+            "proof.gif",
+            b"GIF87a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;",
+            content_type="image/gif",
+        )
+        self.post.tags.add(weekly_challenge)
+        self.post.challenge_image = image
+        self.post.save()
+        previous_image_name = self.post.challenge_image.name
+        self.client.force_login(self.author)
+
+        response = self.client.post(
+            self.update_url,
+            {"title": "Updated title", "content": self.post.content, "tags": [weekly_challenge.pk]},
+        )
+
+        self.assertRedirects(response, reverse("posts:show_post", kwargs={"post_id": self.post.pk}))
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.challenge_image.name, previous_image_name)
+
+    def test_anonymous_delete_returns_login_details(self):
+        response = self.client.post(self.delete_url)
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["login_url"], reverse("login"))
+        self.assertTrue(Post.objects.filter(pk=self.post.pk).exists())
+
+    def test_author_can_delete_a_post_via_api(self):
+        self.client.force_login(self.author)
+
+        response = self.client.post(self.delete_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Post.objects.filter(pk=self.post.pk).exists())
+
+    def test_other_user_cannot_delete_a_post_without_permission(self):
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.delete_url)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Post.objects.filter(pk=self.post.pk).exists())
+
+    def test_user_with_delete_post_permission_can_delete_another_users_post(self):
+        permission = Permission.objects.get(codename="delete_post")
+        self.other_user.user_permissions.add(permission)
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.delete_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Post.objects.filter(pk=self.post.pk).exists())
 
 
 class GetPostsJsonTests(PostsTestCase):
@@ -394,6 +597,64 @@ class CreateCommentTests(PostsTestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertFalse(Comment.objects.filter(content="This should not be created").exists())
+
+
+class DeleteCommentTests(PostsTestCase):
+    def setUp(self):
+        super().setUp()
+        self.post = self.create_post()
+        self.comment = Comment.objects.create(post=self.post, user=self.author, content="Remove me")
+        self.url = reverse("api:delete_comment", kwargs={"comment_id": self.comment.pk})
+
+    def test_author_can_delete_a_comment_via_api(self):
+        self.client.force_login(self.author)
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.comment.refresh_from_db()
+        self.assertTrue(self.comment.is_deleted)
+        self.assertEqual(self.comment.content, "✖ This comment has been deleted")
+
+    def test_other_user_cannot_delete_a_comment_without_permission(self):
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Comment.objects.filter(pk=self.comment.pk).exists())
+
+    def test_user_with_delete_comment_permission_can_delete_another_users_comment(self):
+        permission = Permission.objects.get(codename="delete_comment")
+        self.other_user.user_permissions.add(permission)
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.comment.refresh_from_db()
+        self.assertTrue(self.comment.is_deleted)
+
+    def test_soft_deleting_a_comment_preserves_its_replies_and_masks_its_author(self):
+        reply = Comment.objects.create(
+            post=self.post, user=self.other_user, content="Still here", replies_to_comment=self.comment
+        )
+        self.client.force_login(self.author)
+
+        self.client.post(self.url)
+        response = self.client.get(
+            reverse("api:get_comments_json", kwargs={"post_id": self.post.pk})
+        )
+
+        self.comment.refresh_from_db()
+        self.assertTrue(self.comment.is_deleted)
+        self.assertTrue(Comment.objects.filter(pk=reply.pk).exists())
+        deleted_comment = response.json()["data"][0]
+        self.assertEqual(deleted_comment["username"], "[deleted comment]")
+        self.assertEqual(deleted_comment["avatar_url"], "")
+        self.assertIsNone(deleted_comment["user_id"])
+        self.assertFalse(deleted_comment["can_delete"])
+        self.assertEqual(deleted_comment["replies"][0]["id"], str(reply.pk))
 
 
 class VoteCommentTests(PostsTestCase):

@@ -2,12 +2,13 @@
 {% extends "base.html" %}
 {% load static %}
 {% block meta %}
-    {% include "posts/components/tailwind_styles.html" %}
     <title>Minlife Community - Embracing the Minimalist Life</title>
     <script src="{% static 'posts/js/posts.js' %}" 
         data-get-posts-endpoint="{% url 'api:get_posts_json' %}"
         data-show-post-endpoint-template="{% url 'posts:show_post' post_id='00000000-0000-0000-0000-000000000000' %}"
         data-vote-post-endpoint-template="{% url 'api:vote_post' post_id='00000000-0000-0000-0000-000000000000' %}"
+        data-update-post-endpoint-template="{% url 'posts:update_post' post_id='00000000-0000-0000-0000-000000000000' %}"
+        data-delete-post-endpoint-template="{% url 'api:delete_post' post_id='00000000-0000-0000-0000-000000000000' %}"
         data-user-profile-endpoint-template="{% url 'users:show_profile' user_id='00000000-0000-0000-0000-000000000000' %}"
         data-login-url="{% url 'login' %}"
         data-csrf-token="{{ csrf_token }}"
@@ -20,6 +21,27 @@
             <h1 id="quote__text" class="quote__text"></h1>
             <span id="quote__by" class="quote__by"></span>
         </div>
+        <a
+            class="latest-announcement shadow hover--expand"
+            href="{% if latest_announcement %}{% url 'announcements:detail' latest_announcement.pk %}{% else %}{% url 'announcements:list' %}{% endif %}"
+            aria-label="{% if latest_announcement %}Read latest announcement: {{ latest_announcement.title }}{% else %}View announcements{% endif %}"
+        >
+            <h2 class="latest-announcement__heading">latest announcements</h2>
+            {% if latest_announcement %}
+                <div class="latest-announcement__body">
+                    <div class="min-w-0">
+                        <h3 class="truncate">{{ latest_announcement.title }}</h3>
+                        <p class="line-clamp-2">{{ latest_announcement.content|striptags }}</p>
+                    </div>
+                    <span class="latest-announcement__meta">
+                        <time datetime="{{ latest_announcement.created_at|date:'c' }}">{{ latest_announcement.created_at|date:"j M Y" }}</time>
+                        <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                    </span>
+                </div>
+            {% else %}
+                <p class="latest-announcement__empty">no recent announcements.</p>
+            {% endif %}
+        </a>
         <div id="posts__status" class="posts__status empty-state"></div>
         <section id="posts" class="posts"></section>
     </div>

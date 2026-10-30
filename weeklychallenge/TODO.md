@@ -36,14 +36,12 @@ demonstration.
 
 ### Posts and Challenge integration
 
-- [ ] Pass the active Challenge into the Posts form instead of relying on the legacy
-      static `Weekly Challenge` Tag.
-- [ ] Let users explicitly select the active Challenge when creating a submission.
-- [ ] Exclude system Challenge Tags from the general-purpose Tag selector.
-- [ ] Validate that a selected Challenge is currently open before saving the Post.
-- [ ] Require `challenge_image` when a Challenge is selected.
-- [ ] Attach the selected Challenge's dynamic Tag after the Post is saved.
-- [ ] Preserve the Challenge Tag when a Post is edited and ordinary tags are replaced.
+- [x] Use the shared `Weekly Challenge` tag for challenge submissions.
+- [x] Associate a tagged Post with the current Challenge automatically.
+- [x] Stop creating per-challenge system tags.
+- [x] Require `challenge_image` for `Weekly Challenge` Posts.
+- [ ] Preserve the shared `Weekly Challenge` tag when a Post is edited and ordinary
+      tags are replaced.
 - [ ] Keep the second `post.save()` after `form.save_m2m()` so the `post_save` signal
       sees the completed tag set.
 - [ ] Add end-to-end Posts tests covering valid submission, missing image, inactive
@@ -55,13 +53,9 @@ demonstration.
 - [x] Deleting a Challenge deletes its submissions but preserves its Badge and all
       previously earned UserBadge records.
 - [x] Deleting a submission or its Post does not revoke an earned UserBadge.
-- [ ] Decide whether hard deletion should eventually be replaced with archive/
-      deactivation behavior for audit history.
 
 ### Authorization consistency
 
-- [ ] Decide whether Group membership is only a role convention or a strict
-      authorization requirement.
 - [x] Ensure every management route checks the intended rule server-side, not only
       through hidden buttons.
 - [x] Test anonymous users, normal users, users with individual permissions,
@@ -70,12 +64,12 @@ demonstration.
 
 ## Rubric: CRUD and MVT quality
 
-- [ ] Test successful and invalid POST requests for Challenge creation.
-- [ ] Test successful and invalid POST requests for Challenge editing.
-- [ ] Test confirmation and failure behavior for Challenge deletion.
-- [ ] Test Challenge detail, empty states, unknown IDs, and missing tasks.
-- [ ] Test list filters for open, upcoming, past, and all Challenges.
-- [ ] Test title search, pagination boundaries, and leaderboard score/newest sorting.
+- [x] Test successful and invalid POST requests for Challenge creation.
+- [x] Test successful and invalid POST requests for Challenge editing.
+- [x] Test confirmation and failure behavior for Challenge deletion.
+- [x] Test Challenge detail, empty states, unknown IDs, and missing tasks.
+- [x] Test list filters for open, upcoming, past, and all Challenges.
+- [x] Test title search, pagination boundaries, and leaderboard score/newest sorting.
 - [ ] Review all management views for explicit error handling and transaction safety.
 - [ ] Confirm the templates use the shared base template and design-system classes.
 
@@ -83,7 +77,7 @@ demonstration.
 
 - [x] Decide whether create, edit, and delete should also use HTMX or whether the
       current full-page flow is sufficient for the target rubric score. Decision: Use HTMX to go the extra mile
-- [ ] Test HTMX requests and ordinary browser requests separately where behavior differs.
+- [x] Test HTMX requests and ordinary browser requests separately where behavior differs.
 - [ ] Verify task-row controls preserve management-form values and form data.
 - [ ] Test the mobile layout at the target presentation viewport.
 - [ ] Test keyboard focus, labels, error display, and accessible loading/update states.
@@ -112,14 +106,13 @@ git diff --check
 
 ## Rubric: documentation and project submission
 
-- [ ] Update the root README with the final module list, ownership, user roles,
+- [x] Update the root README with the final module list, ownership, user roles,
       application description, setup instructions, and deployment link.
-- [ ] Document the actual public API or external mock API source and implementation.
-- [ ] Verify whether Firebase Cloud Messaging is implemented; do not list it as
+- [x] Document the actual public API or external mock API source and implementation.
+- [x] Verify whether Firebase Cloud Messaging is implemented; do not list it as
       completed if it is only planned.
-- [ ] Add the required Figma/design link and confirm the deployed UI matches it.
+- [x] Add the required Figma/design link and confirm the deployed UI matches it.
 - [ ] Add an AI-use disclosure covering tools, purpose, manual review, and limitations.
-- [ ] Link to [STUDY.md](./STUDY.md) for the module architecture and demonstration flow.
 - [ ] Add screenshots or a short GIF if required for the strongest documentation score.
 
 ## Rubric: deployment and live demonstration
@@ -129,26 +122,27 @@ git diff --check
       deployed environment.
 - [ ] Confirm media uploads work for Challenge submissions.
 - [ ] Seed enough initial project data for the project-wide deployment requirement.
-- [ ] Test the deployed flow with a moderator, normal user, and superuser.
-- [ ] Demonstrate Challenge creation, task HTMX controls, Post submission, leaderboard
+- [x] Test the deployed flow with a moderator, normal user, and superuser.
+- [x] Demonstrate Challenge creation, task HTMX controls, Post submission, leaderboard
       updates, voting, Badge awarding, and Badge persistence after vote removal.
-- [ ] Demonstrate unauthorized management access and the Challenge directory filters.
+- [x] Demonstrate unauthorized management access and the Challenge directory filters.
 - [ ] Prepare fallback demo data in case the deployed database is unavailable.
 
 ## Rubric: Git collaboration evidence
 
-- [ ] Keep implementation, tests, documentation, and cross-app integration in
+- [x] Keep implementation, tests, documentation, and cross-app integration in
       focused descriptive commits.
-- [ ] Use independent branches for member work.
-- [ ] Open Pull Requests for integration changes.
-- [ ] Obtain peer review before merging.
-- [ ] Preserve test and validation results in the relevant Pull Request descriptions.
-- [ ] Avoid one large deadline commit; ensure the history shows incremental progress.
+- [x] Use independent branches for member work.
+- [x] Open Pull Requests for integration changes.
+- [x] Obtain peer review before merging.
+- [x] Preserve test and validation results in the relevant Pull Request descriptions.
+- [x] Avoid one large deadline commit; ensure the history shows incremental progress.
 
 ## Known concerns to resolve or explicitly accept
 
-- [ ] Dynamic Challenge Tags and the legacy static `Weekly Challenge` Tag currently
-      represent two different concepts in Posts.
+- [x] The shared `Weekly Challenge` tag is the only tag used for new submissions.
+- [x] The nullable `Challenge.tag` relation is deprecated and retained for legacy
+      data compatibility.
 - [ ] The `post_save` submission signal depends on the Post being saved after M2M tags
       are assigned.
 - [ ] `Badge.__str__` should be implemented if the Users module requires readable Badge

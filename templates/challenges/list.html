@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block meta %}
-    {% include "posts/components/tailwind_styles.html" %}
     <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
     <title>Daftar Weekly Challenge - Minlife Community</title>
 {% endblock meta %}
@@ -51,8 +50,7 @@
             </form>
         </section>
 
-        <section id="challenge-list" aria-live="polite" hx-boost="true" hx-target="#main-content"
-            hx-select="#main-content" hx-swap="outerHTML" hx-trigger="challengeChanged from:body"
+        <section id="challenge-list" aria-live="polite" hx-trigger="challengeChanged from:body"
             hx-get="{% url 'weeklychallenge:challenge_list_partial' %}" hx-include="#challenge-filters">
             {% include "challenges/components/_challenge_list.html" %}
         </section>

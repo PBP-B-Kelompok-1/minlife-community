@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.contrib.auth.models import AnonymousUser
 from django.db import IntegrityError, transaction
+from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -162,7 +163,7 @@ class ChallengeServiceAndFormTests(TestCase):
             )
         return data
 
-    def test_create_challenge_creates_badge_tag_and_tasks(self):
+    def test_create_challenge_creates_badge_and_tasks_without_per_challenge_tag(self):
         form = ChallengeForm(data=self.challenge_form_data())
         formset = ChallengeTaskFormSet(data=self.task_formset_data())
 
@@ -172,7 +173,7 @@ class ChallengeServiceAndFormTests(TestCase):
         challenge = create_challenge(form=form, formset=formset, user=self.user)
 
         self.assertEqual(challenge.badge.name, "Digital minimalism Badge")
-        self.assertEqual(challenge.tag.title, f"weeklychallenge{challenge.pk}")
+        self.assertIsNone(challenge.tag)
         self.assertEqual(challenge.created_by, self.user)
         self.assertEqual(list(challenge.tasks.values_list("title", flat=True)), ["Task 1"])
 
@@ -379,9 +380,10 @@ class ChallengeSignalTests(TestCase):
             week_start=start,
             created_by=self.user,
         )
-        challenge.tag = Tag.objects.create(title=f"weeklychallenge{challenge.pk}")
-        challenge.save(update_fields=["tag"])
         return challenge
+
+    def weekly_challenge_tag(self):
+        return Tag.objects.get_or_create(title="Weekly Challenge")[0]
 
     def test_saving_tagged_active_post_creates_submission(self):
         today = timezone.localdate()
@@ -391,7 +393,7 @@ class ChallengeSignalTests(TestCase):
             title="Challenge progress",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
 
         submission = ChallengeSubmission.objects.get(challenge=challenge)
@@ -406,7 +408,7 @@ class ChallengeSignalTests(TestCase):
             title="Late progress",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
 
         self.assertFalse(
@@ -421,14 +423,14 @@ class ChallengeSignalTests(TestCase):
             title="First progress",
             content="Done",
         )
-        first_post.tags.add(challenge.tag)
+        first_post.tags.add(self.weekly_challenge_tag())
         first_post.save()
         second_post = Post.objects.create(
             author=self.user,
             title="Second progress",
             content="Done again",
         )
-        second_post.tags.add(challenge.tag)
+        second_post.tags.add(self.weekly_challenge_tag())
         second_post.save()
 
         self.assertEqual(
@@ -447,7 +449,7 @@ class ChallengeSignalTests(TestCase):
             title="Voted progress",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
 
         Vote.objects.create(user=self.voter, post=post, value=1)
@@ -464,7 +466,7 @@ class ChallengeSignalTests(TestCase):
             title="Not enough votes",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
 
         Vote.objects.create(user=self.voter, post=post, value=1)
@@ -481,7 +483,7 @@ class ChallengeSignalTests(TestCase):
             title="Persistent badge",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
         vote = Vote.objects.create(user=self.voter, post=post, value=1)
 
@@ -499,7 +501,7 @@ class ChallengeSignalTests(TestCase):
             title="Comment target",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
         comment = Comment.objects.create(
             post=post,
@@ -521,7 +523,7 @@ class ChallengeSignalTests(TestCase):
             title="Deleted progress",
             content="Done",
         )
-        post.tags.add(challenge.tag)
+        post.tags.add(self.weekly_challenge_tag())
         post.save()
         Vote.objects.create(user=self.voter, post=post, value=1)
 
@@ -554,6 +556,66 @@ class ChallengeViewsTests(TestCase):
             created_by=self.user,
         )
 
+    def challenge_post_data(self, *, title="Created challenge", start=None):
+        start = start or (timezone.localdate() + timedelta(days=10))
+        return {
+            "title": title,
+            "background": "Background",
+            "description": "Description",
+            "goal": "Goal",
+            "upvote_threshold": "2",
+            "week_start": start.isoformat(),
+            "tasks-TOTAL_FORMS": "1",
+            "tasks-INITIAL_FORMS": "0",
+            "tasks-MIN_NUM_FORMS": "0",
+            "tasks-MAX_NUM_FORMS": "7",
+            "tasks-0-day_number": "1",
+            "tasks-0-title": "Task 1",
+            "tasks-0-description": "Task details",
+        }
+
+    def test_create_route_accepts_valid_and_rejects_invalid_posts(self):
+        url = reverse("weeklychallenge:challenge_create")
+        response = self.client.post(url, self.challenge_post_data())
+
+        challenge = Challenge.objects.get(title="Created challenge")
+        self.assertRedirects(
+            response,
+            reverse("weeklychallenge:challenge_detail", args=[challenge.pk]),
+        )
+        self.assertTrue(challenge.tasks.filter(title="Task 1").exists())
+        self.assertIsNotNone(challenge.badge)
+
+        invalid_response = self.client.post(
+            url,
+            self.challenge_post_data(title=""),
+        )
+        self.assertEqual(invalid_response.status_code, 200)
+        self.assertContains(invalid_response, "This field is required")
+
+    def test_create_route_returns_htmx_redirect_and_htmx_errors(self):
+        url = reverse("weeklychallenge:challenge_create")
+        response = self.client.post(
+            url,
+            self.challenge_post_data(),
+            HTTP_HX_REQUEST="true",
+        )
+
+        challenge = Challenge.objects.get(title="Created challenge")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers["HX-Redirect"],
+            reverse("weeklychallenge:challenge_detail", args=[challenge.pk]),
+        )
+
+        invalid_response = self.client.post(
+            url,
+            self.challenge_post_data(title=""),
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(invalid_response.status_code, 200)
+        self.assertContains(invalid_response, "This field is required")
+
     def test_challenge_directory_filters_by_status_and_search(self):
         today = timezone.localdate()
         self.make_challenge("Current digital reset", start=today)
@@ -585,6 +647,46 @@ class ChallengeViewsTests(TestCase):
         self.assertContains(response, "Open challenge")
         self.assertContains(response, "Upcoming challenge")
         self.assertContains(response, "Past challenge")
+
+    def test_challenge_directory_filters_open_and_past_statuses(self):
+        today = timezone.localdate()
+        self.make_challenge("Open challenge", start=today)
+        self.make_challenge("Past challenge", start=today - timedelta(days=10))
+
+        open_response = self.client.get(
+            reverse("weeklychallenge:challenge_list_partial"),
+            {"status": "open"},
+        )
+        past_response = self.client.get(
+            reverse("weeklychallenge:challenge_list_partial"),
+            {"status": "past"},
+        )
+
+        self.assertContains(open_response, "Open challenge")
+        self.assertNotContains(open_response, "Past challenge")
+        self.assertContains(past_response, "Past challenge")
+        self.assertNotContains(past_response, "Open challenge")
+
+    def test_challenge_directory_paginates_at_page_boundary(self):
+        today = timezone.localdate()
+        for index in range(7):
+            self.make_challenge(f"Open challenge {index}", start=today)
+
+        first_page = self.client.get(
+            reverse("weeklychallenge:challenge_list_partial"),
+            {"status": "open", "page": 1},
+        )
+        second_page = self.client.get(
+            reverse("weeklychallenge:challenge_list_partial"),
+            {"status": "open", "page": 2},
+        )
+
+        self.assertEqual(first_page.context["page_obj"].number, 1)
+        self.assertEqual(first_page.context["page_obj"].paginator.num_pages, 2)
+        self.assertContains(first_page, "Open challenge 6")
+        self.assertNotContains(first_page, "Open challenge 0")
+        self.assertEqual(second_page.context["page_obj"].number, 2)
+        self.assertContains(second_page, "Open challenge 0")
 
     def test_landing_page_renders_empty_state_when_no_challenge_is_active(self):
         today = timezone.localdate()
@@ -652,6 +754,70 @@ class ChallengeViewsTests(TestCase):
         self.assertContains(response, "Focused mornings Badge")
         self.assertContains(response, "Belum ada submission")
 
+    def test_challenge_detail_renders_without_tasks(self):
+        challenge = self.make_challenge(
+            "No tasks",
+            start=timezone.localdate(),
+        )
+
+        response = self.client.get(
+            reverse("weeklychallenge:challenge_detail", args=[challenge.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No tasks")
+        self.assertNotContains(response, "Clear the desk")
+
+    def test_submission_list_sorts_by_score_and_newest(self):
+        challenge = self.make_challenge(
+            "Leaderboard challenge",
+            start=timezone.localdate(),
+        )
+        older_post = Post.objects.create(
+            author=self.user,
+            title="Older high score",
+            content="Done",
+        )
+        newer_post = Post.objects.create(
+            author=get_user_model().objects.create_user(username="newer-author"),
+            title="Newer low score",
+            content="Done",
+        )
+        older_submission = ChallengeSubmission.objects.create(
+            challenge=challenge,
+            post=older_post,
+            user=self.user,
+        )
+        newer_submission = ChallengeSubmission.objects.create(
+            challenge=challenge,
+            post=newer_post,
+            user=newer_post.author,
+        )
+        ChallengeSubmission.objects.filter(pk=older_submission.pk).update(
+            created_at=timezone.now() - timedelta(days=1)
+        )
+        Vote.objects.create(user=get_user_model().objects.create_user(
+            username="score-voter"
+        ), post=older_post, value=1)
+
+        url = reverse(
+            "weeklychallenge:submission_list_partial",
+            args=[challenge.pk],
+        )
+        score_response = self.client.get(url, {"sort": "score"})
+        newest_response = self.client.get(url, {"sort": "newest"})
+        fallback_response = self.client.get(url, {"sort": "unknown"})
+
+        self.assertLess(
+            score_response.content.find(b"Older high score"),
+            score_response.content.find(b"Newer low score"),
+        )
+        self.assertLess(
+            newest_response.content.find(b"Newer low score"),
+            newest_response.content.find(b"Older high score"),
+        )
+        self.assertEqual(fallback_response.context["sort"], "score")
+
     @patch("weeklychallenge.views.timezone.localdate")
     def test_challenge_detail_reveals_tasks_cumulatively_without_spoilers(
         self, localdate
@@ -704,7 +870,7 @@ class ChallengeViewsTests(TestCase):
         original_badge = challenge.badge
         from posts.models import Tag
 
-        challenge.tag = Tag.objects.create(title=f"weeklychallenge{challenge.pk}")
+        challenge.tag = Tag.objects.create(title="Weekly Challenge")
         challenge.save(update_fields=["tag"])
         original_tag = challenge.tag
         data = {
@@ -738,6 +904,39 @@ class ChallengeViewsTests(TestCase):
         self.assertEqual(challenge.tag, original_tag)
         self.assertEqual(challenge.tasks.get().title, "New task")
 
+    def test_update_route_returns_htmx_redirect_and_validation_errors(self):
+        challenge = self.make_challenge(
+            "Editable challenge",
+            start=timezone.localdate() + timedelta(days=10),
+        )
+        url = reverse("weeklychallenge:challenge_update", args=[challenge.pk])
+
+        response = self.client.post(
+            url,
+            self.challenge_post_data(
+                title="Updated challenge",
+                start=timezone.localdate() + timedelta(days=10),
+            ),
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers["HX-Redirect"],
+            reverse("weeklychallenge:challenge_detail", args=[challenge.pk]),
+        )
+
+        invalid_response = self.client.post(
+            url,
+            self.challenge_post_data(
+                title="",
+                start=timezone.localdate() + timedelta(days=10),
+            ),
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(invalid_response.status_code, 200)
+        self.assertContains(invalid_response, "This field is required")
+
     def test_delete_requires_confirmation_then_deletes_on_post(self):
         challenge = self.make_challenge(
             "Remove me",
@@ -752,3 +951,42 @@ class ChallengeViewsTests(TestCase):
         delete_response = self.client.post(url)
         self.assertRedirects(delete_response, reverse("weeklychallenge:challenge_list"))
         self.assertFalse(Challenge.objects.filter(pk=challenge.pk).exists())
+
+    def test_delete_route_supports_htmx_confirmation_and_success(self):
+        challenge = self.make_challenge(
+            "HTMX removal",
+            start=timezone.localdate() + timedelta(days=20),
+        )
+        url = reverse("weeklychallenge:challenge_delete", args=[challenge.pk])
+
+        confirm_response = self.client.get(url, HTTP_HX_REQUEST="true")
+        self.assertEqual(confirm_response.status_code, 200)
+        self.assertContains(confirm_response, "<dialog")
+
+        delete_response = self.client.post(
+            url,
+            {"origin": "list"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(delete_response.status_code, 200)
+        self.assertEqual(delete_response.headers["HX-Trigger"], "challengeChanged")
+        self.assertFalse(Challenge.objects.filter(pk=challenge.pk).exists())
+
+    @patch("weeklychallenge.views.Challenge.delete")
+    def test_delete_route_reports_protected_error(self, delete):
+        challenge = self.make_challenge(
+            "Protected removal",
+            start=timezone.localdate() + timedelta(days=20),
+        )
+        delete.side_effect = ProtectedError("protected", {challenge})
+
+        response = self.client.post(
+            reverse("weeklychallenge:challenge_delete", args=[challenge.pk])
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertContains(
+            response,
+            "Challenge tidak dapat dihapus karena masih digunakan.",
+            status_code=409,
+        )
