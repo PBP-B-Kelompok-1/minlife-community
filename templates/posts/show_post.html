@@ -32,7 +32,7 @@
         <form method="POST" id="comment-form" class="comment-form shadow hover--expand">
             {% csrf_token %}
             <img class="comment-form__pfp" 
-                src="{{ user.avatar_url || user.avatar_src }}" 
+                src="{{ user.avatar_url }}" 
                 onerror="this.onerror=null; this.src='/static/img/pfp.svg';"
                 alt="{{ user.get_username }}'s profile picture">
             <div class="comment-form__inputs">
@@ -54,7 +54,7 @@
             <form method="POST" class="comment-form comment__reply-form shadow">
                 {% csrf_token %}
                 <img class="comment-form__pfp" 
-                    src="{{ user.avatar_url || user.avatar_src }}" 
+                    src="{{ user.avatar_url }}" 
                     onerror="this.onerror=null; this.src='/static/img/pfp.svg';"
                     alt="{{ user.get_username }}'s profile picture">
                 <div class="comment-form__inputs">
