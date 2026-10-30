@@ -1,4 +1,7 @@
-# Announcements
+# Implementation Log Announcements
+
+Dokumen ini menyimpan riwayat checkpoint, pengujian, keputusan teknis, dan kontribusi
+AI selama pengembangan. Dokumentasi ringkas modul tersedia di `README.md`.
 
 ## Tujuan Modul
 
@@ -458,7 +461,8 @@ Hasil aktual:
   dijalankan oleh developer; tidak mengubah modul anggota lain; tidak mengimplementasikan
   UI atau interaktivitas.
 - **File yang dibuat/diubah:** `models.py`, `tests.py`, `migrations/0001_initial.py`, dan
-  `announcement.md` dalam app Announcements.
+  `announcement.md` dalam app Announcements. Dokumen terakhir kemudian dipindahkan ke
+  `IMPLEMENTATION_LOG.md` agar fungsi setiap dokumen lebih jelas.
 - **Saran/implementasi AI:** schema UUID, relasi creator dengan `SET_NULL`, timestamps,
   ordering, index tanggal, tujuh unit test model, serta dokumentasi ini.
 - **Kontribusi manual developer:** menyetujui rancangan, menjalankan Red test,

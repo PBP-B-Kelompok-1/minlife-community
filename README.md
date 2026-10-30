@@ -45,11 +45,22 @@ Setiap user dapat mengedit dan menghapus post atau komentar yang ia post. Modera
 
 #### Announcement (Enzo Susilo - 2506584382)
 
-Moderator dapat menambah announcement yang terdiri atas judul, isi, dan mungkin gambar yang bertopik tentang update terhadap aplikasi, rules, atau berita apa pun. 
+Modul Announcements menyediakan pengumuman resmi komunitas melalui halaman list dan
+detail publik. Pengguna dapat mencari berdasarkan judul atau isi serta mengurutkan data
+berdasarkan waktu pembuatan terbaru atau terlama.
 
-Satu announcement terbaru akan muncul di atas halaman frontpage, dan terdapat tombol yang menampilkan semua announcement di page terpisah.
+Moderator dengan Django permission yang sesuai dapat membuat, mengubah, dan menghapus
+announcement. Read, search, sorting, detail, serta modal CRUD menggunakan HTMX agar
+konten dapat diperbarui tanpa full-page reload, dengan halaman HTML biasa sebagai
+fallback.
 
-Modul ini akan terintegrasi dengan Firebase FCM untuk push notifications.
+User yang login dapat mengaktifkan system notification Firebase Cloud Messaging pada
+masing-masing browser. Setelah announcement berhasil disimpan, Django mengirim push ke
+device yang sudah berlangganan, kecuali device milik creator. Klik notifikasi membuka
+detail announcement terkait.
+
+Dokumentasi teknis tersedia di
+[`announcements/README.md`](announcements/README.md).
 
 #### Personal goals (Qisthan Albani Fasyah - 2506621434)
 Setiap user mendapatkan sebuah menu jurnal berisi kalender. Setiap tanggal pada kalender dapat ditekan untuk memunculkan modal berisi text editor untuk dituliskan status hari ini.
@@ -122,9 +133,9 @@ python -m venv env
 # For POSIX shells
 source env/bin/activate
 # Powershell
-env\bin\Activate.ps1
+.\env\Scripts\Activate.ps1
 # cmd
-env\bin\activate.bat
+env\Scripts\activate.bat
 # csh
 ./env/bin/activate.csh
 # fish
@@ -136,7 +147,7 @@ pip install -r requirements.txt
 ```bash
 python manage.py migrate
 ```
-4. Build Tailwind styles (sepertinya tidak otomatis di PWS)
+4. Build Tailwind styles sebelum menjalankan atau men-deploy aplikasi
 ```bash
 python manage.py tailwind build
 ```
