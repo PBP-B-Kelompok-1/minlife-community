@@ -1,6 +1,6 @@
 import json
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.core.exceptions import PermissionDenied
 from django.contrib import messages
@@ -9,9 +9,10 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.urls import reverse
 
-from .models import Post, Vote, Comment
+from .models import Post, Vote, Comment, Tag
 from .forms import PostForm, CommentForm
 from announcements.models import Announcement
+from weeklychallenge.models import CHALLENGE_TAG_NAME, Challenge
 from weeklychallenge.services import award_badge_if_eligible
 
 # Create your views here.
@@ -90,16 +91,41 @@ def get_posts_json(request):
 
 @login_required
 def create_post(request):
-    form = PostForm(request.POST or None, request.FILES or None)
+    challenge = None
+    challenge_id = request.GET.get("challenge")
+    form_data = request.POST or None
+    initial = None
+
+    if challenge_id:
+        try:
+            challenge = Challenge.objects.current().get(pk=challenge_id)
+        except (Challenge.DoesNotExist, TypeError, ValueError):
+            raise Http404("Active challenge not found.")
+
+        challenge_tag, _ = Tag.objects.get_or_create(title=CHALLENGE_TAG_NAME)
+        if request.method == "POST":
+            form_data = request.POST.copy()
+            selected_tag_ids = form_data.getlist("tags")
+            challenge_tag_id = str(challenge_tag.pk)
+            if challenge_tag_id not in selected_tag_ids:
+                form_data.appendlist("tags", challenge_tag_id)
+        else:
+            initial = {"tags": [challenge_tag.pk]}
+
+    form = PostForm(form_data, request.FILES or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         post = form.save(commit=False)
         post.author = request.user
         post.save()
         form.save_m2m()
         messages.success(request, "Post has been created successfully.")
+        if challenge:
+            return redirect("weeklychallenge:show_weekly_challenge")
         return redirect("frontpage")
     context = {
-        "form": form
+        "form": form,
+        "challenge": challenge,
+        "form_action": request.get_full_path(),
     }
     return render(request, "posts/create_form.html", context)
 

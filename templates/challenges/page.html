@@ -61,7 +61,7 @@
                             <span class="font-semibold text-[var(--accent)]">#Weekly Challenge</span>
                         </p>
                         {% if user.is_authenticated and not has_submitted %}
-                            <a class="button button--small w-full sm:w-auto" href="{% url 'posts:create_post' %}">
+                            <a class="button button--small w-full sm:w-auto" href="{% url 'posts:create_post' %}?challenge={{ challenge.pk }}">
                                 Bagikan progres
                             </a>
                         {% elif not user.is_authenticated %}
