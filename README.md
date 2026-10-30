@@ -104,3 +104,42 @@ User dapat mendaftarkan akunnya dan berpartisipasi dalam komunitas melalui berba
 
 #### Moderator
 Moderator adalah user yang dipercayai untuk mengatur komunitas, seperti menghapus post dan komentar yang ofensif dan membuat topik weekly challenge. Moderator dapat berpartisipasi dalam komunitas seperti user lain.
+
+## Build
+Untuk run server secara local:
+
+1. Clone repositori dari Github
+```bash
+git clone https://github.com/PBP-B-Kelompok-1/minlife-community && cd minlife-community
+```
+2. Enable venv, install dependencies
+```bash
+# Make venv
+python -m venv env
+
+# For POSIX shells
+source env/bin/activate
+# Powershell
+env\bin\Activate.ps1
+# cmd
+env\bin\activate.bat
+# csh
+./env/bin/activate.csh
+# fish
+./env/bin/activate.fish
+
+pip install -r requirements.txt
+```
+3. Run migrations
+```bash
+python manage.py migrate
+```
+4. Build Tailwind styles (sepertinya tidak otomatis di PWS)
+```bash
+python manage.py tailwind build
+```
+5. Run server
+```bash
+python manage.py runserver
+```
+6. Akses dari browser, misalnya `localhost:8000` (default)

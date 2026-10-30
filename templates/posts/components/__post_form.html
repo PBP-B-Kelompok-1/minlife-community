@@ -16,6 +16,9 @@
     {% endfor %}
     <div class="post-form__actions">
         <button class="button" type="submit">Upload</button>
-        <a href="" class="button button--border">Cancel</a>
+        <a href="" id="post-form__button--cancel" class="button button--border">Cancel</a>
     </div>
 </form>
+<script>
+    document.getElementById("post-form__button--cancel").href = document.referrer;
+</script>

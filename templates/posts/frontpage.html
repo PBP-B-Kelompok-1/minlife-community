@@ -2,7 +2,6 @@
 {% extends "base.html" %}
 {% load static %}
 {% block meta %}
-    {% include "posts/components/tailwind_styles.html" %}
     <title>Minlife Community - Embracing the Minimalist Life</title>
     <script src="{% static 'posts/js/posts.js' %}" 
         data-get-posts-endpoint="{% url 'api:get_posts_json' %}"

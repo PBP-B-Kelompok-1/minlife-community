@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'announcements',
     'journal',
     'weeklychallenge',
+    'tailwind',
+    'tailwindtheme',
 ]
 
 MIDDLEWARE = [
@@ -159,6 +161,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Other variables
 AUTH_USER_MODEL = "users.User"
 LOGIN_URL = "login"
+
+# Tailwind app
+TAILWIND_APP_NAME = 'tailwindtheme'
 
 # Django CKEditor 5
 CKEDITOR_5_FILE_UPLOAD_PERMISSION = "authenticated"
