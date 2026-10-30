@@ -702,28 +702,28 @@ Hasil aktual:
 | --- | --- | --- |
 | Red - unit test model | Selesai | `ed1f941 test(announcements): definisikan perilaku model announcement` |
 | Green - model dan migration | Selesai | `1cd337c feat(announcements): tambahkan model announcement` |
-| Dokumentasi Checkpoint 1 | Selesai | commit dokumentasi ini |
+| Dokumentasi Checkpoint 1 | Selesai | `b6466d9 docs(announcements): dokumentasikan checkpoint model announcement` |
 | Red Checkpoint 2 - Read/filter | Selesai | `fedc36f test(announcements): definisikan perilaku baca dan penyaringan pengumuman` |
 | Green Checkpoint 2 - Read/filter | Selesai | `680a06d feat(announcements): tambahkan baca publik dan filter database` |
-| Dokumentasi Checkpoint 2 | Selesai | commit dokumentasi ini |
+| Dokumentasi Checkpoint 2 | Selesai | `c30b61f docs(announcements): dokumentasikan checkpoint baca dan filter` |
 | Red Checkpoint 3 - Authorization/Create | Selesai | `7cacccf test(announcements): definisikan otorisasi dan pembuatan pengumuman` |
 | Green Checkpoint 3 - Authorization/Create | Selesai | `9f68eb6 feat(announcements): tambahkan pembuatan pengumuman berizin` |
-| Dokumentasi Checkpoint 3 | Selesai | commit dokumentasi ini |
+| Dokumentasi Checkpoint 3 | Selesai | `1de86d0 docs(announcements): dokumentasikan otorisasi dan pembuatan` |
 | Red Checkpoint 4 - Authorization Update/Delete | Selesai | `d6476e7 test(announcements): definisikan otorisasi ubah dan hapus pengumuman` |
 | Green Checkpoint 4 - Authorization Update/Delete | Selesai | `4cccc40 feat(announcements): tambahkan ubah dan hapus pengumuman berizin` |
-| Dokumentasi Checkpoint 4 | Selesai | commit dokumentasi ini |
+| Dokumentasi Checkpoint 4 | Selesai | `01d6d48 docs(announcements): dokumentasikan perubahan dan penghapusan` |
 | Red/revisi Checkpoint 5A - Read dinamis HTMX | Selesai | `9afec6d test(announcements): menyesuaikan kontrak baca dinamis ke htmx` |
 | Green Checkpoint 5A - Read dinamis HTMX | Selesai | `c0cf75d feat(announcements): tambahkan baca dinamis dengan htmx` |
-| Dokumentasi Checkpoint 5A | Selesai | commit dokumentasi ini |
+| Dokumentasi Checkpoint 5A | Selesai | `590b833 docs(announcements): dokumentasikan interaksi dinamis htmx` |
 | Red Checkpoint 5B - Mutation HTMX | Selesai | `a423850 test(announcements): definisikan mutasi dinamis dengan htmx` |
 | Green Checkpoint 5B - Modal CRUD HTMX | Selesai | `0e7902c feat(announcements): tambahkan modal crud dinamis dengan htmx` |
-| Dokumentasi Checkpoint 5B | Selesai | commit dokumentasi ini |
+| Dokumentasi Checkpoint 5B | Selesai | `0bca953 docs(announcements): dokumentasikan modal crud htmx` |
 | Red Checkpoint 6A - Subscription FCM | Selesai | `35acfdd test(announcements): definisikan langganan notifikasi fcm` |
 | Green Checkpoint 6A - Subscription FCM | Selesai | `e87436f feat(announcements): tambahkan langganan notifikasi fcm` |
-| Dokumentasi Checkpoint 6A | Selesai | commit dokumentasi ini |
+| Dokumentasi Checkpoint 6A | Selesai | `ecad1aa docs(announcements): dokumentasikan subscription fcm` |
 | Red Checkpoint 6B - Firebase Web Client | Selesai | `3812752 test(announcements): definisikan client web notifikasi fcm` |
 | Green Checkpoint 6B - Firebase Web Client | Selesai | `df72ddf feat(announcements): tambahkan client web notifikasi fcm` |
-| Dokumentasi Checkpoint 6B | Selesai | commit dokumentasi ini |
+| Dokumentasi Checkpoint 6B | Selesai | `85cfae6 docs(announcements): dokumentasikan client web fcm` |
 | Red Checkpoint 6C - Pengiriman Push FCM | Selesai | `d431804 test(announcements): definisikan pengiriman push fcm` |
 | Green Checkpoint 6C - Pengiriman Push FCM | Selesai | `bb13e8d feat(announcements): tambahkan pengiriman push fcm` |
-| Dokumentasi Checkpoint 6C | Selesai | commit dokumentasi ini |
+| Dokumentasi Checkpoint 6C | Selesai | `13c959f docs(announcements): dokumentasikan pengiriman push fcm` |
