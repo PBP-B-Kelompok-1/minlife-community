@@ -156,3 +156,23 @@ python manage.py tailwind build
 python manage.py runserver
 ```
 6. Akses dari browser, misalnya `localhost:8000` (default)
+
+### Seed development data
+
+Populate every module with at least 50 representative records:
+
+```bash
+python manage.py seed
+```
+
+The generated accounts use password `seed-password`; the moderator username is
+`seed_moderator`. Re-running the command is idempotent for its own data. To
+remove **all database data** first, then generate fresh sample data, use:
+
+```bash
+python manage.py seed --clean
+```
+
+`--clean` runs Django's database flush and cannot be undone. You can generate a
+larger set with `--count 100` (the minimum is 50), or reproduce a particular
+dataset with `--seed 123`.
