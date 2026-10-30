@@ -1,8 +1,10 @@
 import json
+import logging
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -13,26 +15,16 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from .forms import AnnouncementForm
 from .models import Announcement, FCMSubscription
+from .notifications import send_announcement_notification
+
+
+logger = logging.getLogger(__name__)
 
 
 SORT_ORDERS = {
     "newest": ("-created_at", "-id"),
     "oldest": ("created_at", "id"),
 }
-
-
-def _firebase_notifications_context(request):
-    web_config = settings.FIREBASE_WEB_CONFIG
-    config_is_complete = bool(settings.FIREBASE_VAPID_KEY) and all(
-        web_config.values()
-    )
-    return {
-        "firebase_notifications_enabled": (
-            request.user.is_authenticated and config_is_complete
-        ),
-        "firebase_web_config": web_config,
-        "firebase_vapid_key": settings.FIREBASE_VAPID_KEY,
-    }
 
 
 def _is_htmx(request):
@@ -66,6 +58,16 @@ def _get_filter_values(request):
     if sort not in SORT_ORDERS:
         sort = "newest"
     return query, sort
+
+
+def _send_announcement_notification_safely(announcement, detail_url):
+    try:
+        send_announcement_notification(announcement, detail_url)
+    except Exception:
+        logger.exception(
+            "Could not send notification for announcement %s.",
+            announcement.pk,
+        )
 
 
 def _get_filtered_announcements(request):
@@ -110,7 +112,6 @@ def _list_context(request, selected_announcement=None):
             "announcements.delete_announcement"
         ),
     }
-    context.update(_firebase_notifications_context(request))
     return context
 
 
@@ -171,6 +172,18 @@ def create_announcement(request):
         announcement = form.save(commit=False)
         announcement.created_by = request.user
         announcement.save()
+        detail_url = request.build_absolute_uri(
+            reverse(
+                "announcements:detail",
+                kwargs={"announcement_id": announcement.pk},
+            )
+        )
+        transaction.on_commit(
+            lambda: _send_announcement_notification_safely(
+                announcement,
+                detail_url,
+            )
+        )
         if _is_htmx(request):
             return _htmx_mutation_response(
                 request,

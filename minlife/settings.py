@@ -76,6 +76,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'announcements.context_processors.firebase_notifications',
             ],
         },
     },
@@ -172,6 +173,14 @@ FIREBASE_WEB_CONFIG = {
 }
 FIREBASE_VAPID_KEY = os.getenv("FIREBASE_VAPID_KEY", "")
 FIREBASE_WEB_SDK_VERSION = "13.1.0"
+FIREBASE_PUSH_ENABLED = os.getenv(
+    "FIREBASE_PUSH_ENABLED",
+    "FALSE",
+).lower() == "true"
+FIREBASE_SERVICE_ACCOUNT_B64 = os.getenv(
+    "FIREBASE_SERVICE_ACCOUNT_B64",
+    "",
+)
 
 # Django CKEditor 5
 CKEDITOR_5_FILE_UPLOAD_PERMISSION = "authenticated"

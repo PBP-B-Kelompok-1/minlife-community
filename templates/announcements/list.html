@@ -4,9 +4,6 @@
     <title>Announcements - Minlife Community</title>
     <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
     <script defer src="{% static 'announcements/js/dialog.js' %}"></script>
-    {% if firebase_notifications_enabled %}
-        <script type="module" src="{% static 'announcements/js/notifications.js' %}"></script>
-    {% endif %}
 {% endblock meta %}
 
 {% block content %}
@@ -25,16 +22,11 @@
                         type="button"
                         id="notification-toggle"
                         class="button button--border shadow self-stretch text-base sm:self-start"
-                        data-subscribe-url="{% url 'announcements:notification_subscribe' %}"
-                        data-unsubscribe-url="{% url 'announcements:notification_unsubscribe' %}"
-                        data-service-worker-url="{% url 'firebase_messaging_service_worker' %}"
-                        data-vapid-key="{{ firebase_vapid_key }}"
                         aria-pressed="false"
                     >
                         <i class="fa-regular fa-bell" aria-hidden="true"></i>
                         <span>Enable Notifications</span>
                     </button>
-                    {{ firebase_web_config|json_script:"firebase-web-config" }}
                 {% endif %}
                 {% if can_add_announcement %}
                     <a

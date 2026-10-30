@@ -1119,6 +1119,19 @@ class FCMWebClientTests(TestCase):
             "announcements/js/notifications.js",
         )
 
+    def test_authenticated_frontpage_loads_global_notification_listener(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("frontpage"))
+
+        self.assertContains(response, "announcements/js/notifications.js")
+        self.assertContains(response, 'id="firebase-notification-settings"')
+        self.assertContains(
+            response,
+            reverse("announcements:notification_subscribe"),
+        )
+        self.assertNotContains(response, 'id="notification-toggle"')
+
     @override_settings(FIREBASE_WEB_CONFIG={}, FIREBASE_VAPID_KEY="")
     def test_incomplete_firebase_config_disables_notification_control(self):
         self.client.force_login(self.user)
@@ -1138,6 +1151,8 @@ class FCMWebClientTests(TestCase):
         )
         self.assertContains(response, "firebase-app-compat.js")
         self.assertContains(response, "firebase-messaging-compat.js")
+        self.assertContains(response, "self.skipWaiting()")
+        self.assertContains(response, "clients.claim()")
         self.assertContains(response, "test\\u002Dproject")
         self.assertNotContains(response, "test-public-vapid-key")
         self.assertNotContains(response, "private_key")
@@ -1154,8 +1169,12 @@ class FCMWebClientTests(TestCase):
         script = Path(script_path).read_text(encoding="utf-8")
         self.assertIn("Notification.requestPermission()", script)
         self.assertIn("onRegistered", script)
+        self.assertIn("onMessage", script)
+        self.assertIn("while (window.Swal.isVisible())", script)
         self.assertIn("register", script)
         self.assertIn("unregister", script)
+        self.assertIn("registration.showNotification(title", script)
+        self.assertIn("payload.data?.announcement_url", script)
         self.assertIn('addEventListener("click"', script)
         self.assertNotIn("getToken(", script)
 
@@ -1202,10 +1221,11 @@ class AnnouncementNotificationSendTests(TestCase):
     ):
         self.client.force_login(self.moderator)
 
-        response = self.client.post(
-            reverse("announcements:create"),
-            self.valid_form_data(),
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("announcements:create"),
+                self.valid_form_data(),
+            )
 
         announcement = Announcement.objects.get()
         detail_path = reverse(
@@ -1218,7 +1238,7 @@ class AnnouncementNotificationSendTests(TestCase):
             f"http://testserver{detail_path}",
         )
 
-    def test_sender_builds_fid_multicast_notification_and_detail_link(self):
+    def test_sender_builds_fid_multicast_and_excludes_the_creator(self):
         from .notifications import send_announcement_notification
 
         announcement = Announcement.objects.create(
@@ -1227,9 +1247,8 @@ class AnnouncementNotificationSendTests(TestCase):
         )
         firebase_app = object()
         batch_response = SimpleNamespace(
-            success_count=2,
+            success_count=1,
             responses=[
-                SimpleNamespace(success=True, exception=None),
                 SimpleNamespace(success=True, exception=None),
             ],
         )
@@ -1250,11 +1269,8 @@ class AnnouncementNotificationSendTests(TestCase):
             )
 
         message = firebase_send.call_args.args[0]
-        self.assertEqual(success_count, 2)
-        self.assertSetEqual(
-            set(message.fids),
-            {"sender-browser-fid", "recipient-browser-fid"},
-        )
+        self.assertEqual(success_count, 1)
+        self.assertEqual(message.fids, ["recipient-browser-fid"])
         self.assertEqual(message.notification.title, "New announcement")
         self.assertIn(announcement.title, message.notification.body)
         self.assertIn(announcement.content, message.notification.body)
@@ -1289,6 +1305,42 @@ class AnnouncementNotificationSendTests(TestCase):
 
         self.assertEqual(success_count, 0)
         get_firebase_app.assert_not_called()
+
+    def test_http_local_detail_url_is_sent_as_data_without_https_click_option(self):
+        from .notifications import send_announcement_notification
+
+        announcement = Announcement.objects.create(
+            created_by=self.moderator,
+            **self.valid_form_data(),
+        )
+        batch_response = SimpleNamespace(
+            success_count=1,
+            responses=[
+                SimpleNamespace(success=True, exception=None),
+            ],
+        )
+
+        with (
+            patch(
+                "announcements.notifications._get_firebase_app",
+                return_value=object(),
+            ),
+            patch(
+                "announcements.notifications.messaging.send_each_for_multicast",
+                return_value=batch_response,
+            ) as firebase_send,
+        ):
+            send_announcement_notification(
+                announcement,
+                "http://127.0.0.1:8000/announcements/detail/",
+            )
+
+        message = firebase_send.call_args.args[0]
+        self.assertIsNone(message.webpush)
+        self.assertEqual(
+            message.data["announcement_url"],
+            "http://127.0.0.1:8000/announcements/detail/",
+        )
 
     def test_sender_removes_only_fids_reported_as_unregistered(self):
         from .models import FCMSubscription
@@ -1378,10 +1430,14 @@ class AnnouncementNotificationSendTests(TestCase):
     ):
         self.client.force_login(self.moderator)
 
-        response = self.client.post(
-            reverse("announcements:create"),
-            self.valid_form_data(),
-        )
+        with (
+            patch("announcements.views.logger.exception") as log_exception,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            response = self.client.post(
+                reverse("announcements:create"),
+                self.valid_form_data(),
+            )
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue(
@@ -1390,6 +1446,7 @@ class AnnouncementNotificationSendTests(TestCase):
             ).exists()
         )
         send_notification.assert_called_once()
+        log_exception.assert_called_once()
 
     @override_settings(
         FIREBASE_SERVICE_ACCOUNT_B64=base64.b64encode(

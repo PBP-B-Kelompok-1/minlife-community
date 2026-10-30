@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebas
 import {
     getMessaging,
     isSupported,
+    onMessage,
     onRegistered,
     onUnregistered,
     register,
@@ -10,24 +11,39 @@ import {
 
 const toggle = document.getElementById("notification-toggle");
 const configElement = document.getElementById("firebase-web-config");
+const settingsElement = document.getElementById("firebase-notification-settings");
 const preferenceKey = "minlife-notifications-enabled";
 
 let messaging;
 let currentInstallationId = null;
 let requestInProgress = false;
 let registrationWasRequestedByUser = false;
+let statusToastQueue = Promise.resolve();
 
-function showStatus(message, icon = "info") {
+function wait(milliseconds) {
+    return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function showStatus(message, icon = "info", position = "top-end") {
     if (window.Swal) {
-        window.Swal.fire({
-            toast: true,
-            position: "top-end",
-            showConfirmButton: false,
-            timer: 3000,
-            timerProgressBar: true,
-            icon,
-            title: message,
-        });
+        statusToastQueue = statusToastQueue
+            .then(async () => {
+                while (window.Swal.isVisible()) {
+                    await wait(150);
+                }
+                await window.Swal.fire({
+                    toast: true,
+                    position,
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true,
+                    icon,
+                    title: message,
+                });
+            })
+            .catch((error) => {
+                console.error("Could not display notification status.", error);
+            });
         return;
     }
 
@@ -35,7 +51,23 @@ function showStatus(message, icon = "info") {
     if (region) region.textContent = message;
 }
 
+async function showSystemNotification(payload) {
+    const registration = await navigator.serviceWorker.ready;
+    const title = payload.notification?.title || "New announcement";
+    const body = payload.notification?.body || "A new update is available.";
+    const link = payload.fcmOptions?.link
+        || payload.data?.announcement_url
+        || "/announcements/";
+
+    await registration.showNotification(title, {
+        body,
+        data: { link },
+    });
+}
+
 function setButtonState(state) {
+    if (!toggle) return;
+
     const label = toggle.querySelector("span");
     const icon = toggle.querySelector("i");
 
@@ -93,7 +125,7 @@ async function enableNotifications(showConfirmation = false) {
     localStorage.setItem(preferenceKey, "true");
     try {
         await register(messaging, {
-            vapidKey: toggle.dataset.vapidKey,
+            vapidKey: settingsElement.dataset.vapidKey,
             serviceWorkerRegistration: await navigator.serviceWorker.ready,
         });
     } catch (error) {
@@ -108,7 +140,7 @@ async function disableNotifications() {
 
     if (currentInstallationId) {
         await syncSubscription(
-            toggle.dataset.unsubscribeUrl,
+            settingsElement.dataset.unsubscribeUrl,
             currentInstallationId,
         );
     }
@@ -120,7 +152,7 @@ async function disableNotifications() {
 }
 
 async function initializeNotifications() {
-    if (!toggle || !configElement) return;
+    if (!configElement || !settingsElement) return;
     setButtonState("loading");
 
     const supported = "Notification" in window
@@ -135,14 +167,17 @@ async function initializeNotifications() {
     messaging = getMessaging(app);
 
     await navigator.serviceWorker.register(
-        toggle.dataset.serviceWorkerUrl,
+        settingsElement.dataset.serviceWorkerUrl,
         { scope: "/" },
     );
 
     onRegistered(messaging, async (installationId) => {
         currentInstallationId = installationId;
         try {
-            await syncSubscription(toggle.dataset.subscribeUrl, installationId);
+            await syncSubscription(
+                settingsElement.dataset.subscribeUrl,
+                installationId,
+            );
             setButtonState("enabled");
             if (registrationWasRequestedByUser) {
                 showStatus("Notifications enabled.", "success");
@@ -158,10 +193,19 @@ async function initializeNotifications() {
 
     onUnregistered(messaging, async (installationId) => {
         try {
-            await syncSubscription(toggle.dataset.unsubscribeUrl, installationId);
+            await syncSubscription(
+                settingsElement.dataset.unsubscribeUrl,
+                installationId,
+            );
         } catch (error) {
             console.error(error);
         }
+    });
+
+    onMessage(messaging, (payload) => {
+        showSystemNotification(payload).catch((error) => {
+            console.error("Could not display system notification.", error);
+        });
     });
 
     if (
@@ -195,10 +239,12 @@ if (toggle) {
             requestInProgress = false;
         }
     });
-
-    initializeNotifications().catch((error) => {
-        console.error(error);
-        setButtonState("unsupported");
-        showStatus("Notifications are unavailable.", "error");
-    });
 }
+
+initializeNotifications().catch((error) => {
+    console.error(error);
+    setButtonState("unsupported");
+    if (toggle) {
+        showStatus("Notifications are unavailable.", "error");
+    }
+});
