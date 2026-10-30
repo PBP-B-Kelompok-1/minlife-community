@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block meta %}
+    <title>Login - Minlife Community</title>
+{% endblock meta %}
+
+{% block content %}
+<div class="container">
+    <section class="user-card shadow">
+        <h1 class="user-card__title">Welcome back</h1>
+
+        <form method="post" class="user-form">
+            {% csrf_token %}
+            {% for error in form.non_field_errors %}
+                <p class="user-form__error">{{ error }}</p>
+            {% endfor %}
+            {% include "users/components/form_field.html" with field=form.username %}
+            {% include "users/components/form_field.html" with field=form.password %}
+            <button type="submit" class="button">Login</button>
+        </form>
+
+        <p class="text-center">New here? <a class="user-link" href="{% url 'users:register' %}">Create an account</a></p>
+    </section>
+</div>
+{% endblock content %}

@@ -1,0 +1,64 @@
+<div id="submission-list" class="rounded-[var(--radius)] bg-[var(--paper)] p-4 shadow sm:p-6">
+    <form
+        method="get"
+        action="{% url 'weeklychallenge:submission_list_partial' challenge.pk %}"
+        class="mb-4 flex items-center justify-between gap-3"
+        hx-get="{% url 'weeklychallenge:submission_list_partial' challenge.pk %}"
+        hx-trigger="change"
+        hx-target="#submission-list"
+        hx-push-url="false"
+    >
+        <label class="font-semibold" for="submission-sort">Urutkan</label>
+        <select id="submission-sort" name="sort" class="max-w-48">
+            <option value="score" {% if sort == "score" %}selected{% endif %}>Skor tertinggi</option>
+            <option value="newest" {% if sort == "newest" %}selected{% endif %}>Terbaru</option>
+        </select>
+    </form>
+
+    {% if submissions %}
+        <ol class="flex flex-col divide-y divide-[var(--paper-dim)]">
+            {% for submission in submissions %}
+                <li class="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--secondary)] font-bold text-white">{{ forloop.counter|add:page_obj.start_index|add:"-1" }}</span>
+                        {% if submission.post.challenge_image %}
+                            <img class="size-14 shrink-0 rounded-lg object-cover" src="{{ submission.post.challenge_image.url }}" alt="" loading="lazy">
+                        {% endif %}
+                        <div class="min-w-0">
+                            <h3 class="truncate font-bold">{{ submission.post.title }}</h3>
+                            <p class="text-sm text-[var(--tertiary)]">oleh {{ submission.user.username }} · {{ submission.created_at|date:"j M Y" }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between gap-3 sm:justify-end">
+                        <span class="font-semibold text-[var(--accent)]">Skor {{ submission.score }}</span>
+                        <a class="button button--small" href="{% url 'posts:show_post' post_id=submission.post.pk %}">Lihat post</a>
+                    </div>
+                </li>
+            {% endfor %}
+        </ol>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+            <nav class="mt-5 flex items-center justify-center gap-3 border-t border-[var(--paper-dim)] pt-4" aria-label="Halaman submission">
+                {% if page_obj.has_previous %}
+                    <a
+                        class="button button--border button--small"
+                        href="{% url 'weeklychallenge:challenge_detail' challenge.pk %}?{{ page_query }}{% if page_query %}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+                        hx-get="{% url 'weeklychallenge:submission_list_partial' challenge.pk %}?{{ page_query }}{% if page_query %}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+                        hx-target="#submission-list"
+                    >Sebelumnya</a>
+                {% endif %}
+                <span class="text-sm text-[var(--tertiary)]">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                    <a
+                        class="button button--border button--small"
+                        href="{% url 'weeklychallenge:challenge_detail' challenge.pk %}?{{ page_query }}{% if page_query %}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+                        hx-get="{% url 'weeklychallenge:submission_list_partial' challenge.pk %}?{{ page_query }}{% if page_query %}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+                        hx-target="#submission-list"
+                    >Berikutnya</a>
+                {% endif %}
+            </nav>
+        {% endif %}
+    {% else %}
+        <p class="py-8 text-center text-[var(--tertiary)]">Belum ada submission untuk challenge ini.</p>
+    {% endif %}
+</div>

@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block meta %}
+    <title>Edit profile - Minlife Community</title>
+{% endblock meta %}
+
+{% block content %}
+<div class="container">
+    <section class="user-card shadow">
+        <h1 class="user-card__title">Edit profile</h1>
+
+        <form method="post" enctype="multipart/form-data" class="user-form">
+            {% csrf_token %}
+
+            {% for field in form %}
+                {% include "users/components/form_field.html" with field=field %}
+            {% endfor %}
+
+            <div class="flex flex-col gap-3">
+                <h2 class="user-section-title">Social links</h2>
+                {{ formset.management_form }}
+                {% for error in formset.non_form_errors %}
+                    <p class="user-form__error">{{ error }}</p>
+                {% endfor %}
+
+                <div id="link-forms" class="flex flex-col gap-3">
+                    {% for link_form in formset %}
+                        {% include "users/components/social_link_row.html" with link_form=link_form %}
+                    {% endfor %}
+                </div>
+
+                {# Hidden template that the button clones; __prefix__ becomes the row number #}
+                <template id="empty-link-form">
+                    {% include "users/components/social_link_row.html" with link_form=formset.empty_form %}
+                </template>
+
+                <div>
+                    <button type="button" id="add-link" class="button button--small button--border">
+                        <i class="fa-solid fa-plus"></i> Add social link
+                    </button>
+                </div>
+            </div>
+
+            <div class="user-form__actions">
+                <a class="button button--border" href="{% url 'users:show_my_profile' %}">Cancel</a>
+                <button type="submit" class="button">Save</button>
+            </div>
+        </form>
+    </section>
+</div>
+
+<script>
+    const totalInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
+    const container = document.getElementById("link-forms");
+    const template = document.getElementById("empty-link-form");
+    const addButton = document.getElementById("add-link");
+    const MAX_LINKS = {{ formset.max_num }};
+
+    function updateAddButton() {
+        addButton.hidden = container.children.length >= MAX_LINKS;
+    }
+
+    addButton.addEventListener("click", () => {
+        const index = parseInt(totalInput.value);
+        const html = template.innerHTML.replace(/__prefix__/g, index);
+        container.insertAdjacentHTML("beforeend", html);
+        totalInput.value = index + 1;
+        updateAddButton();
+    });
+
+    container.addEventListener("click", (e) => {
+        if (e.target.classList.contains("remove-link")) {
+            e.target.closest(".link-form").remove();
+            updateAddButton();
+        }
+    });
+
+    updateAddButton();
+</script>
+{% endblock content %}

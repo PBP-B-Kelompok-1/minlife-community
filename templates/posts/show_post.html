@@ -1,0 +1,81 @@
+{# search bar, latest announcement, list of posts (untuk sekarang post dulu) #}
+{% extends "base.html" %}
+{% load static %}
+{% block meta %}
+    <title>Minlife Community - Post</title>
+    {# TODO: tidy up elements (discard unused) #}
+    <script src="{% static 'posts/js/posts.js' %}" 
+        data-get-posts-endpoint="{% url 'api:get_posts_json' %}"
+        data-get-post-endpoint="{% url 'api:get_post_json' post_id=post_id %}"
+        data-get-comments-endpoint="{% url 'api:get_comments_json' post_id=post_id %}"
+        data-create-comment-endpoint="{% url 'api:create_comment' post_id=post_id %}"
+        data-show-post-endpoint-template="{% url 'posts:show_post' post_id='00000000-0000-0000-0000-000000000000' %}"
+        data-vote-post-endpoint-template="{% url 'api:vote_post' post_id='00000000-0000-0000-0000-000000000000' %}"
+        data-vote-comment-endpoint-template="{% url 'api:vote_comment' comment_id='00000000-0000-0000-0000-000000000000' %}"
+        data-update-post-endpoint-template="{% url 'posts:update_post' post_id='00000000-0000-0000-0000-000000000000' %}"
+        data-delete-post-endpoint-template="{% url 'api:delete_post' post_id='00000000-0000-0000-0000-000000000000' %}"
+        data-delete-comment-endpoint-template="{% url 'api:delete_comment' comment_id='00000000-0000-0000-0000-000000000000' %}"
+        data-user-profile-endpoint-template="{% url 'users:show_profile' user_id='00000000-0000-0000-0000-000000000000' %}"
+        data-login-url="{% url 'login' %}"
+        data-csrf-token="{{ csrf_token }}"
+    ></script>
+    <script src="{% static 'posts/js/show_post.js' %}"></script>
+    {{ comment_form.media }}
+{% endblock meta %}
+{% block content %}
+    <div class="container">
+        <div id="posts__status" class="posts__status empty-state"></div>
+        <section id="posts" class="posts"></section>
+
+        <h1 class="comment-section-title">Comments</h1>
+
+        <form method="POST" id="comment-form" class="comment-form shadow hover--expand">
+            {% csrf_token %}
+            <img class="comment-form__pfp" 
+                src="{{ user.avatar_url }}" 
+                onerror="this.onerror=null; this.src='/static/img/pfp.svg';"
+                alt="{{ user.get_username }}'s profile picture">
+            <div class="comment-form__inputs">
+                {% for field in comment_form %}
+                        <div class="comment-form__field">
+                        {{ field }}
+                        {{ field.errors }}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="comment-form__actions">
+                <button class="button button--small" type="submit">
+                    <i class="fa-solid fa-up-long"></i>Upload
+                </button>
+            </div>
+        </form>
+
+        <template id="reply-form-template">
+            <form method="POST" class="comment-form comment__reply-form shadow">
+                {% csrf_token %}
+                <img class="comment-form__pfp" 
+                    src="{{ user.avatar_url }}" 
+                    onerror="this.onerror=null; this.src='/static/img/pfp.svg';"
+                    alt="{{ user.get_username }}'s profile picture">
+                <div class="comment-form__inputs">
+                    {% for field in reply_comment_form %}
+                        <div class="comment-form__field">
+                            {{ field }}
+                            {{ field.errors }}
+                        </div>
+                    {% endfor %}
+                    <input type="hidden" name="replies_to_comment">
+                </div>
+                <div class="comment-form__actions">
+                    <button class="button button--small" type="button">Cancel</button>
+                    <button class="button button--small" type="submit">
+                        <i class="fa-solid fa-up-long"></i>Upload
+                    </button>
+                </div>
+            </form>
+        </template>
+
+        <div id="comments__status" class="comments__status empty-state"></div>
+        <section id="comments" class="comments"></section>
+    </div>
+{% endblock content %}

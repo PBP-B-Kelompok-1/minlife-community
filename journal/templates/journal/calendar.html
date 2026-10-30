@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block meta %}
+    <title>Journal - Minlife Community</title>
+    <link rel="stylesheet" href="{% static 'journal/journal.css' %}">
+{% endblock meta %}
+
+{% block content %}
+<div class="jr" id="journal"
+     data-entry-url="{% url 'journal:entry' '0000-00-00' %}"
+     data-today="{{ today }}"
+     data-year="{{ year }}"
+     data-month="{{ month }}"
+     data-csrf="{{ csrf_token }}">
+
+    <h1 class="jr-title">my journal</h1>
+    <p class="jr-subtitle">Satu catatan untuk setiap hari. Klik tanggal untuk menulis atau membaca entry-mu.</p>
+
+    <div class="jr-layout">
+        <section class="jr-card jr-cal">
+            <div class="jr-cal-head">
+                <h2 class="jr-cal-title">{{ month_name }} {{ year }}</h2>
+                <div class="jr-cal-nav">
+                    <a class="jr-icon-btn" href="?year={{ prev.year }}&month={{ prev.month }}" aria-label="Bulan sebelumnya"><i class="fa-solid fa-chevron-left"></i></a>
+                    <a class="jr-pill-btn" href="?year={{ this_month.year }}&month={{ this_month.month }}">hari ini</a>
+                    <a class="jr-icon-btn" href="?year={{ next.year }}&month={{ next.month }}" aria-label="Bulan berikutnya"><i class="fa-solid fa-chevron-right"></i></a>
+                </div>
+            </div>
+
+            <div class="jr-grid" id="jr-grid">
+                {% for name in weekdays %}<div class="jr-dow">{{ name }}</div>{% endfor %}
+                {% for week in weeks %}{% for c in week %}<button type="button" class="jr-day{% if not c.in_month %} is-out{% endif %}{% if c.is_today %} is-today{% endif %}{% if c.has_entry %} has-entry{% endif %}" data-date="{{ c.iso }}">{{ c.day }}</button>{% endfor %}{% endfor %}
+            </div>
+
+            <div class="jr-legend">
+                <span><i class="jr-legend-dot"></i> ada entry</span>
+                <span><i class="jr-legend-box is-today"></i> hari ini</span>
+                <span><i class="jr-legend-box is-selected"></i> tanggal dipilih</span>
+            </div>
+        </section>
+
+        <aside class="jr-card jr-side">
+            <div class="jr-summary" id="jr-summary">
+                <div class="jr-side-head">
+                    <div>
+                        <h2 class="jr-side-title">{{ month_name }} {{ year }}</h2>
+                        <p class="jr-muted">Semua yang kamu tulis bulan ini</p>
+                    </div>
+                    <button type="button" class="jr-btn jr-btn-dark jr-btn-pill" id="jr-new">
+                        <i class="fa-solid fa-plus" id="jr-new-icon"></i> <span id="jr-new-label">Tulis entry</span>
+                    </button>
+                </div>
+
+                <div class="jr-stats">
+                    <div class="jr-stat is-dark"><b id="jr-total">0</b><span>entri</span></div>
+                </div>
+
+                <h3 class="jr-label">Entry terbaru</h3>
+                <div class="jr-list" id="jr-list"></div>
+                <p class="jr-empty" id="jr-empty" hidden>Belum ada entry bulan ini. Klik salah satu tanggal untuk mulai menulis.</p>
+                <button type="button" class="jr-more" id="jr-more" hidden></button>
+            </div>
+
+            <div class="jr-editor" id="jr-editor" hidden>
+                <button type="button" class="jr-back" id="jr-back"><i class="fa-solid fa-chevron-left"></i> Kembali ke ringkasan</button>
+
+                <div>
+                    <h2 class="jr-side-title" id="jr-title"></h2>
+                    <p class="jr-muted" id="jr-meta"></p>
+                </div>
+
+                <div class="jr-toolbar">
+                    <button type="button" class="jr-tool" data-cmd="bold" aria-label="Tebal"><b>B</b></button>
+                    <button type="button" class="jr-tool" data-cmd="italic" aria-label="Miring"><i>I</i></button>
+                    <button type="button" class="jr-tool" data-cmd="underline" aria-label="Garis bawah"><u>U</u></button>
+                    <button type="button" class="jr-tool" data-cmd="insertUnorderedList" aria-label="Daftar poin">&bull;</button>
+                    <button type="button" class="jr-tool" data-cmd="insertOrderedList" aria-label="Daftar nomor">1.</button>
+                    <button type="button" class="jr-tool" data-cmd="formatBlock" data-arg="blockquote" aria-label="Kutipan">&ldquo;</button>
+                </div>
+
+                <div class="jr-body" id="jr-body" contenteditable="true" role="textbox" aria-multiline="true"
+                     data-placeholder="Tulis apa yang kamu rasakan hari ini..."></div>
+
+
+                <p class="jr-status" id="jr-status" role="status"></p>
+
+                <div class="jr-actions">
+                    <button type="button" class="jr-btn jr-btn-danger" id="jr-delete">Hapus</button>
+                    <button type="button" class="jr-btn jr-btn-dark" id="jr-save">Simpan</button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div class="jr-popup" id="jr-popup" role="tooltip" hidden></div>
+</div>
+
+{{ entries|json_script:"jr-entries" }}
+<script src="{% static 'journal/journal.js' %}" defer></script>
+{% endblock content %}

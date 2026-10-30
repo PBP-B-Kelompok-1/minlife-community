@@ -1,0 +1,9 @@
+{% include "challenges/components/_task_form_row.html" with task_form=task_form task_index=next_form_index|add:"-1" %}
+<input
+    type="hidden"
+    name="tasks-TOTAL_FORMS"
+    value="{{ next_form_index }}"
+    id="{{ total_forms_id }}"
+    hx-swap-oob="outerHTML"
+>
+{% include "challenges/components/_task_form_add_button.html" with is_oob=True %}

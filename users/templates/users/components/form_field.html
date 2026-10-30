@@ -1,0 +1,17 @@
+{% if field.field.widget.input_type == "checkbox" %}
+    <label class="user-checkbox">
+        {{ field }}
+        <span>{{ field.label }}</span>
+    </label>
+{% else %}
+    <div class="flex flex-col gap-1.5">
+        <label for="{{ field.id_for_label }}" class="font-semibold">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}
+            <div class="user-form__help">{{ field.help_text|safe }}</div>
+        {% endif %}
+        {% for error in field.errors %}
+            <p class="user-form__error">{{ error }}</p>
+        {% endfor %}
+    </div>
+{% endif %}

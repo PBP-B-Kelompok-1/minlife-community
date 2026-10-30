@@ -45,11 +45,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_ckeditor_5',
     'users',
     'posts',
     'announcements',
     'journal',
     'weeklychallenge',
+    'tailwind',
+    'tailwindtheme',
 ]
 
 MIDDLEWARE = [
@@ -75,6 +78,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'announcements.context_processors.firebase_notifications',
             ],
         },
     },
@@ -147,6 +151,8 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [ BASE_DIR / "static" ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 WHITENOISE_USE_FINDERS = True
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -156,3 +162,47 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Other variables
 AUTH_USER_MODEL = "users.User"
 LOGIN_URL = "login"
+
+# Firebase Web configuration is public client configuration. Service-account
+# credentials remain separate and must never be exposed through these values.
+FIREBASE_WEB_CONFIG = {
+    "apiKey": os.getenv("FIREBASE_API_KEY", ""),
+    "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN", ""),
+    "projectId": os.getenv("FIREBASE_PROJECT_ID", ""),
+    "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET", ""),
+    "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID", ""),
+    "appId": os.getenv("FIREBASE_APP_ID", ""),
+}
+FIREBASE_VAPID_KEY = os.getenv("FIREBASE_VAPID_KEY", "")
+FIREBASE_WEB_SDK_VERSION = "13.1.0"
+FIREBASE_PUSH_ENABLED = os.getenv(
+    "FIREBASE_PUSH_ENABLED",
+    "FALSE",
+).lower() == "true"
+FIREBASE_SERVICE_ACCOUNT_B64 = os.getenv(
+    "FIREBASE_SERVICE_ACCOUNT_B64",
+    "",
+)
+
+# Tailwind app
+TAILWIND_APP_NAME = 'tailwindtheme'
+
+# Django CKEditor 5
+CKEDITOR_5_FILE_UPLOAD_PERMISSION = "authenticated"
+CKEDITOR_5_MAX_FILE_SIZE = 5  # MB; applies to images uploaded from the editor.
+CKEDITOR_5_UPLOAD_FILE_TYPES = ["jpg", "jpeg", "png", "gif", "webp"]
+CKEDITOR_5_CONFIGS = {
+    'post': {
+        'toolbar': {
+            'items': ['heading', '|', 'bold', 'italic', 'link',
+                      'bulletedList', 'numberedList', 'blockQuote', 'imageUpload'],
+        }
+    },
+    'comment': {
+        'height': '6rem',
+        'toolbar': {
+            'items': ['bold', 'italic'],
+        }
+    },
+
+}

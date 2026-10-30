@@ -1,4 +1,4 @@
-{% load static %}
+{% load static tailwind_tags %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,16 +8,70 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.min.css" integrity="sha512-QeR2VH+lsBE5LSAe1Q5EnTBbe7XTBubt8dG93Y7gidSgdMCr8nVqKcfKAMyN96SV8KDbZVTDXChatu5G2KQGzg==" crossorigin="anonymous" referrerpolicy="no-referrer">
-    <link href="{% static "css/styles.css" %}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    {% tailwind_css %}
+    <script src="{% static "js/helpers.js" %}"></script>
+    {% if firebase_notifications_enabled %}
+        <script type="module" src="{% static 'announcements/js/notifications.js' %}"></script>
+    {% endif %}
     {% block meta %}
         <title>Minlife Community - Embracing the Minimalist Life</title>
     {% endblock meta %}
 </head>
 <body>
     {% include "components/navbar.html" %}
-    <main>
+    <div id="main-content">
         {% block content %}{% endblock content %}
-    </main>
+    </div>
+    <div id="modal-slot"></div>
+    <div id="toast-region" aria-live="polite"></div>
+    {% if firebase_notifications_enabled %}
+        <div
+            id="firebase-notification-settings"
+            hidden
+            data-subscribe-url="{% url 'announcements:notification_subscribe' %}"
+            data-unsubscribe-url="{% url 'announcements:notification_unsubscribe' %}"
+            data-service-worker-url="{% url 'firebase_messaging_service_worker' %}"
+            data-vapid-key="{{ firebase_vapid_key }}"
+        ></div>
+        {{ firebase_web_config|json_script:"firebase-web-config" }}
+    {% endif %}
+    {% include "components/_trigger_toast_messages.html" %}
+    <style>
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
+    </style>
+    <script>
+        document.addEventListener("htmx:configRequest", function (event) {
+            event.detail.headers["X-CSRFToken"] = getCookie("csrftoken");
+        });
+        document.addEventListener("htmx:responseError", function (event) {
+            const region = document.getElementById("toast-region");
+            if (region) region.textContent = event.detail.xhr.status === 403
+                ? "Kamu tidak punya izin untuk tindakan ini."
+                : event.detail.xhr.status === 404
+                    ? "Data tidak ditemukan."
+                    : "Terjadi kesalahan. Coba lagi.";
+        });
+        document.addEventListener("htmx:sendError", function () {
+            const region = document.getElementById("toast-region");
+            if (region) region.textContent = "Terjadi kesalahan. Coba lagi.";
+        });
+        document.addEventListener("htmx:beforeRequest", function (event) {
+            if (event.detail.elt.matches("[hx-get*='/delete/']")) {
+                event.detail.elt.dataset.modalOpener = "true";
+            }
+        });
+        document.addEventListener("htmx:afterSwap", function (event) {
+            const dialog = document.querySelector("#modal-slot dialog");
+            if (dialog && !dialog.open) dialog.showModal();
+        });
+        document.addEventListener("close", function (event) {
+            if (event.target.matches("#modal-slot dialog")) {
+                document.getElementById("modal-slot").replaceChildren();
+            }
+        });
+    </script>
 </body>
 <footer>
 </footer>

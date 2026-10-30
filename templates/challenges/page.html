@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% load static %}
+{% block meta %}
+    <title>
+        {% if challenge %}Weekly Challenge #{{ challenge.pk }}: {{ challenge.title }}{% else %}Weekly Challenge{% endif %}
+        - Minlife Community
+    </title>
+{% endblock meta %}
+{% block content %}
+    <main class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pb-10">
+        {% if challenge %}
+            <section class="rounded-[var(--radius)] bg-[var(--paper)] px-6 py-6 shadow sm:px-10 sm:py-8">
+                <div class="mx-auto flex max-w-2xl flex-col gap-5">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+                                Weekly Challenge #{{ challenge.pk }}
+                            </p>
+                            {% if can_create_challenge %}
+                                <a class="button button--small w-full sm:w-auto" href="{% url 'weeklychallenge:challenge_create' %}">
+                                    <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                                    Buat challenge
+                                </a>
+                            {% endif %}
+                        </div>
+                        <h1 class="text-2xl font-bold leading-tight sm:text-3xl">
+                            {{ challenge.title }}
+                        </h1>
+                        <a class="self-start text-sm font-semibold text-[var(--accent)] hover:underline" href="{% url 'weeklychallenge:challenge_detail' challenge.pk %}">
+                            Detail challenge
+                            <i class="fa-solid fa-arrow-right ml-1" aria-hidden="true"></i>
+                        </a>
+                        <p class="whitespace-pre-line text-base leading-relaxed text-[var(--secondary)]">
+                            {{ challenge.background }}
+                        </p>
+                        <p class="whitespace-pre-line text-sm leading-relaxed text-[var(--tertiary)]">
+                            {{ challenge.description }}
+                        </p>
+                        <p class="text-sm text-[var(--tertiary)]">{{ challenge.submission_count }} progres dibagikan</p>
+                    </div>
+
+                    <ol class="flex items-start" aria-label="Jadwal challenge selama tujuh hari">
+                        {% for day in timeline %}
+                            <li class="relative flex min-w-0 flex-1 flex-col items-center">
+                                {% if not forloop.first %}
+                                    <span class="absolute right-1/2 top-4 h-1 w-full bg-[var(--secondary)]" aria-hidden="true"></span>
+                                {% endif %}
+                                <span class="relative z-[1] flex size-8 items-center justify-center rounded-full border-2 border-[var(--paper)] text-xs font-bold text-white {% if day.is_current %}bg-[var(--accent)] ring-2 ring-[var(--accent)]{% else %}bg-[var(--secondary)]{% endif %}">
+                                    {{ day.day_number }}
+                                </span>
+                                <time class="mt-1 text-center text-xs text-[var(--secondary)]" datetime="{{ day.date|date:'Y-m-d' }}">
+                                    {{ day.date|date:"M j" }}
+                                </time>
+                            </li>
+                        {% endfor %}
+                    </ol>
+
+                    <div class="flex flex-col gap-3 text-sm text-[var(--secondary)] sm:flex-row sm:items-end sm:justify-between">
+                        <p>
+                            Tag challenge:
+                            <span class="font-semibold text-[var(--accent)]">#Weekly Challenge</span>
+                        </p>
+                        {% if user.is_authenticated and not has_submitted %}
+                            <a class="button button--small w-full sm:w-auto" href="{% url 'posts:create_post' %}?challenge={{ challenge.pk }}">
+                                Bagikan progres
+                            </a>
+                        {% elif not user.is_authenticated %}
+                            <a class="button button--small button--border w-full sm:w-auto" href="{% url 'login' %}?next={{ request.path|urlencode }}">
+                                Masuk untuk ikut
+                            </a>
+                        {% else %}
+                            <p class="font-semibold text-[var(--accent)]">Kamu sudah mengirim progres minggu ini.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="rounded-[var(--radius)] bg-[var(--paper)] px-6 pb-6 pt-8 shadow sm:px-10">
+                <div class="mx-auto max-w-2xl">
+                    {% if current_task %}
+                        <h2 class="-mt-12 mb-4 flex w-fit max-w-full mx-auto rounded-[var(--radius)] bg-[var(--secondary)] px-5 py-2 text-lg font-bold text-white shadow sm:text-xl">
+                            Hari {{ current_task.day_number }}: {{ current_task.title }}
+                        </h2>
+                        <p class="whitespace-pre-line leading-relaxed text-[var(--secondary)]">
+                            {{ current_task.description|default:challenge.goal }}
+                        </p>
+                    {% else %}
+                        <h2 class="text-xl font-bold">Tujuan challenge</h2>
+                        <p class="mt-3 whitespace-pre-line leading-relaxed text-[var(--secondary)]">{{ challenge.goal }}</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="flex flex-col gap-3">
+                <div class="flex items-end justify-between gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold">Progres minggu ini</h2>
+                        <p class="text-sm text-[var(--tertiary)]">Lihat cerita dari anggota komunitas.</p>
+                    </div>
+                    {% if submissions %}
+                        <span class="shrink-0 text-sm text-[var(--tertiary)]">{{ submissions|length }} progres</span>
+                    {% endif %}
+                </div>
+
+                {% if submissions %}
+                    <div class="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0">
+                        {% for submission in submissions %}
+                            <article class="flex w-[min(84vw,22rem)] shrink-0 snap-center flex-col gap-3 rounded-[var(--radius)] bg-[var(--paper)] p-4 shadow sm:w-full">
+                                <div class="min-w-0">
+                                    <h3 class="truncate text-center font-bold">{{ submission.post.title }}</h3>
+                                    <p class="text-center text-sm text-[var(--tertiary)]">oleh {{ submission.user.username }}</p>
+                                </div>
+                                {% if submission.post.challenge_image %}
+                                    <img
+                                        class="aspect-[4/3] w-full rounded-xl object-cover"
+                                        src="{{ submission.post.challenge_image.url }}"
+                                        alt="Foto progres dari {{ submission.user.username }}"
+                                        loading="lazy"
+                                    >
+                                {% else %}
+                                    <div class="flex aspect-[4/3] items-center justify-center rounded-xl bg-[var(--paper-dim)] text-sm text-[var(--tertiary)]">
+                                        Tidak ada foto untuk progres ini
+                                    </div>
+                                {% endif %}
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="font-semibold text-[var(--secondary)]">
+                                        <i class="fa-solid fa-ranking-star mr-1 text-[var(--accent)]" aria-hidden="true"></i>
+                                        Skor {{ submission.score }}
+                                    </span>
+                                    <a class="button button--small shrink-0" href="{% url 'posts:show_post' post_id=submission.post.pk %}">
+                                        <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                                        Lihat post
+                                    </a>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="rounded-[var(--radius)] bg-[var(--paper)] px-6 py-10 text-center shadow">
+                        <p class="font-semibold">Belum ada progres minggu ini.</p>
+                        <p class="mt-1 text-sm text-[var(--tertiary)]">Jadilah yang pertama membagikan perjalananmu.</p>
+                    </div>
+                {% endif %}
+            </section>
+        {% else %}
+            <section class="rounded-[var(--radius)] bg-[var(--paper)] px-6 py-12 text-center shadow sm:px-10">
+                <p class="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Weekly Challenge</p>
+                <h1 class="mt-2 text-2xl font-bold sm:text-3xl">Belum ada challenge aktif</h1>
+                <p class="mx-auto mt-3 max-w-lg text-[var(--tertiary)]">
+                    Challenge mingguan berikutnya akan muncul di sini. Sementara itu, kamu tetap bisa berbagi cerita di komunitas.
+                </p>
+                <a class="button mt-6" href="{% url 'frontpage' %}">Jelajahi komunitas</a>
+                {% if can_create_challenge %}
+                    <a class="button button--border mt-3" href="{% url 'weeklychallenge:challenge_create' %}">Buat challenge</a>
+                {% endif %}
+            </section>
+        {% endif %}
+
+        {% if upcoming_challenges %}
+            <section class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-3">
+                    <h2 class="text-xl font-bold">Challenge akan datang</h2>
+                    <a class="text-sm font-semibold text-[var(--accent)] hover:underline" href="{% url 'weeklychallenge:challenge_list' %}?status=upcoming">Lihat semua</a>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    {% for upcoming in upcoming_challenges %}
+                        <a class="rounded-[var(--radius)] bg-[var(--paper)] p-5 shadow transition hover:shadow-lg" href="{% url 'weeklychallenge:challenge_detail' upcoming.pk %}">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">{{ upcoming.week_start|date:"j M Y" }}</p>
+                            <h3 class="mt-1 font-bold">{{ upcoming.title }}</h3>
+                        </a>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+
+        {% if past_challenges %}
+            <section class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-3">
+                    <h2 class="text-xl font-bold">Challenge sebelumnya</h2>
+                    <a class="text-sm font-semibold text-[var(--accent)] hover:underline" href="{% url 'weeklychallenge:challenge_list' %}?status=past">Lihat semua</a>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    {% for past in past_challenges %}
+                        <a class="rounded-[var(--radius)] bg-[var(--paper)] p-5 shadow transition hover:shadow-lg" href="{% url 'weeklychallenge:challenge_detail' past.pk %}">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-[var(--tertiary)]">{{ past.week_start|date:"j M Y" }} – {{ past.week_end|date:"j M Y" }}</p>
+                            <h3 class="mt-1 font-bold">{{ past.title }}</h3>
+                            <p class="mt-1 line-clamp-2 text-sm text-[var(--tertiary)]">{{ past.description }}</p>
+                            <p class="mt-2 text-xs text-[var(--tertiary)]">{{ past.submission_count }} progres</p>
+                        </a>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+
+        <a class="self-center text-sm font-semibold text-[var(--accent)] hover:underline" href="{% url 'weeklychallenge:challenge_list' %}">
+            Jelajahi semua challenge
+        </a>
+    </main>
+{% endblock content %}

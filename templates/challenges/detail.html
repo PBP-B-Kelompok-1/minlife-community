@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block meta %}
+    <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+    <title>{{ challenge.title }} - Weekly Challenge</title>
+{% endblock meta %}
+{% block content %}
+    <main class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pb-10">
+        <nav class="flex items-center justify-between gap-3 text-sm">
+            <a class="font-semibold text-[var(--accent)] hover:underline" href="{% url 'weeklychallenge:challenge_list' %}">
+                <i class="fa-solid fa-arrow-left mr-1" aria-hidden="true"></i>
+                Semua challenge
+            </a>
+            {% if can_manage %}
+                <div class="flex gap-2">
+                    <a class="button button--border button--small" href="{% url 'weeklychallenge:challenge_update' challenge.pk %}">Edit</a>
+                    {% if can_delete %}<a class="button button--border button--small" href="{% url 'weeklychallenge:challenge_delete' challenge.pk %}"
+                        hx-get="{% url 'weeklychallenge:challenge_delete' challenge.pk %}?origin=detail"
+                        hx-target="#modal-slot" hx-swap="innerHTML">Hapus</a>{% endif %}
+                </div>
+            {% endif %}
+        </nav>
+
+        <section class="rounded-[var(--radius)] bg-[var(--paper)] px-6 py-6 shadow sm:px-10 sm:py-8">
+            <p class="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Weekly Challenge #{{ challenge.pk }}</p>
+            <h1 class="mt-2 text-2xl font-bold sm:text-3xl">{{ challenge.title }}</h1>
+            {% if is_teaser %}
+                <p class="mt-4 text-sm text-[var(--tertiary)]">Mulai {{ challenge.week_start|date:"j M Y" }}.</p>
+            {% else %}
+                <p class="mt-4 whitespace-pre-line leading-relaxed text-[var(--secondary)]">{{ challenge.background }}</p>
+                <div class="mt-5 grid gap-5 border-t border-[var(--paper-dim)] pt-5 sm:grid-cols-2">
+                    <div>
+                        <h2 class="font-bold">Tentang challenge</h2>
+                        <p class="mt-1 whitespace-pre-line text-[var(--secondary)]">{{ challenge.description }}</p>
+                    </div>
+                    <div>
+                        <h2 class="font-bold">Tujuan</h2>
+                        <p class="mt-1 whitespace-pre-line text-[var(--secondary)]">{{ challenge.goal }}</p>
+                    </div>
+                </div>
+                <div class="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-[var(--paper-dim)] pt-5 text-sm text-[var(--secondary)]">
+                    <p><strong>Periode:</strong> {{ challenge.week_start|date:"j M Y" }} – {{ challenge.week_end|date:"j M Y" }}</p>
+                    <p><strong>Tag:</strong> #Weekly Challenge</p>
+                </div>
+            {% endif %}
+            {% if not is_teaser and challenge.badge %}
+                <div class="mt-5 rounded-xl bg-[var(--paper-dim)] p-4">
+                    <h2 class="font-bold"><i class="fa-solid fa-award mr-1 text-[var(--accent)]" aria-hidden="true"></i> Badge challenge</h2>
+                    <p class="mt-1">{{ challenge.badge.name }} · Butuh skor {{ challenge.upvote_threshold }} untuk mendapat badge.</p>
+                    {% if challenge.badge.description %}<p class="mt-1 text-sm text-[var(--tertiary)]">{{ challenge.badge.description }}</p>{% endif %}
+                </div>
+            {% endif %}
+
+            {% if not is_teaser and is_current and user.is_authenticated and not has_submitted %}
+                <a class="button mt-5 w-full sm:w-auto" href="{% url 'posts:create_post' %}?challenge={{ challenge.pk }}">Bagikan progres</a>
+            {% elif not is_teaser and is_current and not user.is_authenticated %}
+                <a class="button button--border mt-5 w-full sm:w-auto" href="{% url 'login' %}?next={{ request.path|urlencode }}">Masuk untuk ikut</a>
+            {% elif not is_teaser and is_current and has_submitted %}
+                <p class="mt-5 font-semibold text-[var(--accent)]">Kamu sudah mengirim progres minggu ini.</p>
+            {% endif %}
+        </section>
+
+        {% if not is_teaser %}
+        <section class="rounded-[var(--radius)] bg-[var(--paper)] px-6 py-6 shadow sm:px-10">
+            <h2 class="text-xl font-bold">Tugas harian</h2>
+            {% if visible_tasks %}
+                <ol class="mt-4 flex flex-col gap-3">
+                    {% for task in visible_tasks %}
+                        <li class="rounded-xl bg-[var(--paper-dim)] p-4">
+                            <h3 class="font-bold">Hari {{ task.day_number }}: {{ task.title }}</h3>
+                            {% if task.description %}<p class="mt-1 whitespace-pre-line text-[var(--secondary)]">{{ task.description }}</p>{% endif %}
+                        </li>
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <p class="mt-3 text-[var(--tertiary)]">Belum ada tugas harian untuk challenge ini.</p>
+            {% endif %}
+        </section>
+
+        <section class="flex flex-col gap-3">
+            <div>
+                <h2 class="text-2xl font-bold">Submission dan leaderboard</h2>
+                <p class="text-sm text-[var(--tertiary)]">Skor dihitung dari upvote dikurangi downvote.</p>
+            </div>
+            <div aria-live="polite">
+                {% include "challenges/components/_submission_list.html" %}
+            </div>
+        </section>
+        {% endif %}
+    </main>
+{% endblock content %}

@@ -45,25 +45,56 @@ Setiap user dapat mengedit dan menghapus post atau komentar yang ia post. Modera
 
 #### Announcement (Enzo Susilo - 2506584382)
 
-Moderator dapat menambah announcement yang terdiri atas judul, isi, dan mungkin gambar yang bertopik tentang update terhadap aplikasi, rules, atau berita apa pun. 
+Modul Announcements menyediakan pengumuman resmi komunitas melalui halaman list dan
+detail publik. Pengguna dapat mencari berdasarkan judul atau isi serta mengurutkan data
+berdasarkan waktu pembuatan terbaru atau terlama.
 
-Satu announcement terbaru akan muncul di atas halaman frontpage, dan terdapat tombol yang menampilkan semua announcement di page terpisah.
+Moderator dengan Django permission yang sesuai dapat membuat, mengubah, dan menghapus
+announcement. Read, search, sorting, detail, serta modal CRUD menggunakan HTMX agar
+konten dapat diperbarui tanpa full-page reload, dengan halaman HTML biasa sebagai
+fallback.
 
-Modul ini akan terintegrasi dengan Firebase FCM untuk push notifications.
+User yang login dapat mengaktifkan system notification Firebase Cloud Messaging pada
+masing-masing browser. Setelah announcement berhasil disimpan, Django mengirim push ke
+device yang sudah berlangganan, kecuali device milik creator. Klik notifikasi membuka
+detail announcement terkait.
+
+Dokumentasi teknis tersedia di
+[`announcements/README.md`](announcements/README.md).
 
 #### Personal goals (Qisthan Albani Fasyah - 2506621434)
 Setiap user mendapatkan sebuah menu jurnal berisi kalender. Setiap tanggal pada kalender dapat ditekan untuk memunculkan modal berisi text editor untuk dituliskan status hari ini.
 
-User dapat menuliskan goals, jurnal hari ini, atau apa pun yang cocok. User dapat membuat jurnal tersebut publik atau privat.
+User dapat menuliskan goals, jurnal hari ini, atau apa pun yang cocok.
 
 #### Weekly challenge (Clement Kevin Tanadi - 2506632892)
-Setiap minggu, moderator akan membuat sebuah challenge untuk users ikuti. Pada setiap challenge, akan ada ‘latar belakang masalah’, ‘deskripsi challenge’, ‘tujuan/ekspektasi setelah challenge’. 
+Moderator dapat membuat challenge mingguan yang berisi latar belakang masalah,
+deskripsi, tujuan, tanggal mulai, dan maksimal tujuh tugas harian. Setiap
+challenge memiliki satu Badge. Semua submission baru menggunakan satu tag sistem
+bersama bernama `Weekly Challenge`; tag baru tidak dibuat untuk setiap challenge.
 
 - Latar Belakang Masalah dapat berupa situasi yang tidak sesuai dengan cara pandang hidup minimalis. Contohnya, banyak barang yang berlebihan (misal kabel charger yang menjuntai di atas meja kerja sehingga mengganggu fokus saat bekerja).
 - Deskripsi challenge merupakan deskripsi mengenai apa yang harus dilakukan user untuk dapat menyelesaikan challenge, contohnya “singkirkan barang yang tak bermanfaat di meja kerja kamu”.
 - Tujuan/ekspektasi untuk menjelaskan impact apa yang dapat terjadi jika kita menyelesaikan challenge.
 
-User dapat submit challenge dengan mengirim foto bukti dan penjelasan dengan text. Submission tersebut akan muncul di halaman challenge tersebut dan dapat di-approve oleh para user dengan cara memberi upvote. Sebuah badge yang terhubung pada challenge tersebut akan diberikan kepada user setelah mencapai sebuah threshold upvote.
+Pengguna mengikuti challenge aktif melalui formulir Post biasa dengan mengunggah
+foto bukti dan menulis penjelasan. Setelah Post disimpan dengan tag
+`Weekly Challenge`, signal Django secara otomatis mencatatnya sebagai submission
+untuk challenge yang sedang aktif. Setiap pengguna hanya dapat memiliki satu
+submission per challenge. Submission ditampilkan pada leaderboard berdasarkan
+skor bersih, yaitu upvote dikurangi downvote. Badge diberikan ketika skor
+mencapai threshold challenge dan tidak dicabut setelah skor turun atau Post
+dihapus.
+
+Direktori challenge menyediakan filter status, pencarian judul, pagination, dan
+halaman detail. Moderator dengan permission yang sesuai dapat membuat, mengubah,
+dan menghapus challenge. Penghapusan challenge menghapus submission terkait,
+tetapi mempertahankan Badge dan riwayat UserBadge yang sudah diperoleh.
+
+Halaman direktori, leaderboard, form create/edit, task-row, dan konfirmasi delete
+mendukung HTMX 2.0.4 dengan fallback penuh ke request HTML biasa. Dokumentasi
+teknis dan penjelasan implementasi tersedia di
+[`weeklychallenge/README.md`](weeklychallenge/README.md).
 
 ## Public API yang dipakai
 
@@ -86,3 +117,62 @@ User dapat mendaftarkan akunnya dan berpartisipasi dalam komunitas melalui berba
 
 #### Moderator
 Moderator adalah user yang dipercayai untuk mengatur komunitas, seperti menghapus post dan komentar yang ofensif dan membuat topik weekly challenge. Moderator dapat berpartisipasi dalam komunitas seperti user lain.
+
+## Build
+Untuk run server secara local:
+
+1. Clone repositori dari Github
+```bash
+git clone https://github.com/PBP-B-Kelompok-1/minlife-community && cd minlife-community
+```
+2. Enable venv, install dependencies
+```bash
+# Make venv
+python -m venv env
+
+# For POSIX shells
+source env/bin/activate
+# Powershell
+.\env\Scripts\Activate.ps1
+# cmd
+env\Scripts\activate.bat
+# csh
+./env/bin/activate.csh
+# fish
+./env/bin/activate.fish
+
+pip install -r requirements.txt
+```
+3. Run migrations
+```bash
+python manage.py migrate
+```
+4. Build Tailwind styles sebelum menjalankan atau men-deploy aplikasi
+```bash
+python manage.py tailwind build
+```
+5. Run server
+```bash
+python manage.py runserver
+```
+6. Akses dari browser, misalnya `localhost:8000` (default)
+
+### Seed development data
+
+Populate every module with at least 50 representative records:
+
+```bash
+python manage.py seed
+```
+
+The generated accounts use password `seed-password`; the moderator username is
+`seed_moderator`. Re-running the command is idempotent for its own data. To
+remove **all database data** first, then generate fresh sample data, use:
+
+```bash
+python manage.py seed --clean
+```
+
+`--clean` runs Django's database flush and cannot be undone. You can generate a
+larger set with `--count 100` (the minimum is 50), or reproduce a particular
+dataset with `--seed 123`.

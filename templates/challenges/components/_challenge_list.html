@@ -1,0 +1,70 @@
+{% if challenges %}
+    <div class="grid gap-4 md:grid-cols-2">
+        {% for challenge in challenges %}
+            <article id="challenge-card-{{ challenge.pk }}" class="flex flex-col gap-3 rounded-[var(--radius)] bg-[var(--paper)] p-5 shadow">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">
+                            {% if challenge.pk in upcoming_ids %}Akan datang{% elif challenge.pk in past_ids %}Selesai{% else %}Sedang berlangsung{% endif %}
+                        </p>
+                        <h2 class="mt-1 text-xl font-bold">{{ challenge.title }}</h2>
+                    </div>
+                    {% if challenge.pk not in upcoming_ids %}<span class="shrink-0 rounded-full bg-[var(--paper-dim)] px-3 py-1 text-sm">{{ challenge.submission_count }} progres</span>{% endif %}
+                </div>
+                {% if challenge.pk in upcoming_ids %}
+                    <p class="text-sm text-[var(--tertiary)]">Mulai {{ challenge.week_start|date:"j M Y" }}</p>
+                {% else %}
+                    <p class="line-clamp-3 whitespace-pre-line text-sm text-[var(--secondary)]">{{ challenge.description }}</p>
+                    <p class="text-sm text-[var(--tertiary)]">{{ challenge.week_start|date:"j M Y" }} – {{ challenge.week_end|date:"j M Y" }}</p>
+                {% endif %}
+                <a class="button button--border button--small mt-auto self-start" href="{% url 'weeklychallenge:challenge_detail' challenge.pk %}">
+                    Lihat detail
+                    <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                </a>
+                {% if can_manage or can_delete %}
+                    <div class="flex flex-wrap gap-2">
+                        {% if can_manage %}
+                            <a class="button button--border button--small"
+                                href="{% url 'weeklychallenge:challenge_update' challenge.pk %}"
+                                hx-boost="false">Edit</a>
+                        {% endif %}
+                        {% if can_delete %}
+                            <a class="button button--border button--small"
+                                href="{% url 'weeklychallenge:challenge_delete' challenge.pk %}"
+                                hx-get="{% url 'weeklychallenge:challenge_delete' challenge.pk %}"
+                                hx-boost="false"
+                                hx-target="#modal-slot" hx-swap="innerHTML">Hapus</a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </article>
+        {% endfor %}
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="mt-6 flex items-center justify-center gap-3" aria-label="Halaman daftar challenge">
+            {% if page_obj.has_previous %}
+                <a
+                    class="button button--border button--small"
+                    href="?{{ page_query }}{% if page_query %}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+                    hx-get="{% url 'weeklychallenge:challenge_list_partial' %}?{{ page_query }}{% if page_query %}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+                    hx-target="#challenge-list"
+                >Sebelumnya</a>
+            {% endif %}
+            <span class="text-sm text-[var(--tertiary)]">Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+                <a
+                    class="button button--border button--small"
+                    href="?{{ page_query }}{% if page_query %}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+                    hx-get="{% url 'weeklychallenge:challenge_list_partial' %}?{{ page_query }}{% if page_query %}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+                    hx-target="#challenge-results"
+                >Berikutnya</a>
+            {% endif %}
+        </nav>
+    {% endif %}
+{% else %}
+    <div class="rounded-[var(--radius)] bg-[var(--paper)] px-6 py-12 text-center shadow">
+        <p class="text-lg font-bold">Tidak ada challenge yang cocok.</p>
+        <p class="mt-1 text-sm text-[var(--tertiary)]">Coba ubah status atau kata kunci pencarian.</p>
+    </div>
+{% endif %}

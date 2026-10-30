@@ -1,13 +1,84 @@
 <header>
     <div id="navbar" class="navbar shadow">
         <div class="navbar__title">
-            <a href="{% url "frontpage" %}"><strong>minlife</strong> community<a>
+            <a href="{% url "frontpage" %}"><strong>minlife</strong> community</a>
         </div>
-        <nav class="navbar__nav">
+        <button
+            type="button"
+            class="navbar__menu-button"
+            aria-label="Open navigation menu"
+            aria-controls="mobile-navigation"
+            aria-expanded="false"
+        >
+            <i class="fa-solid fa-bars" aria-hidden="true"></i>
+        </button>
+        <nav class="navbar__nav" aria-label="Primary navigation">
             <a href="{% url "frontpage" %}">home</a>
             <a href="{% url "journal:show_journal" %}">journal</a>
             <a href="{% url "weeklychallenge:show_weekly_challenge" %}">weekly challenge</a>
-            <a href="{% url "users:show_my_profile" %}">profile</a>
+            {% if user.is_authenticated %}
+                <a href="{% url 'users:show_my_profile' %}">profile</a>
+                <span class="nav-user">{{ user.username }}</span>
+                <form method="post" action="{% url 'users:logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="nav-logout">logout</button>
+                </form>
+            {% else %}
+                <a href="{% url 'users:login' %}">Login</a>
+                <a href="{% url 'users:register' %}">Register</a>
+            {% endif %}
         </nav>
     </div>
 </header>
+
+<div class="navbar__backdrop" aria-hidden="true"></div>
+<aside id="mobile-navigation" class="navbar__drawer" aria-label="Mobile navigation" aria-hidden="true">
+    <div class="navbar__drawer-header">
+        <span><strong>minlife</strong> community</span>
+        <button type="button" class="navbar__close-button" aria-label="Close navigation menu">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="navbar__drawer-nav">
+        <a href="{% url "frontpage" %}">home</a>
+        <a href="{% url "journal:show_journal" %}">journal</a>
+        <a href="{% url "weeklychallenge:show_weekly_challenge" %}">weekly challenge</a>
+        {% if user.is_authenticated %}
+            <a href="{% url 'users:show_my_profile' %}">profile</a>
+            <span class="nav-user">signed in as {{ user.username }}</span>
+            <form method="post" action="{% url 'users:logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="nav-logout">logout</button>
+            </form>
+        {% else %}
+            <a href="{% url 'users:login' %}">login</a>
+            <a href="{% url 'users:register' %}">register</a>
+        {% endif %}
+    </nav>
+</aside>
+
+<script>
+    (() => {
+        const menuButton = document.querySelector('.navbar__menu-button');
+        const closeButton = document.querySelector('.navbar__close-button');
+        const drawer = document.querySelector('.navbar__drawer');
+        const backdrop = document.querySelector('.navbar__backdrop');
+        if (!menuButton || !closeButton || !drawer || !backdrop) return;
+
+        const setMenuOpen = (isOpen) => {
+            document.body.classList.toggle('mobile-menu-open', isOpen);
+            menuButton.setAttribute('aria-expanded', String(isOpen));
+            menuButton.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+            drawer.setAttribute('aria-hidden', String(!isOpen));
+            if (isOpen) closeButton.focus();
+            else menuButton.focus();
+        };
+
+        menuButton.addEventListener('click', () => setMenuOpen(!document.body.classList.contains('mobile-menu-open')));
+        closeButton.addEventListener('click', () => setMenuOpen(false));
+        backdrop.addEventListener('click', () => setMenuOpen(false));
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && document.body.classList.contains('mobile-menu-open')) setMenuOpen(false);
+        });
+    })();
+</script>
