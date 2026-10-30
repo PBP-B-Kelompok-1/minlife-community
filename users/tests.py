@@ -247,20 +247,33 @@ class RegisterViewTests(UsersTestCase):
             fetch_redirect_response=False,
         )
         self.assertTrue(User.objects.filter(username="dave").exists())
+    def test_invalid_registration_does_not_persist_user(self):
+        response = self.client.post(
+            reverse("users:register"),
+            self.valid_data(email="not-an-email"),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="dave").exists())
 
     def test_duplicate_username_is_rejected(self):
         response = self.client.post(reverse("users:register"), self.valid_data(username="alice"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(User.objects.filter(username="alice").count(), 1)
 
-    def test_username_case_variants_are_rejected(self):
+    def test_usernames_are_unique_by_exact_case(self):
         response = self.client.post(
             reverse("users:register"),
-            self.valid_data(username="ALICE"),
+            self.valid_data(username="CaseAlice"),
         )
+        self.assertRedirects(response, reverse("users:login"), fetch_redirect_response=False)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(User.objects.filter(username__iexact="alice").count(), 1)
+        response = self.client.post(
+            reverse("users:register"),
+            self.valid_data(username="casealice"),
+        )
+        self.assertRedirects(response, reverse("users:login"), fetch_redirect_response=False)
+        self.assertTrue(User.objects.filter(username="CaseAlice").exists())
+        self.assertTrue(User.objects.filter(username="casealice").exists())
 
 
 class LoginLogoutTests(UsersTestCase):
