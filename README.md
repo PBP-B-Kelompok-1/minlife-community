@@ -65,7 +65,7 @@ Dokumentasi teknis tersedia di
 #### Personal goals (Qisthan Albani Fasyah - 2506621434)
 Setiap user mendapatkan sebuah menu jurnal berisi kalender. Setiap tanggal pada kalender dapat ditekan untuk memunculkan modal berisi text editor untuk dituliskan status hari ini.
 
-User dapat menuliskan goals, jurnal hari ini, atau apa pun yang cocok. User dapat membuat jurnal tersebut publik atau privat.
+User dapat menuliskan goals, jurnal hari ini, atau apa pun yang cocok.
 
 #### Weekly challenge (Clement Kevin Tanadi - 2506632892)
 Moderator dapat membuat challenge mingguan yang berisi latar belakang masalah,
