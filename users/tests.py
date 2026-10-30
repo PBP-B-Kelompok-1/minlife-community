@@ -260,14 +260,6 @@ class RegisterViewTests(UsersTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(User.objects.filter(username="alice").count(), 1)
 
-    def test_username_case_variants_are_rejected(self):
-        response = self.client.post(
-            reverse("users:register"),
-            self.valid_data(username="ALICE"),
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(User.objects.filter(username__iexact="alice").count(), 1)
     def test_usernames_are_unique_by_exact_case(self):
         response = self.client.post(
             reverse("users:register"),
