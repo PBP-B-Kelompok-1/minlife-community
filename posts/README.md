@@ -28,7 +28,12 @@ Author: Jovan Finesta - 2506599144
 ## Module Integrations
 - Links to user profile, zen points
 - Announcement preview on frontpage
-- Weekly challenge submission posts, challenge proof image
+- Weekly Challenge submissions through the regular Post form
+- A shared `Weekly Challenge` tag identifies submissions; no per-challenge tags
+- A `challenge_image` proof upload is required for tagged challenge Posts
+- The Weekly Challenge `post_save` signal records the Post as a submission for
+  the currently active challenge
+- A user can submit only once per challenge; leaderboard scores use Post votes
 
 ## AI Declaration
 AI is used to generate suggestions and complete code, along with assisting in debugs.

@@ -59,18 +59,21 @@ User dapat menuliskan goals, jurnal hari ini, atau apa pun yang cocok. User dapa
 #### Weekly challenge (Clement Kevin Tanadi - 2506632892)
 Moderator dapat membuat challenge mingguan yang berisi latar belakang masalah,
 deskripsi, tujuan, tanggal mulai, dan maksimal tujuh tugas harian. Setiap
-challenge memiliki satu Badge dan satu tag sistem yang dibuat otomatis.
+challenge memiliki satu Badge. Semua submission baru menggunakan satu tag sistem
+bersama bernama `Weekly Challenge`; tag baru tidak dibuat untuk setiap challenge.
 
 - Latar Belakang Masalah dapat berupa situasi yang tidak sesuai dengan cara pandang hidup minimalis. Contohnya, banyak barang yang berlebihan (misal kabel charger yang menjuntai di atas meja kerja sehingga mengganggu fokus saat bekerja).
 - Deskripsi challenge merupakan deskripsi mengenai apa yang harus dilakukan user untuk dapat menyelesaikan challenge, contohnya “singkirkan barang yang tak bermanfaat di meja kerja kamu”.
 - Tujuan/ekspektasi untuk menjelaskan impact apa yang dapat terjadi jika kita menyelesaikan challenge.
 
-Pengguna mengikuti challenge aktif melalui formulir Post dengan mengunggah foto
-bukti dan menulis penjelasan. Post yang diberi tag challenge dicatat sebagai
-submission secara otomatis. Setiap pengguna hanya dapat memiliki satu submission
-per challenge. Submission ditampilkan pada leaderboard berdasarkan skor bersih,
-yaitu upvote dikurangi downvote. Badge diberikan ketika skor mencapai threshold
-challenge dan tidak dicabut setelah skor turun atau Post dihapus.
+Pengguna mengikuti challenge aktif melalui formulir Post biasa dengan mengunggah
+foto bukti dan menulis penjelasan. Setelah Post disimpan dengan tag
+`Weekly Challenge`, signal Django secara otomatis mencatatnya sebagai submission
+untuk challenge yang sedang aktif. Setiap pengguna hanya dapat memiliki satu
+submission per challenge. Submission ditampilkan pada leaderboard berdasarkan
+skor bersih, yaitu upvote dikurangi downvote. Badge diberikan ketika skor
+mencapai threshold challenge dan tidak dicabut setelah skor turun atau Post
+dihapus.
 
 Direktori challenge menyediakan filter status, pencarian judul, pagination, dan
 halaman detail. Moderator dengan permission yang sesuai dapat membuat, mengubah,
@@ -79,9 +82,8 @@ tetapi mempertahankan Badge dan riwayat UserBadge yang sudah diperoleh.
 
 Halaman direktori, leaderboard, form create/edit, task-row, dan konfirmasi delete
 mendukung HTMX 2.0.4 dengan fallback penuh ke request HTML biasa. Dokumentasi
-teknis tersedia di
-[`weeklychallenge/README.md`](weeklychallenge/README.md), sedangkan kontrak
-interaksi HTMX tersedia di [`weeklychallenge/HTMX.md`](weeklychallenge/HTMX.md).
+teknis dan penjelasan implementasi tersedia di
+[`weeklychallenge/README.md`](weeklychallenge/README.md).
 
 ## Public API yang dipakai
 
