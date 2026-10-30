@@ -11,10 +11,7 @@
   const DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
   const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
   const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-  const HINTS = {
-    private: "Hanya kamu yang bisa melihat entry ini.",
-    public: "Entry ini bisa dilihat user lain di profile-mu.",
-  };
+
 
   const $ = (id) => document.getElementById(id);
   const grid = $("jr-grid");
@@ -27,7 +24,6 @@
   const deleteBtn = $("jr-delete");
 
   let current = null;
-  let visibility = "private";
   let showAll = false;
   let loadId = 0;
 
@@ -87,9 +83,6 @@
   }
 
   // ringkasan bulan
-  function chip(vis) {
-    return el("span", vis === "public" ? "jr-chip is-public" : "jr-chip", vis === "public" ? "Public" : "Private");
-  }
 
   function summaryRow(entry) {
     const d = parseDate(entry.date);
@@ -103,7 +96,6 @@
     const text = el("span", "jr-row-text");
     text.append(el("span", "jr-row-snippet", entry.snippet), el("small", "", `${DAYS[d.getDay()]} · ${entry.updated}`));
 
-    row.append(badge, text, chip(entry.visibility));
     return row;
   }
 
@@ -111,11 +103,8 @@
     const list = Object.values(entries)
       .filter((e) => e.date.startsWith(monthPrefix))
       .sort((a, b) => b.date.localeCompare(a.date));
-    const publicCount = list.filter((e) => e.visibility === "public").length;
 
     $("jr-total").textContent = list.length;
-    $("jr-private").textContent = list.length - publicCount;
-    $("jr-public").textContent = publicCount;
 
     const shown = showAll ? list : list.slice(0, 5);
     $("jr-list").replaceChildren(...shown.map(summaryRow));
@@ -138,13 +127,6 @@
   }
 
   // editor
-  function setVisibility(value) {
-    visibility = value === "public" ? "public" : "private";
-    document.querySelectorAll(".jr-seg-btn").forEach((btn) => {
-      btn.classList.toggle("is-active", btn.dataset.vis === visibility);
-    });
-    $("jr-hint").textContent = HINTS[visibility];
-  }
 
   function markSelected() {
     grid.querySelectorAll(".is-selected").forEach((c) => c.classList.remove("is-selected"));
@@ -154,7 +136,6 @@
   function fillEditor(data) {
     $("jr-meta").textContent = data.exists ? `Tersimpan · diperbarui ${data.updated}` : "Belum ada entry untuk tanggal ini.";
     body.innerHTML = data.content; // sudah dibersihkan di server
-    setVisibility(data.visibility);
     deleteBtn.hidden = !data.exists;
   }
 
@@ -184,28 +165,28 @@
   }
 
   async function save() {
-    if (!body.textContent.trim()) {
-      setStatus("Isi entry tidak boleh kosong.");
+  if (!body.textContent.trim()) {
+    setStatus("Isi entry tidak boleh kosong.");
+    return;
+  }
+  saveBtn.disabled = true;
+  setStatus("");
+  try {
+    const { ok, data } = await request("POST", current, { content: body.innerHTML });
+    if (!ok) {
+      setStatus(data.error || "Gagal menyimpan.");
       return;
     }
-    saveBtn.disabled = true;
-    setStatus("");
-    try {
-      const { ok, data } = await request("POST", current, { content: body.innerHTML, visibility });
-      if (!ok) {
-        setStatus(data.error || "Gagal menyimpan.");
-        return;
-      }
-      entries[current] = { date: data.date, snippet: data.snippet, visibility: data.visibility, updated: data.updated };
-      cellFor(current)?.classList.add("has-entry");
-      toast("Entry tersimpan");
-      showSummary();
-    } catch {
-      setStatus("Tidak bisa terhubung ke server.");
-    } finally {
-      saveBtn.disabled = false;
-    }
+    entries[current] = { date: data.date, snippet: data.snippet, updated: data.updated };
+    cellFor(current)?.classList.add("has-entry");
+    toast("Entry tersimpan");
+    showSummary();
+  } catch {
+    setStatus("Tidak bisa terhubung ke server.");
+  } finally {
+    saveBtn.disabled = false;
   }
+}
 
   async function remove() {
     if (!(await confirmDelete())) return;
@@ -237,7 +218,6 @@
 
     const head = el("div", "jr-popup-head");
     head.append(el("strong", "", dateLabel(iso, false)));
-    if (entry) head.append(chip(entry.visibility));
 
     const text = el("p", entry ? "jr-popup-text" : "jr-popup-text is-empty", entry ? entry.snippet : "Belum ada entry di tanggal ini.");
 
@@ -304,10 +284,6 @@
       body.focus();
       document.execCommand(btn.dataset.cmd, false, btn.dataset.arg || null);
     });
-  });
-
-  document.querySelectorAll(".jr-seg-btn").forEach((btn) => {
-    btn.addEventListener("click", () => setVisibility(btn.dataset.vis));
   });
 
   saveBtn.addEventListener("click", save);

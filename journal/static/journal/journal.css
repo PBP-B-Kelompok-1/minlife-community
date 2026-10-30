@@ -222,11 +222,6 @@
 .jr-body ol { list-style: decimal; }
 .jr-body blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid var(--jr-accent); }
 
-.jr-visibility { display: flex; flex-direction: column; gap: 10px; }
-.jr-seg { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--jr-soft2); }
-.jr-seg-btn { flex: 1; padding: 10px 20px; border-radius: 999px; color: var(--jr-gray); font-size: 14px; font-weight: 600; }
-.jr-seg-btn.is-active { background: var(--jr-navy); color: #fff; }
-
 .jr-status { min-height: 18px; margin: -8px 0 -4px; font-size: 13px; font-weight: 600; color: var(--jr-danger); }
 
 .jr-actions {
