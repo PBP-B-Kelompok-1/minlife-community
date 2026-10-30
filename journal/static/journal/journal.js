@@ -85,39 +85,40 @@
   // ringkasan bulan
 
   function summaryRow(entry) {
-    const d = parseDate(entry.date);
-    const row = el("button", entry.date === current ? "jr-row is-current" : "jr-row");
-    row.type = "button";
-    row.dataset.date = entry.date;
+  const d = parseDate(entry.date);
+  const row = el("button", entry.date === current ? "jr-row is-current" : "jr-row");
+  row.type = "button";
+  row.dataset.date = entry.date;
 
-    const badge = el("span", "jr-badge");
-    badge.append(el("b", "", d.getDate()), el("small", "", MONTHS_SHORT[d.getMonth()]));
+  const badge = el("span", "jr-badge");
+  badge.append(el("b", "", d.getDate()), el("small", "", MONTHS_SHORT[d.getMonth()]));
 
-    const text = el("span", "jr-row-text");
-    text.append(el("span", "jr-row-snippet", entry.snippet), el("small", "", `${DAYS[d.getDay()]} · ${entry.updated}`));
+  const text = el("span", "jr-row-text");
+  text.append(el("span", "jr-row-snippet", entry.snippet), el("small", "", `${DAYS[d.getDay()]} · ${entry.updated}`));
 
-    return row;
-  }
+  row.append(badge, text);
+  return row;
+}
 
-  function renderSummary() {
-    const list = Object.values(entries)
-      .filter((e) => e.date.startsWith(monthPrefix))
-      .sort((a, b) => b.date.localeCompare(a.date));
+function renderSummary() {
+  const list = Object.values(entries)
+    .filter((e) => e.date.startsWith(monthPrefix))
+    .sort((a, b) => b.date.localeCompare(a.date));
 
-    $("jr-total").textContent = list.length;
+  $("jr-total").textContent = list.length;
 
-    const shown = showAll ? list : list.slice(0, 5);
-    $("jr-list").replaceChildren(...shown.map(summaryRow));
-    $("jr-empty").hidden = list.length > 0;
+  const shown = showAll ? list : list.slice(0, 5);
+  $("jr-list").replaceChildren(...shown.map(summaryRow));
+  $("jr-empty").hidden = list.length > 0;
 
-    const more = $("jr-more");
-    more.hidden = list.length <= 5;
-    more.textContent = showAll ? "Tampilkan lebih sedikit" : `Lihat ${list.length - 5} entri lainnya →`;
+  const more = $("jr-more");
+  more.hidden = list.length <= 5;
+  more.textContent = showAll ? "Tampilkan lebih sedikit" : `Lihat ${list.length - 5} entri lainnya →`;
 
-    const hasToday = Boolean(entries[today]);
-    $("jr-new-icon").className = hasToday ? "fa-solid fa-pen" : "fa-solid fa-plus";
-    $("jr-new-label").textContent = hasToday ? "Edit hari ini" : "Tulis entry";
-  }
+  const hasToday = Boolean(entries[today]);
+  $("jr-new-icon").className = hasToday ? "fa-solid fa-pen" : "fa-solid fa-plus";
+  $("jr-new-label").textContent = hasToday ? "Edit hari ini" : "Tulis entry";
+}
 
   function showSummary() {
     editor.hidden = true;
