@@ -27,6 +27,17 @@ class RegisterForm(AvatarValidationMixin, UserCreationForm):
         model = User
         fields = ("username", "email", "first_name", "last_name", "avatar", "bio")
 
+    def clean_username(self):
+        username = self.cleaned_data["username"]
+        if User.objects.filter(username=username).exists():
+            raise forms.ValidationError("A user with that username already exists.")
+        return username
+
+    def save(self, commit=True):
+        if self.errors:
+            raise ValueError("The registration form must be valid before saving.")
+        return super().save(commit=commit)
+
 
 class UpdateProfileForm(AvatarValidationMixin, forms.ModelForm):
     field_order = ["first_name", "last_name", "avatar", "remove_avatar", "bio"]
