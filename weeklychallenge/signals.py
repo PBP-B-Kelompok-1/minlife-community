@@ -1,13 +1,13 @@
-from django.db import IntegrityError
-from django.db.models.signals import post_delete, post_save
+from django.db import IntegrityError, transaction
+from django.db.models.signals import m2m_changed, post_delete, post_save
 from django.utils import timezone
 
 from .models import CHALLENGE_TAG_NAME, Challenge, ChallengeSubmission
 from .services import award_badge_if_eligible
 
 
-def post_saved(sender, instance, **kwargs):
-    """Create a submission for the current challenge after a tagged Post is saved."""
+def _create_submission_for_tagged_post(instance):
+    """Create the current challenge submission for a tagged Post, if eligible."""
     today = timezone.localdate()
     if not instance.tags.filter(title=CHALLENGE_TAG_NAME).exists():
         return
@@ -17,13 +17,29 @@ def post_saved(sender, instance, **kwargs):
         return
 
     try:
-        ChallengeSubmission.objects.get_or_create(
-            challenge=challenge,
-            post=instance,
-            defaults={"user": instance.author},
-        )
+        # A nested atomic block keeps an expected uniqueness race from marking
+        # an outer ModelForm.save_m2m() transaction as broken.
+        with transaction.atomic():
+            ChallengeSubmission.objects.get_or_create(
+                challenge=challenge,
+                post=instance,
+                defaults={"user": instance.author},
+            )
     except IntegrityError:
         return
+
+
+def post_saved(sender, instance, **kwargs):
+    """Keep tagged Posts synchronized when they are saved again."""
+    _create_submission_for_tagged_post(instance)
+
+
+def post_tags_changed(sender, instance, action, reverse, **kwargs):
+    """Create a submission after ModelForm.save_m2m() adds the challenge tag."""
+    if reverse or action != "post_add":
+        return
+
+    _create_submission_for_tagged_post(instance)
 
 
 def _award_badge_for_vote(vote):
@@ -59,6 +75,11 @@ def connect_signals():
         post_saved,
         sender=Post,
         dispatch_uid="weeklychallenge.post_saved",
+    )
+    m2m_changed.connect(
+        post_tags_changed,
+        sender=Post.tags.through,
+        dispatch_uid="weeklychallenge.post_tags_changed",
     )
     post_save.connect(
         vote_saved,

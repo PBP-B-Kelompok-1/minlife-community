@@ -4,6 +4,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.contrib.auth.models import AnonymousUser
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.test import TestCase
@@ -400,6 +401,23 @@ class ChallengeSignalTests(TestCase):
         self.assertEqual(submission.post, post)
         self.assertEqual(submission.user, self.user)
 
+    def test_adding_weekly_challenge_tag_creates_submission_without_resaving_post(self):
+        today = timezone.localdate()
+        challenge = self.make_challenge(start=today)
+        post = Post.objects.create(
+            author=self.user,
+            title="Progress created through the post form",
+            content="Done",
+        )
+
+        # ModelForm.save_m2m() adds tags after Post.save(), so the submission
+        # must be created from the many-to-many change itself.
+        post.tags.add(self.weekly_challenge_tag())
+
+        submission = ChallengeSubmission.objects.get(challenge=challenge)
+        self.assertEqual(submission.post, post)
+        self.assertEqual(submission.user, self.user)
+
     def test_saving_tagged_inactive_post_does_not_create_submission(self):
         today = timezone.localdate()
         challenge = self.make_challenge(start=today - timedelta(days=8))
@@ -530,6 +548,76 @@ class ChallengeSignalTests(TestCase):
         post.delete()
 
         self.assertFalse(ChallengeSubmission.objects.filter(challenge=challenge).exists())
+
+
+class ChallengeProgressPostFlowTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="progress-user",
+            password="test-password",
+        )
+        self.challenge = Challenge.objects.create(
+            title="Active challenge",
+            background="Background",
+            description="Description",
+            goal="Goal",
+            badge=Badge.objects.create(name="Progress Badge"),
+            week_start=timezone.localdate(),
+            created_by=self.user,
+        )
+        self.client.force_login(self.user)
+
+    def progress_post_url(self):
+        return f"{reverse('posts:create_post')}?challenge={self.challenge.pk}"
+
+    def challenge_image(self):
+        return SimpleUploadedFile(
+            "proof.gif",
+            (
+                b"GIF87a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"
+                b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00"
+                b"\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+            ),
+            content_type="image/gif",
+        )
+
+    def test_progress_links_identify_the_active_challenge(self):
+        page_response = self.client.get(
+            reverse("weeklychallenge:show_weekly_challenge")
+        )
+        detail_response = self.client.get(
+            reverse("weeklychallenge:challenge_detail", args=[self.challenge.pk])
+        )
+
+        self.assertContains(page_response, self.progress_post_url())
+        self.assertContains(detail_response, self.progress_post_url())
+
+    def test_progress_post_forces_official_tag_and_creates_submission(self):
+        wrong_tag = Tag.objects.create(title="weeklychallenge1")
+
+        response = self.client.post(
+            self.progress_post_url(),
+            {
+                "title": "My weekly progress",
+                "content": "Done",
+                "tags": [wrong_tag.pk],
+                "challenge_image": self.challenge_image(),
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("weeklychallenge:show_weekly_challenge"),
+        )
+        post = Post.objects.get(title="My weekly progress")
+        self.assertTrue(post.tags.filter(title="Weekly Challenge").exists())
+        self.assertTrue(
+            ChallengeSubmission.objects.filter(
+                challenge=self.challenge,
+                post=post,
+                user=self.user,
+            ).exists()
+        )
 
 
 class ChallengeViewsTests(TestCase):

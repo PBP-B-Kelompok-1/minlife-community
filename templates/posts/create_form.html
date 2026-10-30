@@ -11,8 +11,13 @@
     <div class="container">
         <section class="post-form-container shadow">
             <h1 class="post-form__title">Make a new post</h1>
-            {% url "posts:create_post" as post_create_endpoint %}
-            {% include "posts/components/__post_form.html" with form_action=post_create_endpoint form=form %}
+            {% if challenge %}
+                <p class="text-sm text-[var(--secondary)]">
+                    Bagikan progres untuk <strong>{{ challenge.title }}</strong>.
+                    Tag Weekly Challenge akan diterapkan otomatis.
+                </p>
+            {% endif %}
+            {% include "posts/components/__post_form.html" with form_action=form_action form=form %}
         </section>
     </div>
     <script>

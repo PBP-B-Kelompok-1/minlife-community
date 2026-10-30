@@ -208,12 +208,45 @@ class RegisterViewTests(UsersTestCase):
         self.assertIn("success", levels)
 
     def test_mismatched_passwords_are_rejected(self):
-        response = self.client.post(
+        invalid_response = self.client.post(
             reverse("users:register"), self.valid_data(password2="Different-pass1!")
         )
-        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(invalid_response.status_code, 200)
         self.assertFalse(User.objects.filter(username="dave").exists())
 
+        valid_response = self.client.post(
+            reverse("users:register"),
+            self.valid_data(),
+        )
+
+        self.assertRedirects(
+            valid_response,
+            reverse("users:login"),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(User.objects.filter(username="dave").exists())
+
+    def test_invalid_email_does_not_reserve_username(self):
+        invalid_response = self.client.post(
+            reverse("users:register"),
+            self.valid_data(email="not-an-email"),
+        )
+
+        self.assertEqual(invalid_response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="dave").exists())
+
+        valid_response = self.client.post(
+            reverse("users:register"),
+            self.valid_data(),
+        )
+
+        self.assertRedirects(
+            valid_response,
+            reverse("users:login"),
+            fetch_redirect_response=False,
+        )
+        self.assertTrue(User.objects.filter(username="dave").exists())
     def test_invalid_registration_does_not_persist_user(self):
         response = self.client.post(
             reverse("users:register"),
