@@ -78,6 +78,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'announcements.context_processors.firebase_notifications',
             ],
         },
     },
@@ -161,6 +162,27 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Other variables
 AUTH_USER_MODEL = "users.User"
 LOGIN_URL = "login"
+
+# Firebase Web configuration is public client configuration. Service-account
+# credentials remain separate and must never be exposed through these values.
+FIREBASE_WEB_CONFIG = {
+    "apiKey": os.getenv("FIREBASE_API_KEY", ""),
+    "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN", ""),
+    "projectId": os.getenv("FIREBASE_PROJECT_ID", ""),
+    "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET", ""),
+    "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID", ""),
+    "appId": os.getenv("FIREBASE_APP_ID", ""),
+}
+FIREBASE_VAPID_KEY = os.getenv("FIREBASE_VAPID_KEY", "")
+FIREBASE_WEB_SDK_VERSION = "13.1.0"
+FIREBASE_PUSH_ENABLED = os.getenv(
+    "FIREBASE_PUSH_ENABLED",
+    "FALSE",
+).lower() == "true"
+FIREBASE_SERVICE_ACCOUNT_B64 = os.getenv(
+    "FIREBASE_SERVICE_ACCOUNT_B64",
+    "",
+)
 
 # Tailwind app
 TAILWIND_APP_NAME = 'tailwindtheme'

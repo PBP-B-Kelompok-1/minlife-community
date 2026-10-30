@@ -1,17 +1,24 @@
 import json
+import logging
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
-from django.views.decorators.http import require_GET, require_http_methods
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .forms import AnnouncementForm
-from .models import Announcement
+from .models import Announcement, FCMSubscription
+from .notifications import send_announcement_notification
+
+
+logger = logging.getLogger(__name__)
 
 
 SORT_ORDERS = {
@@ -24,6 +31,26 @@ def _is_htmx(request):
     return request.headers.get("HX-Request") == "true"
 
 
+def _get_installation_id(request):
+    try:
+        payload = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    installation_id = payload.get("installation_id")
+    if not isinstance(installation_id, str):
+        return None
+
+    installation_id = installation_id.strip()
+    if not installation_id or len(installation_id) > 255:
+        return None
+
+    return installation_id
+
+
 def _get_filter_values(request):
     data = request.POST if request.method == "POST" else request.GET
     query = data.get("q", "").strip()
@@ -31,6 +58,16 @@ def _get_filter_values(request):
     if sort not in SORT_ORDERS:
         sort = "newest"
     return query, sort
+
+
+def _send_announcement_notification_safely(announcement, detail_url):
+    try:
+        send_announcement_notification(announcement, detail_url)
+    except Exception:
+        logger.exception(
+            "Could not send notification for announcement %s.",
+            announcement.pk,
+        )
 
 
 def _get_filtered_announcements(request):
@@ -60,7 +97,7 @@ def _serialize_announcement(announcement):
 
 def _list_context(request, selected_announcement=None):
     announcements, query, sort = _get_filtered_announcements(request)
-    return {
+    context = {
         "announcements": announcements,
         "selected_announcement": selected_announcement,
         "query": query,
@@ -75,6 +112,7 @@ def _list_context(request, selected_announcement=None):
             "announcements.delete_announcement"
         ),
     }
+    return context
 
 
 def _render_announcement_list(request, context):
@@ -134,6 +172,18 @@ def create_announcement(request):
         announcement = form.save(commit=False)
         announcement.created_by = request.user
         announcement.save()
+        detail_url = request.build_absolute_uri(
+            reverse(
+                "announcements:detail",
+                kwargs={"announcement_id": announcement.pk},
+            )
+        )
+        transaction.on_commit(
+            lambda: _send_announcement_notification_safely(
+                announcement,
+                detail_url,
+            )
+        )
         if _is_htmx(request):
             return _htmx_mutation_response(
                 request,
@@ -229,6 +279,49 @@ def delete_announcement(request, announcement_id):
             "query": query,
             "sort": sort,
         },
+    )
+
+
+@login_required
+@require_POST
+def subscribe_notifications(request):
+    installation_id = _get_installation_id(request)
+    if installation_id is None:
+        return JsonResponse({"error": "Invalid installation_id."}, status=400)
+
+    _, created = FCMSubscription.objects.update_or_create(
+        installation_id=installation_id,
+        defaults={"user": request.user},
+    )
+    return JsonResponse({"subscribed": True}, status=201 if created else 200)
+
+
+@login_required
+@require_POST
+def unsubscribe_notifications(request):
+    installation_id = _get_installation_id(request)
+    if installation_id is None:
+        return JsonResponse({"error": "Invalid installation_id."}, status=400)
+
+    FCMSubscription.objects.filter(
+        user=request.user,
+        installation_id=installation_id,
+    ).delete()
+    return JsonResponse({"subscribed": False})
+
+
+@require_GET
+def firebase_messaging_service_worker(request):
+    return render(
+        request,
+        "announcements/firebase-messaging-sw.js",
+        {
+            "firebase_web_config_json": json.dumps(
+                settings.FIREBASE_WEB_CONFIG
+            ),
+            "firebase_web_sdk_version": settings.FIREBASE_WEB_SDK_VERSION,
+        },
+        content_type="application/javascript",
     )
 
 

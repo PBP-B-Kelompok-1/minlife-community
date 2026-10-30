@@ -21,9 +21,15 @@ from django.conf.urls.static import static
 
 from users.views import login_user, register_user
 from posts.views import frontpage
+from announcements.views import firebase_messaging_service_worker
 
 urlpatterns = [
     path('', frontpage, name="frontpage"),
+    path(
+        'firebase-messaging-sw.js',
+        firebase_messaging_service_worker,
+        name='firebase_messaging_service_worker',
+    ),
     path("ckeditor5/", include('django_ckeditor_5.urls')),
     path("api/", include('minlife.urls_api')),
     path('admin/', admin.site.urls),

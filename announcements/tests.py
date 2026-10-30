@@ -1,12 +1,17 @@
+import base64
 import json
 import uuid
 from datetime import timedelta
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.contrib.staticfiles import finders
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -891,3 +896,570 @@ class AnnouncementHtmxMutationTests(TestCase):
             post_response,
             "Announcement deleted successfully.",
         )
+
+
+class FCMSubscriptionTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.user = user_model.objects.create_user(
+            username="notification-subscriber",
+            password="test-password",
+        )
+        cls.other_user = user_model.objects.create_user(
+            username="other-notification-subscriber",
+            password="test-password",
+        )
+
+    def subscription_model(self):
+        from .models import FCMSubscription
+
+        return FCMSubscription
+
+    def subscribe_url(self):
+        return reverse("announcements:notification_subscribe")
+
+    def unsubscribe_url(self):
+        return reverse("announcements:notification_unsubscribe")
+
+    def post_json(self, url, payload):
+        return self.client.post(
+            url,
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+    def test_subscription_uses_expected_field_configuration(self):
+        subscription_model = self.subscription_model()
+        subscription = subscription_model.objects.create(
+            user=self.user,
+            installation_id="firebase-installation-id",
+        )
+
+        self.assertIsInstance(subscription.pk, uuid.UUID)
+        self.assertFalse(subscription_model._meta.get_field("id").editable)
+        self.assertEqual(
+            subscription_model._meta.get_field("installation_id").max_length,
+            255,
+        )
+        self.assertTrue(
+            subscription_model._meta.get_field("installation_id").unique
+        )
+        self.assertEqual(
+            subscription_model._meta.get_field("user").remote_field.related_name,
+            "fcm_subscriptions",
+        )
+        self.assertEqual(
+            subscription_model._meta.ordering,
+            ["-updated_at", "-id"],
+        )
+
+    def test_guest_is_redirected_to_login_for_subscription_endpoints(self):
+        for url in (self.subscribe_url(), self.unsubscribe_url()):
+            response = self.post_json(
+                url,
+                {"installation_id": "firebase-installation-id"},
+            )
+
+            self.assertRedirects(
+                response,
+                f"{reverse('login')}?next={url}",
+                fetch_redirect_response=False,
+            )
+
+    def test_authenticated_user_can_subscribe_an_installation(self):
+        self.client.force_login(self.user)
+
+        response = self.post_json(
+            self.subscribe_url(),
+            {"installation_id": "firebase-installation-id"},
+        )
+
+        subscription = self.subscription_model().objects.get()
+        self.assertEqual(response.status_code, 201)
+        self.assertJSONEqual(response.content, {"subscribed": True})
+        self.assertEqual(subscription.user, self.user)
+        self.assertEqual(subscription.installation_id, "firebase-installation-id")
+
+    def test_subscribing_an_existing_installation_reassigns_it_to_current_user(self):
+        subscription_model = self.subscription_model()
+        subscription = subscription_model.objects.create(
+            user=self.other_user,
+            installation_id="shared-browser-installation-id",
+        )
+        self.client.force_login(self.user)
+
+        response = self.post_json(
+            self.subscribe_url(),
+            {"installation_id": subscription.installation_id},
+        )
+
+        subscription.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(subscription_model.objects.count(), 1)
+        self.assertEqual(subscription.user, self.user)
+
+    def test_subscribe_rejects_invalid_json_and_installation_ids(self):
+        self.client.force_login(self.user)
+        invalid_requests = [
+            ("not-json", "application/json"),
+            (json.dumps({}), "application/json"),
+            (json.dumps({"installation_id": ""}), "application/json"),
+            (json.dumps({"installation_id": 123}), "application/json"),
+            (json.dumps({"installation_id": "x" * 256}), "application/json"),
+        ]
+
+        for body, content_type in invalid_requests:
+            with self.subTest(body=body):
+                response = self.client.post(
+                    self.subscribe_url(),
+                    data=body,
+                    content_type=content_type,
+                )
+                self.assertEqual(response.status_code, 400)
+
+        self.assertEqual(self.subscription_model().objects.count(), 0)
+
+    def test_user_can_unsubscribe_their_own_installation_idempotently(self):
+        subscription_model = self.subscription_model()
+        subscription_model.objects.create(
+            user=self.user,
+            installation_id="firebase-installation-id",
+        )
+        self.client.force_login(self.user)
+
+        first_response = self.post_json(
+            self.unsubscribe_url(),
+            {"installation_id": "firebase-installation-id"},
+        )
+        second_response = self.post_json(
+            self.unsubscribe_url(),
+            {"installation_id": "firebase-installation-id"},
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertJSONEqual(first_response.content, {"subscribed": False})
+        self.assertJSONEqual(second_response.content, {"subscribed": False})
+        self.assertFalse(subscription_model.objects.exists())
+
+    def test_user_cannot_unsubscribe_another_users_installation(self):
+        subscription_model = self.subscription_model()
+        subscription = subscription_model.objects.create(
+            user=self.other_user,
+            installation_id="other-users-installation-id",
+        )
+        self.client.force_login(self.user)
+
+        response = self.post_json(
+            self.unsubscribe_url(),
+            {"installation_id": subscription.installation_id},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(subscription_model.objects.filter(pk=subscription.pk).exists())
+
+    def test_subscription_endpoints_only_accept_post(self):
+        self.client.force_login(self.user)
+
+        for url in (self.subscribe_url(), self.unsubscribe_url()):
+            self.assertEqual(self.client.get(url).status_code, 405)
+
+
+TEST_FIREBASE_WEB_CONFIG = {
+    "apiKey": "test-api-key",
+    "authDomain": "test-project.firebaseapp.com",
+    "projectId": "test-project",
+    "storageBucket": "test-project.firebasestorage.app",
+    "messagingSenderId": "123456789",
+    "appId": "1:123456789:web:test-app-id",
+}
+
+
+@override_settings(
+    FIREBASE_WEB_CONFIG=TEST_FIREBASE_WEB_CONFIG,
+    FIREBASE_VAPID_KEY="test-public-vapid-key",
+)
+class FCMWebClientTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(
+            username="notification-web-user",
+            password="test-password",
+        )
+
+    def test_notification_control_is_only_loaded_for_authenticated_users(self):
+        list_url = reverse("announcements:list")
+
+        guest_response = self.client.get(list_url)
+        self.client.force_login(self.user)
+        authenticated_response = self.client.get(list_url)
+
+        self.assertNotContains(guest_response, 'id="notification-toggle"')
+        self.assertNotContains(
+            guest_response,
+            "announcements/js/notifications.js",
+        )
+        self.assertContains(authenticated_response, 'id="notification-toggle"')
+        self.assertContains(authenticated_response, "Enable Notifications")
+        self.assertContains(
+            authenticated_response,
+            reverse("announcements:notification_subscribe"),
+        )
+        self.assertContains(
+            authenticated_response,
+            reverse("announcements:notification_unsubscribe"),
+        )
+        self.assertContains(
+            authenticated_response,
+            reverse("firebase_messaging_service_worker"),
+        )
+        self.assertContains(
+            authenticated_response,
+            "announcements/js/notifications.js",
+        )
+
+    def test_authenticated_frontpage_loads_global_notification_listener(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("frontpage"))
+
+        self.assertContains(response, "announcements/js/notifications.js")
+        self.assertContains(response, 'id="firebase-notification-settings"')
+        self.assertContains(
+            response,
+            reverse("announcements:notification_subscribe"),
+        )
+        self.assertNotContains(response, 'id="notification-toggle"')
+
+    @override_settings(FIREBASE_WEB_CONFIG={}, FIREBASE_VAPID_KEY="")
+    def test_incomplete_firebase_config_disables_notification_control(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("announcements:list"))
+
+        self.assertFalse(response.context["firebase_notifications_enabled"])
+        self.assertNotContains(response, 'id="notification-toggle"')
+        self.assertNotContains(response, "announcements/js/notifications.js")
+
+    def test_service_worker_is_served_from_the_domain_root_with_public_config(self):
+        response = self.client.get(reverse("firebase_messaging_service_worker"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            response.headers["Content-Type"].startswith("application/javascript")
+        )
+        self.assertContains(response, "firebase-app-compat.js")
+        self.assertContains(response, "firebase-messaging-compat.js")
+        self.assertContains(response, "self.skipWaiting()")
+        self.assertContains(response, "clients.claim()")
+        self.assertContains(response, "test\\u002Dproject")
+        self.assertNotContains(response, "test-public-vapid-key")
+        self.assertNotContains(response, "private_key")
+
+    def test_service_worker_endpoint_only_accepts_get(self):
+        response = self.client.post(reverse("firebase_messaging_service_worker"))
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_notification_client_uses_fid_api_and_explicit_permission_request(self):
+        script_path = finders.find("announcements/js/notifications.js")
+
+        self.assertIsNotNone(script_path)
+        script = Path(script_path).read_text(encoding="utf-8")
+        self.assertIn("Notification.requestPermission()", script)
+        self.assertIn("onRegistered", script)
+        self.assertIn("onMessage", script)
+        self.assertIn("while (window.Swal.isVisible())", script)
+        self.assertIn("register", script)
+        self.assertIn("unregister", script)
+        self.assertIn("registration.showNotification(title", script)
+        self.assertIn("payload.data?.announcement_url", script)
+        self.assertIn('addEventListener("click"', script)
+        self.assertNotIn("getToken(", script)
+
+
+@override_settings(
+    FIREBASE_PUSH_ENABLED=True,
+    FIREBASE_SERVICE_ACCOUNT_B64="",
+)
+class AnnouncementNotificationSendTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from .models import FCMSubscription
+
+        user_model = get_user_model()
+        moderator_group = Group.objects.get(name="Moderator")
+        cls.moderator = user_model.objects.create_user(
+            username="notification-sender",
+            password="test-password",
+        )
+        cls.moderator.groups.add(moderator_group)
+        cls.subscriber = user_model.objects.create_user(
+            username="notification-recipient",
+            password="test-password",
+        )
+        cls.sender_subscription = FCMSubscription.objects.create(
+            user=cls.moderator,
+            installation_id="sender-browser-fid",
+        )
+        cls.recipient_subscription = FCMSubscription.objects.create(
+            user=cls.subscriber,
+            installation_id="recipient-browser-fid",
+        )
+
+    def valid_form_data(self):
+        return {
+            "title": "Community Garden Clean-up",
+            "content": "Join us this Saturday at 08:00.",
+        }
+
+    @patch("announcements.views.send_announcement_notification")
+    def test_successful_create_triggers_notification_with_absolute_detail_url(
+        self,
+        send_notification,
+    ):
+        self.client.force_login(self.moderator)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("announcements:create"),
+                self.valid_form_data(),
+            )
+
+        announcement = Announcement.objects.get()
+        detail_path = reverse(
+            "announcements:detail",
+            kwargs={"announcement_id": announcement.pk},
+        )
+        self.assertEqual(response.status_code, 302)
+        send_notification.assert_called_once_with(
+            announcement,
+            f"http://testserver{detail_path}",
+        )
+
+    def test_sender_builds_fid_multicast_and_excludes_the_creator(self):
+        from .notifications import send_announcement_notification
+
+        announcement = Announcement.objects.create(
+            created_by=self.moderator,
+            **self.valid_form_data(),
+        )
+        firebase_app = object()
+        batch_response = SimpleNamespace(
+            success_count=1,
+            responses=[
+                SimpleNamespace(success=True, exception=None),
+            ],
+        )
+
+        with (
+            patch(
+                "announcements.notifications._get_firebase_app",
+                return_value=firebase_app,
+            ),
+            patch(
+                "announcements.notifications.messaging.send_each_for_multicast",
+                return_value=batch_response,
+            ) as firebase_send,
+        ):
+            success_count = send_announcement_notification(
+                announcement,
+                "https://example.com/announcements/detail/",
+            )
+
+        message = firebase_send.call_args.args[0]
+        self.assertEqual(success_count, 1)
+        self.assertEqual(message.fids, ["recipient-browser-fid"])
+        self.assertEqual(message.notification.title, "New announcement")
+        self.assertIn(announcement.title, message.notification.body)
+        self.assertIn(announcement.content, message.notification.body)
+        self.assertEqual(message.data["announcement_id"], str(announcement.pk))
+        self.assertEqual(
+            message.data["announcement_url"],
+            "https://example.com/announcements/detail/",
+        )
+        self.assertEqual(
+            message.webpush.fcm_options.link,
+            "https://example.com/announcements/detail/",
+        )
+        self.assertIs(firebase_send.call_args.kwargs["app"], firebase_app)
+
+    def test_sender_skips_firebase_when_there_are_no_subscriptions(self):
+        from .models import FCMSubscription
+        from .notifications import send_announcement_notification
+
+        FCMSubscription.objects.all().delete()
+        announcement = Announcement.objects.create(
+            created_by=self.moderator,
+            **self.valid_form_data(),
+        )
+
+        with patch(
+            "announcements.notifications._get_firebase_app"
+        ) as get_firebase_app:
+            success_count = send_announcement_notification(
+                announcement,
+                "https://example.com/announcements/detail/",
+            )
+
+        self.assertEqual(success_count, 0)
+        get_firebase_app.assert_not_called()
+
+    def test_http_local_detail_url_is_sent_as_data_without_https_click_option(self):
+        from .notifications import send_announcement_notification
+
+        announcement = Announcement.objects.create(
+            created_by=self.moderator,
+            **self.valid_form_data(),
+        )
+        batch_response = SimpleNamespace(
+            success_count=1,
+            responses=[
+                SimpleNamespace(success=True, exception=None),
+            ],
+        )
+
+        with (
+            patch(
+                "announcements.notifications._get_firebase_app",
+                return_value=object(),
+            ),
+            patch(
+                "announcements.notifications.messaging.send_each_for_multicast",
+                return_value=batch_response,
+            ) as firebase_send,
+        ):
+            send_announcement_notification(
+                announcement,
+                "http://127.0.0.1:8000/announcements/detail/",
+            )
+
+        message = firebase_send.call_args.args[0]
+        self.assertIsNone(message.webpush)
+        self.assertEqual(
+            message.data["announcement_url"],
+            "http://127.0.0.1:8000/announcements/detail/",
+        )
+
+    def test_sender_removes_only_fids_reported_as_unregistered(self):
+        from .models import FCMSubscription
+        from .notifications import send_announcement_notification
+
+        class FakeUnregisteredError(Exception):
+            pass
+
+        announcement = Announcement.objects.create(
+            created_by=self.moderator,
+            **self.valid_form_data(),
+        )
+
+        def fake_send(message, app):
+            return SimpleNamespace(
+                success_count=0,
+                responses=[
+                    SimpleNamespace(
+                        success=False,
+                        exception=(
+                            FakeUnregisteredError()
+                            if fid == "recipient-browser-fid"
+                            else RuntimeError("Temporary Firebase failure")
+                        ),
+                    )
+                    for fid in message.fids
+                ],
+            )
+
+        with (
+            patch(
+                "announcements.notifications._get_firebase_app",
+                return_value=object(),
+            ),
+            patch(
+                "announcements.notifications.messaging.UnregisteredError",
+                FakeUnregisteredError,
+            ),
+            patch(
+                "announcements.notifications.messaging.send_each_for_multicast",
+                side_effect=fake_send,
+            ),
+        ):
+            send_announcement_notification(
+                announcement,
+                "https://example.com/announcements/detail/",
+            )
+
+        self.assertFalse(
+            FCMSubscription.objects.filter(
+                installation_id="recipient-browser-fid"
+            ).exists()
+        )
+        self.assertTrue(
+            FCMSubscription.objects.filter(
+                installation_id="sender-browser-fid"
+            ).exists()
+        )
+
+    @override_settings(FIREBASE_PUSH_ENABLED=False)
+    def test_disabled_push_does_not_initialize_firebase(self):
+        from .notifications import send_announcement_notification
+
+        announcement = Announcement.objects.create(
+            created_by=self.moderator,
+            **self.valid_form_data(),
+        )
+
+        with patch(
+            "announcements.notifications._get_firebase_app"
+        ) as get_firebase_app:
+            success_count = send_announcement_notification(
+                announcement,
+                "https://example.com/announcements/detail/",
+            )
+
+        self.assertEqual(success_count, 0)
+        get_firebase_app.assert_not_called()
+
+    @patch(
+        "announcements.views.send_announcement_notification",
+        side_effect=RuntimeError("Firebase is unavailable"),
+    )
+    def test_notification_failure_does_not_rollback_created_announcement(
+        self,
+        send_notification,
+    ):
+        self.client.force_login(self.moderator)
+
+        with (
+            patch("announcements.views.logger.exception") as log_exception,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            response = self.client.post(
+                reverse("announcements:create"),
+                self.valid_form_data(),
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            Announcement.objects.filter(
+                title="Community Garden Clean-up"
+            ).exists()
+        )
+        send_notification.assert_called_once()
+        log_exception.assert_called_once()
+
+    @override_settings(
+        FIREBASE_SERVICE_ACCOUNT_B64=base64.b64encode(
+            json.dumps({"project_id": "test-project"}).encode()
+        ).decode()
+    )
+    def test_base64_service_account_is_decoded_without_a_temporary_file(self):
+        from .notifications import _build_firebase_credential
+
+        with patch(
+            "announcements.notifications.credentials.Certificate"
+        ) as certificate:
+            credential = _build_firebase_credential()
+
+        certificate.assert_called_once_with({"project_id": "test-project"})
+        self.assertIs(credential, certificate.return_value)

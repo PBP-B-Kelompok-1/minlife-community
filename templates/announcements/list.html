@@ -16,19 +16,32 @@
                 <h1 class="m-0 text-3xl font-semibold text-[var(--secondary)]">Announcements</h1>
                 <p class="m-0 text-sm text-[var(--tertiary)]">Community updates</p>
             </div>
-            {% if can_add_announcement %}
-                <a
-                    href="{% url 'announcements:create' %}"
-                    hx-get="{% url 'announcements:create' %}"
-                    hx-target="#announcement-dialog-content"
-                    hx-swap="innerHTML"
-                    hx-include="#announcement-filter-form"
-                    class="button shadow self-stretch sm:self-start"
-                >
-                    <i class="fa-solid fa-plus" aria-hidden="true"></i>
-                    Add Announcement
-                </a>
-            {% endif %}
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                {% if firebase_notifications_enabled %}
+                    <button
+                        type="button"
+                        id="notification-toggle"
+                        class="button button--border shadow self-stretch text-base sm:self-start"
+                        aria-pressed="false"
+                    >
+                        <i class="fa-regular fa-bell" aria-hidden="true"></i>
+                        <span>Enable Notifications</span>
+                    </button>
+                {% endif %}
+                {% if can_add_announcement %}
+                    <a
+                        href="{% url 'announcements:create' %}"
+                        hx-get="{% url 'announcements:create' %}"
+                        hx-target="#announcement-dialog-content"
+                        hx-swap="innerHTML"
+                        hx-include="#announcement-filter-form"
+                        class="button shadow self-stretch sm:self-start"
+                    >
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                        Add Announcement
+                    </a>
+                {% endif %}
+            </div>
         </section>
 
         <form

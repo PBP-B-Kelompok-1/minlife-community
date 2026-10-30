@@ -10,11 +10,15 @@ Checkpoint 1 mencakup model data, migration awal, dan unit test model. Checkpoin
 menambahkan public Read berupa list/detail HTML, endpoint JSON, database search, dan
 sorting. Checkpoint 3 menambahkan Create server-rendered dengan `ModelForm` dan
 authorization berbasis Django permission. Checkpoint 4 melengkapi Update/Delete dengan
-permission server-side dan halaman konfirmasi. Interaktivitas tanpa reload, integrasi
-Checkpoint 5A menambahkan Read, search, sorting, serta expand/collapse dinamis dengan
-HTMX. Checkpoint 5B menambahkan modal Create, Edit, dan Delete berbasis HTMX dengan
-halaman terpisah sebagai fallback. Integrasi frontpage dan Firebase Cloud Messaging belum
-diimplementasikan.
+permission server-side dan halaman konfirmasi. Checkpoint 5A menambahkan Read, search,
+sorting, serta expand/collapse dinamis dengan HTMX. Checkpoint 5B menambahkan modal
+Create, Edit, dan Delete berbasis HTMX dengan
+halaman terpisah sebagai fallback. Checkpoint 6A menambahkan penyimpanan Firebase
+Installation ID dan endpoint subscribe/unsubscribe. Checkpoint 6B menambahkan Firebase
+Web SDK, root service worker, serta kontrol opt-in/opt-out untuk user login. Checkpoint
+6C menambahkan pengiriman Firebase Cloud Messaging dari Django dan system notification
+pada device penerima. Integrasi tombol akses dari frontpage tetap dikerjakan terpisah
+oleh anggota kelompok yang menangani frontpage.
 
 ## Arsitektur Django MVT
 
@@ -28,6 +32,13 @@ diimplementasikan.
   `/api/announcements` dan `/api/announcement/<uuid>`.
 - **Form:** `AnnouncementForm` dipakai ulang oleh Create dan Update serta hanya
   mengekspos title dan content.
+- **Subscription:** endpoint login-only di bawah `/announcements/notifications/`
+  menyimpan atau menghapus Installation ID milik browser aktif.
+- **Push Server:** `announcements/notifications.py` memakai Firebase Admin untuk
+  mengirim announcement setelah transaksi Create berhasil commit.
+- **Web Push Client:** tombol notifikasi, Firebase Web SDK modular, dan root service
+  worker mengelola izin browser, sinkronisasi Installation ID, system notification,
+  serta navigasi ketika notifikasi diklik.
 
 ## Model dan Relasi Data
 
@@ -52,6 +63,11 @@ hasil tetap deterministik ketika timestamp sama.
 
 Image, event date, published date, category, dan notification data tidak dimasukkan ke
 migration awal karena belum diperlukan pada core model.
+
+Model `FCMSubscription` ditambahkan melalui migration `0002_fcmsubscription`. Satu user
+dapat mempunyai beberapa instalasi browser melalui relasi `fcm_subscriptions`, sedangkan
+`installation_id` bersifat unik agar satu browser hanya terkait dengan satu user aktif.
+Model memakai UUID, `created_at`, `updated_at`, dan `CASCADE` ketika user dihapus.
 
 ## Read, Search, dan Sorting
 
@@ -97,6 +113,12 @@ sehingga `created_by` dan `created_at` tetap, sementara `updated_at` diperbarui 
 form disimpan. GET Delete hanya menampilkan konfirmasi; penghapusan dilakukan melalui
 POST yang dilindungi CSRF.
 
+Subscribe dan unsubscribe FCM memerlukan user login serta hanya menerima POST JSON.
+Subscribe memakai user dari session, bukan payload. Installation ID yang sama dapat
+dipindahkan ke user yang sedang login agar browser bersama tidak tetap terhubung ke akun
+lama. Unsubscribe hanya menghapus subscription milik user aktif dan bersifat idempotent;
+user tidak dapat menghapus Installation ID milik user lain.
+
 ## Interaktivitas
 
 Checkpoint 5A menggunakan HTMX 2.0.8 untuk Read dinamis. Fetch API sempat dibuat sebagai
@@ -128,6 +150,28 @@ state filter tetap konsisten setelah mutation.
 dialog dan meneruskan event sukses HTMX ke shared `toast.fire()`. Request, validasi,
 authorization, dan DOM swap tetap ditangani HTMX serta Django. Full-page CRUD tetap
 tersedia melalui URL yang sama ketika HTMX tidak tersedia atau URL dibuka langsung.
+
+Checkpoint 6B memakai Firebase JavaScript SDK 13.1.0 melalui CDN tanpa npm atau bundler.
+Kontrol notifikasi hanya dirender untuk user login ketika seluruh konfigurasi web publik
+dan VAPID key tersedia. Izin browser baru diminta setelah klik eksplisit user. Client
+memakai API Firebase Installation ID terbaru, yaitu `register()`, `onRegistered()`, dan
+`unregister()`; deprecated registration-token API `getToken()` tidak digunakan.
+
+Service worker disajikan dari `/firebase-messaging-sw.js` agar memiliki scope root dan
+dapat bekerja pada seluruh halaman origin. Firebase config dan VAPID key merupakan
+credential web publik, sedangkan private service-account credential tidak pernah
+dirender ke browser. Enable menyinkronkan Installation ID ke endpoint subscribe;
+Disable menghapusnya dari endpoint unsubscribe dan membatalkan registrasi FCM. Preferensi
+opt-out disimpan pada browser sehingga refresh tidak langsung mengaktifkan kembali
+notifikasi. Pengiriman message dari Django dan penanganan foreground message belum
+termasuk Checkpoint 6B.
+
+Checkpoint 6C menambahkan sender Firebase Admin pada server. Create menjadwalkan
+pengiriman melalui `transaction.on_commit` agar kegagalan transaksi tidak menghasilkan
+notifikasi palsu. Creator dikecualikan, subscription dikirim dalam batch, dan kegagalan
+Firebase dicatat tanpa membatalkan announcement yang sudah tersimpan. Listener global
+di `base.html` menampilkan foreground message sebagai notifikasi sistem, sedangkan root
+service worker menangani background notification dan klik menuju detail announcement.
 
 ## Testing Checkpoint 1
 
@@ -310,6 +354,99 @@ Hasil aktual:
   wrapping kata pada title/content desktop maupun mobile.
 - Coverage belum diukur dan tidak ada angka coverage yang diklaim.
 
+## Testing Checkpoint 6A
+
+Test subscription FCM mencakup:
+
+- UUID, field unik Installation ID, relasi User, dan ordering model.
+- Guest diarahkan ke login untuk subscribe/unsubscribe.
+- User login dapat mendaftarkan Installation ID.
+- Installation ID yang sudah ada dipindahkan ke user yang sedang login tanpa duplikasi.
+- JSON rusak, ID kosong, tipe non-string, dan ID terlalu panjang ditolak dengan 400.
+- User dapat unsubscribe secara idempotent.
+- User tidak dapat menghapus subscription milik user lain.
+- Endpoint hanya menerima POST.
+
+Hasil aktual:
+
+- Fase Red: 8 test menghasilkan error karena model dan route subscription belum tersedia.
+  Lima subtest invalid payload menyebabkan jumlah error pada output lebih besar dari
+  jumlah test, sesuai kontrak yang belum diimplementasikan.
+- Migration `announcements.0002_fcmsubscription` dibuat dan diterapkan manual oleh
+  developer.
+- Green terfokus: seluruh 8/8 test subscription lulus dalam 2.715 detik.
+- Regresi app: seluruh 56/56 test Announcements lulus sebelum commit Green.
+- Full suite kelompok memiliki satu kegagalan eksternal pada `users.tests` karena test
+  membandingkan bound method `get_zen_points` dengan integer tanpa memanggil method;
+  203 test lain lulus dan masalah telah dilaporkan kepada pemilik modul.
+- Belum ada dependency `firebase-admin`, panggilan jaringan, Web SDK, service worker,
+  atau pengiriman push nyata pada Checkpoint 6A.
+- Coverage belum diukur dan tidak ada angka coverage yang diklaim.
+
+## Testing Checkpoint 6B
+
+Test client web FCM mencakup:
+
+- Kontrol notifikasi dan script client hanya dimuat untuk user login.
+- Konfigurasi Firebase yang tidak lengkap menonaktifkan kontrol dengan aman.
+- Service worker tersedia di root domain sebagai JavaScript dan hanya menerima GET.
+- Service worker hanya memuat konfigurasi web publik tanpa VAPID/private key.
+- Client meminta permission secara eksplisit dan memakai API FID, bukan `getToken()`.
+
+Hasil aktual:
+
+- Fase Red: 5 test menghasilkan 2 failure dan 3 error karena context, tombol, script,
+  serta route service worker belum tersedia.
+- Green pertama: 4/5 test lulus; satu assertion mengharapkan Project ID mentah padahal
+  Django `escapejs` mengamankan tanda hubung sebagai `\\u002D`.
+- Assertion disesuaikan untuk menerima escaping aman tanpa melemahkan output service
+  worker; Green berikutnya menghasilkan 5/5 test lulus dalam 1.236 detik.
+- Regresi app: seluruh 61/61 test Announcements lulus dalam 47.127 detik.
+- Smoke test browser Enable, Disable, dan Enable ulang berhasil. Satu percobaan sempat
+  menampilkan network failure karena development server dimatikan; tidak ada perubahan
+  kode yang diperlukan dan alur berhasil setelah server dijalankan kembali.
+- Tidak ada migration atau dependency Python baru pada Checkpoint 6B. Pengiriman push
+  nyata belum dilakukan dan `firebase-admin` belum dipasang.
+- Syntax check melalui Node tidak dijalankan karena Node tidak tersedia di environment;
+  tidak dilakukan instalasi tambahan hanya untuk pemeriksaan opsional tersebut.
+- Coverage belum diukur dan tidak ada angka coverage yang diklaim.
+
+## Testing Checkpoint 6C
+
+Test pengiriman push FCM mencakup:
+
+- Create yang berhasil menjadwalkan pengiriman setelah transaksi database commit.
+- Creator announcement dikecualikan dari penerima.
+- Notification payload membawa title, content, ID, dan URL detail announcement.
+- Subscription dikirim dalam batch dan Installation ID yang tidak lagi terdaftar
+  dibersihkan tanpa menghapus subscription yang gagal karena error sementara.
+- Firebase yang belum dikonfigurasi menonaktifkan pengiriman dengan aman.
+- Kegagalan Firebase tidak membatalkan announcement yang sudah tersimpan.
+- Client foreground memakai notifikasi sistem, sedangkan service worker menangani
+  background notification dan klik menuju detail.
+- Listener Firebase tersedia pada seluruh halaman yang menggunakan `base.html`, tetapi
+  tombol Enable/Disable tetap hanya ditampilkan pada halaman Announcements.
+
+Hasil aktual:
+
+- Fase Red didefinisikan sebelum implementasi server sender dan menghasilkan kegagalan
+  sesuai kontrak yang belum tersedia.
+- Dependency `firebase-admin==7.7.0` ditambahkan setelah mendapat persetujuan developer.
+- Empat belas test terfokus untuk web client dan pengiriman server lulus.
+- Regresi final: seluruh 70/70 test Announcements lulus setelah integrasi FCM.
+- Django system check tidak menemukan issue dan `makemigrations --check --dry-run`
+  menyatakan tidak ada perubahan model.
+- Pengiriman nyata melalui Firebase mengembalikan `success_count=1`. Smoke test dua
+  browser berhasil menampilkan notifikasi sistem pada browser penerima, tidak pada
+  creator, dan klik notifikasi membuka halaman detail.
+- Pengujian awal di Chrome sempat tidak menampilkan banner walaupun service worker dan
+  Firebase berhasil; pengujian melalui Edge memastikan penyebabnya adalah konfigurasi
+  notification sender Windows/browser, bukan kegagalan backend.
+- PWS HTTPS dan perangkat mobile belum diuji. Deployment memerlukan environment
+  Firebase publik, VAPID key, `FIREBASE_PUSH_ENABLED=TRUE`, serta service account dalam
+  `FIREBASE_SERVICE_ACCOUNT_B64`; credential rahasia tidak disimpan di repository.
+- Tidak ada migration baru pada Checkpoint 6C dan coverage belum diukur.
+
 ## Kontribusi AI
 
 ### 2026-10-27 - Checkpoint 1: Model Announcement
@@ -465,6 +602,96 @@ Hasil aktual:
 - **Commit terkait:** `a423850 test(announcements): definisikan mutasi dinamis dengan
   htmx` dan `0e7902c feat(announcements): tambahkan modal crud dinamis dengan htmx`.
 
+### 2026-10-29 - Checkpoint 6A: Subscription FCM
+
+- **Tool:** OpenAI Codex.
+- **Tujuan:** menyediakan penyimpanan Firebase Installation ID dan endpoint aman untuk
+  opt-in/opt-out sebelum mengintegrasikan Firebase Web SDK atau pengiriman push.
+- **Instruksi penting:** memakai API FID terbaru, tidak melakukan request Firebase nyata,
+  tidak menginstal dependency sebelum dibutuhkan, dan tidak mengubah modul teman yang
+  mempunyai kegagalan test eksternal.
+- **File yang dibuat/diubah:** `announcements/tests.py`, `announcements/models.py`,
+  `announcements/views.py`, `announcements/urls.py`, migration
+  `0002_fcmsubscription.py`, dan dokumentasi ini.
+- **Saran/implementasi AI:** model UUID dengan Installation ID unik, relasi multi-browser
+  ke User, endpoint JSON login-only, validasi payload, reassignment browser ke akun aktif,
+  serta unsubscribe idempotent dan terisolasi per user.
+- **Kontribusi manual developer:** menyiapkan Firebase project/config/VAPID/service
+  account lokal, menyinkronkan `dev`, menjalankan migration dan Red/Green test, serta
+  melakukan commit test dan fitur.
+- **Koreksi manual developer:** meminta klarifikasi virtual environment, konfigurasi
+  lokal vs PWS, Firebase API, dan service-account credential sebelum implementasi.
+- **Limitasi/kesalahan AI:** full test suite tidak seluruhnya hijau karena satu test
+  modul `users` memanggil method secara tidak tepat; AI hanya mendiagnosis dan tidak
+  mengubah modul milik anggota lain.
+- **Hasil pengujian:** 8/8 subscription test dan 56/56 seluruh test Announcements lulus;
+  full suite kelompok 203 lulus dan 1 gagal pada modul `users`; coverage belum diukur.
+- **Commit terkait:** `35acfdd test(announcements): definisikan langganan notifikasi fcm`
+  dan `e87436f feat(announcements): tambahkan langganan notifikasi fcm`.
+
+### 2026-10-29 - Checkpoint 6B: Firebase Web Client
+
+- **Tool:** OpenAI Codex.
+- **Tujuan:** menghubungkan user login dengan Firebase Web SDK, permission browser,
+  root service worker, dan endpoint subscription yang dibuat pada Checkpoint 6A.
+- **Instruksi penting:** memakai API FID terbaru, tidak memakai deprecated `getToken()`,
+  tidak memasang npm/Python dependency, tidak mengekspos service-account credential,
+  serta belum mengirim push dari server.
+- **File yang dibuat/diubah:** `announcements/tests.py`, `announcements/views.py`,
+  `minlife/settings.py`, `minlife/urls.py`, `templates/announcements/list.html`,
+  `templates/announcements/firebase-messaging-sw.js`,
+  `static/announcements/js/notifications.js`, dan dokumentasi ini.
+- **Saran/implementasi AI:** conditional notification control, explicit permission,
+  FID register/unregister, local opt-out preference, CSRF JSON sync, root-scoped service
+  worker, public-config escaping, responsive shared button, dan status toast.
+- **Kontribusi manual developer:** menjalankan Red test, menyiapkan Firebase/VAPID dan
+  environment, melakukan smoke test Enable/Disable/Enable, memeriksa Network browser,
+  memilih FCM dibanding email, serta melakukan commit test dan fitur.
+- **Koreksi manual developer:** meminta penjelasan alur push notification dan melaporkan
+  re-enable yang tampak gagal; investigasi menemukan development server sedang dimatikan,
+  bukan defect pada Firebase atau kode.
+- **Limitasi/kesalahan AI:** assertion awal tidak memperhitungkan escaping `escapejs` dan
+  dikoreksi saat Green; percobaan syntax check Node tidak dapat dijalankan karena Node
+  tidak tersedia. Tidak ada dependency yang dipasang untuk mengatasinya.
+- **Hasil pengujian:** 5/5 client FCM test dan 61/61 seluruh test Announcements lulus;
+  smoke test browser opt-in/opt-out/re-enable berhasil; coverage belum diukur.
+- **Commit terkait:** `3812752 test(announcements): definisikan client web notifikasi
+  fcm` dan `df72ddf feat(announcements): tambahkan client web notifikasi fcm`.
+
+### 2026-10-30 - Checkpoint 6C: Pengiriman Push FCM
+
+- **Tool:** OpenAI Codex.
+- **Tujuan:** mengirim push notification ketika moderator membuat announcement dan
+  menampilkannya sebagai notifikasi sistem pada device penerima.
+- **Instruksi penting:** announcement harus tetap tersimpan ketika Firebase gagal,
+  creator tidak menerima notifikasi buatannya sendiri, private credential tidak boleh
+  masuk template/repository, dan frontend tetap memakai HTMX untuk CRUD.
+- **File yang dibuat/diubah:** `announcements/tests.py`, `announcements/views.py`,
+  `announcements/notifications.py`, `announcements/context_processors.py`,
+  `minlife/settings.py`, `requirements.txt`, `templates/base.html`, template service
+  worker, serta `static/announcements/js/notifications.js`.
+- **Saran/implementasi AI:** lazy Firebase Admin initialization, service-account B64
+  untuk deployment, batch maksimal 500 FID, cleanup subscription invalid,
+  `transaction.on_commit`, global foreground listener, system notification, dan click
+  routing ke detail announcement.
+- **Kontribusi manual developer:** membuat dan mengonfigurasi Firebase project, mengatur
+  environment lokal, memasang dependency, menjalankan test dan migration check,
+  melakukan smoke test dua akun/browser, memverifikasi notifikasi sistem, melakukan
+  commit Green, dan menyinkronkan perubahan terbaru dari `dev`.
+- **Koreksi manual developer:** menegaskan bahwa target akhir adalah notification tray
+  HP/laptop, bukan toast announcement di dalam halaman. Handler foreground kemudian
+  diubah agar memakai `ServiceWorkerRegistration.showNotification()`; toast web hanya
+  dipertahankan untuk status Enable/Disable dan feedback CRUD.
+- **Limitasi/kesalahan AI:** pengujian awal dilakukan sebagai akun creator sehingga
+  tidak menghasilkan push sesuai desain exclusion; perbedaan foreground toast dan
+  system notification juga tidak dijelaskan cukup awal. Keduanya dikoreksi dan diuji
+  ulang dengan akun penerima terpisah.
+- **Hasil pengujian:** 14 test FCM terfokus dan 70/70 test Announcements lulus; real
+  Firebase send serta system-notification smoke test lokal berhasil. Tes PWS/mobile
+  masih menjadi langkah deployment berikutnya.
+- **Commit terkait:** `d431804 test(announcements): definisikan pengiriman push fcm` dan
+  `bb13e8d feat(announcements): tambahkan pengiriman push fcm`.
+
 ## Riwayat Checkpoint dan Conventional Commit
 
 | Checkpoint | Status | Commit |
@@ -487,3 +714,12 @@ Hasil aktual:
 | Red Checkpoint 5B - Mutation HTMX | Selesai | `a423850 test(announcements): definisikan mutasi dinamis dengan htmx` |
 | Green Checkpoint 5B - Modal CRUD HTMX | Selesai | `0e7902c feat(announcements): tambahkan modal crud dinamis dengan htmx` |
 | Dokumentasi Checkpoint 5B | Selesai | commit dokumentasi ini |
+| Red Checkpoint 6A - Subscription FCM | Selesai | `35acfdd test(announcements): definisikan langganan notifikasi fcm` |
+| Green Checkpoint 6A - Subscription FCM | Selesai | `e87436f feat(announcements): tambahkan langganan notifikasi fcm` |
+| Dokumentasi Checkpoint 6A | Selesai | commit dokumentasi ini |
+| Red Checkpoint 6B - Firebase Web Client | Selesai | `3812752 test(announcements): definisikan client web notifikasi fcm` |
+| Green Checkpoint 6B - Firebase Web Client | Selesai | `df72ddf feat(announcements): tambahkan client web notifikasi fcm` |
+| Dokumentasi Checkpoint 6B | Selesai | commit dokumentasi ini |
+| Red Checkpoint 6C - Pengiriman Push FCM | Selesai | `d431804 test(announcements): definisikan pengiriman push fcm` |
+| Green Checkpoint 6C - Pengiriman Push FCM | Selesai | `bb13e8d feat(announcements): tambahkan pengiriman push fcm` |
+| Dokumentasi Checkpoint 6C | Selesai | commit dokumentasi ini |
