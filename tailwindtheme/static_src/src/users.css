@@ -1,0 +1,39 @@
+/* display classes like flex/grid would otherwise override the [hidden] attribute,
+   which the badge "show all" and "add social link" toggles rely on */
+[hidden] { display: none !important; }
+
+.user-card { @apply flex flex-col gap-5 rounded-[var(--radius)] bg-[var(--paper)] px-5 py-4; }
+.user-card__title { @apply text-[1.75rem] font-bold; }
+.user-section-title { @apply text-xl font-bold; }
+
+.user-form { @apply flex flex-col gap-4; }
+.user-form__actions { @apply flex flex-wrap items-center justify-end gap-3; }
+.user-form__error { @apply text-sm text-[var(--danger)]; }
+.user-form__help { @apply text-sm text-[var(--tertiary)]; }
+.user-form__help ul { @apply list-disc pl-5; }
+
+.user-link { @apply text-[var(--accent)] hover:underline; }
+
+.user-avatar { @apply aspect-square rounded-full bg-[var(--paper-dim)] object-cover; }
+.user-avatar--placeholder { @apply flex items-center justify-center bg-[var(--accent)] font-bold text-[var(--ink-light)]; }
+
+.user-list { @apply flex list-none flex-col gap-3; }
+.user-list__item { @apply flex items-center gap-3 rounded-[var(--radius)] bg-[var(--paper-dim)] p-3; }
+.user-badge { @apply flex items-center gap-3 rounded-[var(--radius)] bg-[var(--paper-dim)] p-3; }
+
+.user-link-row { @apply grid grid-cols-1 items-start gap-3 sm:grid-cols-[10rem_minmax(0,1fr)_auto]; }
+.user-link-row select { @apply w-full p-[0.7rem]; }
+input[type="checkbox"] { @apply w-auto p-0; }
+
+.button--danger { @apply border-[var(--danger)] bg-[var(--danger)]; }
+
+.user-post { @apply flex flex-col gap-2 rounded-[var(--radius)] bg-[var(--paper-dim)] p-4; }
+.user-post__title { @apply text-lg font-bold; }
+.user-tag { @apply rounded-full border border-[var(--accent)] px-2 text-sm text-[var(--accent)]; }
+
+.people-modal { @apply fixed inset-0 z-50 flex items-start justify-center p-4; background: rgba(0, 0, 0, 0.5); padding-top: 6rem; }
+.people-modal__window { @apply w-full; max-width: 32rem; max-height: calc(100vh - 8rem); overflow-y: auto; }
+
+.user-checkbox { @apply flex w-fit cursor-pointer items-center gap-2 rounded-[var(--radius)] border border-[var(--accent)] px-3 py-1.5 text-sm text-[var(--accent)] transition-all duration-200 ease-in-out; }
+.user-checkbox input { accent-color: var(--danger); }
+.user-checkbox:has(input:checked) { border-color: var(--danger); color: var(--danger); background: rgba(241, 46, 66, 0.08); }

@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
 {% block meta %}
-    {% include "posts/components/tailwind_styles.html" %}
     <title>
         {% if challenge %}Weekly Challenge #{{ challenge.pk }}: {{ challenge.title }}{% else %}Weekly Challenge{% endif %}
         - Minlife Community
