@@ -285,7 +285,13 @@ class Command(BaseCommand):
                     ]),
                 },
             )
-            post.tags.add(tags["Weekly Challenge"])
+            # Historical seed submissions are assigned explicitly below. Add
+            # the M2M row directly so the live m2m_changed handler does not
+            # attach every historical Post to today's active challenge.
+            Post.tags.through.objects.get_or_create(
+                post_id=post.pk,
+                tag_id=tags["Weekly Challenge"].pk,
+            )
             ChallengeSubmission.objects.get_or_create(
                 challenge=challenge,
                 user=user,
