@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group, Permission
+from django.contrib.auth.models import Group
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -24,10 +24,7 @@ class ChallengeReadAPITests(APITestCase):
             username="moderator-api-user",
             password="test-password",
         )
-        moderator_group, _ = Group.objects.get_or_create(name="Moderator")
-        moderator_group.permissions.set(
-            Permission.objects.filter(content_type__app_label="weeklychallenge")
-        )
+        moderator_group = Group.objects.get(name="Moderator")
         self.moderator.groups.add(moderator_group)
 
         self.open_challenge = self.create_challenge(
@@ -356,3 +353,195 @@ class ChallengeReadAPITests(APITestCase):
         )
         self.assertEqual(second_page.status_code, 200)
         self.assertIsNone(second_page.data["results"][0]["post"]["image_url"])
+
+
+class ChallengeCreateAPITests(ChallengeReadAPITests):
+    def create_payload(self, **overrides):
+        payload = {
+            "title": "New API challenge",
+            "background": "New background",
+            "description": "New description",
+            "goal": "New goal",
+            "upvote_threshold": 3,
+            "week_start": self.today + timedelta(days=100),
+            "tasks": [
+                {
+                    "day_number": 1,
+                    "title": "First task",
+                    "description": "First task description",
+                },
+                {
+                    "day_number": 2,
+                    "title": "Second task",
+                    "description": "Second task description",
+                },
+            ],
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_moderator_can_create_challenge_with_badge_creator_and_tasks(self):
+        self.client.force_authenticate(user=self.moderator)
+        payload = self.create_payload()
+
+        response = self.client.post(
+            self.url("challenge-list"),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        challenge = Challenge.objects.get(pk=response.data["id"])
+        self.assertEqual(challenge.created_by, self.moderator)
+        self.assertEqual(challenge.badge.name, "New API challenge Badge")
+        self.assertEqual(challenge.tasks.count(), 2)
+        self.assertEqual(
+            list(challenge.tasks.values_list("day_number", flat=True)),
+            [1, 2],
+        )
+
+    def test_anonymous_and_normal_user_cannot_create_challenge(self):
+        payload = self.create_payload()
+        challenge_count = Challenge.objects.count()
+
+        response = self.client.post(
+            self.url("challenge-list"),
+            payload,
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+        self.client.force_authenticate(user=self.normal_user)
+        response = self.client.post(
+            self.url("challenge-list"),
+            payload,
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(Challenge.objects.count(), challenge_count)
+
+    def assert_invalid_create_does_not_change_database(self, payload):
+        counts = {
+            "challenges": Challenge.objects.count(),
+            "badges": Badge.objects.count(),
+            "tasks": ChallengeTask.objects.count(),
+        }
+        self.client.force_authenticate(user=self.moderator)
+
+        response = self.client.post(
+            self.url("challenge-list"),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Challenge.objects.count(), counts["challenges"])
+        self.assertEqual(Badge.objects.count(), counts["badges"])
+        self.assertEqual(ChallengeTask.objects.count(), counts["tasks"])
+
+    def test_create_rejects_an_overlapping_week(self):
+        self.assert_invalid_create_does_not_change_database(
+            self.create_payload(week_start=self.open_challenge.week_start)
+        )
+
+    def test_create_rejects_eight_tasks(self):
+        tasks = [
+            {
+                "day_number": day_number,
+                "title": f"Task {day_number}",
+                "description": "",
+            }
+            for day_number in range(1, 9)
+        ]
+        self.assert_invalid_create_does_not_change_database(
+            self.create_payload(tasks=tasks)
+        )
+
+    def test_create_rejects_duplicate_task_days(self):
+        tasks = self.create_payload()["tasks"]
+        tasks[1]["day_number"] = tasks[0]["day_number"]
+        self.assert_invalid_create_does_not_change_database(
+            self.create_payload(tasks=tasks)
+        )
+
+    def test_create_rejects_task_day_outside_one_to_seven(self):
+        for day_number in (0, 8):
+            tasks = self.create_payload()["tasks"]
+            tasks[0]["day_number"] = day_number
+            self.assert_invalid_create_does_not_change_database(
+                self.create_payload(tasks=tasks)
+            )
+
+    def test_create_rejects_blank_title_after_stripping_html(self):
+        self.assert_invalid_create_does_not_change_database(
+            self.create_payload(title="<p>   </p>")
+        )
+
+    def test_create_rejects_missing_required_fields(self):
+        self.assert_invalid_create_does_not_change_database(
+            {"title": "Missing fields"}
+        )
+
+    def test_create_rejects_threshold_below_minimum(self):
+        self.assert_invalid_create_does_not_change_database(
+            self.create_payload(upvote_threshold=0)
+        )
+
+    def test_read_only_fields_are_ignored_when_creating(self):
+        self.client.force_authenticate(user=self.moderator)
+        payload = self.create_payload(
+            id=999999,
+            badge={"id": 999999, "name": "Injected badge"},
+            created_by=str(self.normal_user.pk),
+        )
+
+        response = self.client.post(
+            self.url("challenge-list"),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        challenge = Challenge.objects.get(pk=response.data["id"])
+        self.assertNotEqual(challenge.pk, 999999)
+        self.assertEqual(challenge.created_by, self.moderator)
+        self.assertEqual(challenge.badge.name, "New API challenge Badge")
+
+    def test_delete_on_list_url_returns_method_not_allowed(self):
+        self.client.force_authenticate(user=self.moderator)
+
+        response = self.client.delete(self.url("challenge-list"))
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_session_authentication_requires_and_accepts_csrf_token(self):
+        from django.urls import reverse
+        from rest_framework.test import APIClient
+
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(
+            client.login(username="moderator-api-user", password="test-password")
+        )
+        client.get(reverse("users:login"))
+        csrf_token = client.cookies["csrftoken"].value
+        payload = self.create_payload(
+            title="CSRF challenge",
+            week_start=self.today + timedelta(days=200),
+        )
+
+        rejected = client.post(
+            self.url("challenge-list"),
+            payload,
+            format="json",
+        )
+        self.assertEqual(rejected.status_code, 403)
+        self.assertFalse(Challenge.objects.filter(title="CSRF challenge").exists())
+
+        accepted = client.post(
+            self.url("challenge-list"),
+            payload,
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+        self.assertEqual(accepted.status_code, 201)
+        self.assertTrue(Challenge.objects.filter(title="CSRF challenge").exists())
