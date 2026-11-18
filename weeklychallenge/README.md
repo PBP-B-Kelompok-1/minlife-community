@@ -386,3 +386,8 @@ deployed environments.
   Post.
 - Manual browser checks are still needed for responsive layout, keyboard focus,
   screen readers, JavaScript-disabled fallback, and deployment.
+
+## Questions for teammates
+
+- Flutter login and CSRF handling are pending confirmation from the Users module
+  owner. The Django API currently uses DRF `SessionAuthentication`.

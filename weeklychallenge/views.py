@@ -6,8 +6,6 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models.deletion import ProtectedError
-from django.db.models import Count, IntegerField, Sum, Value
-from django.db.models.functions import Coalesce
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -19,6 +17,7 @@ from .forms import ChallengeForm, ChallengeTaskFormSet
 from .htmx import htmx_redirect, htmx_trigger, is_htmx
 from .models import Challenge, ChallengeSubmission, MAX_TASKS_PER_CHALLENGE
 from .services import create_challenge
+from .selectors import annotated_submissions, challenge_queryset
 
 CHALLENGES_PER_PAGE = 6
 SUBMISSIONS_PER_PAGE = 8
@@ -106,18 +105,7 @@ def show_weekly_challenge(request):
         }
         for day_number in range(1, MAX_TASKS_PER_CHALLENGE + 1)
     ]
-    submissions = (
-        ChallengeSubmission.objects.filter(challenge=challenge)
-        .select_related("post", "user")
-        .annotate(
-            score=Coalesce(
-                Sum("post__votes__value"),
-                Value(0),
-                output_field=IntegerField(),
-            )
-        )
-        .order_by("-score", "-created_at")
-    )
+    submissions = annotated_submissions(challenge)
     has_submitted = request.user.is_authenticated and ChallengeSubmission.objects.filter(
         challenge=challenge, user=request.user
     ).exists()
@@ -211,25 +199,11 @@ def _canonical_url(request, name, **kwargs):
 
 
 def _challenge_queryset():
-    return (
-        Challenge.objects.select_related("badge", "tag")
-        .annotate(submission_count=Count("submissions", distinct=True))
-        .order_by("-week_start", "-pk")
-    )
+    return challenge_queryset()
 
 
 def _submission_queryset(challenge, sort):
-    submissions = ChallengeSubmission.objects.filter(challenge=challenge)
-    submissions = submissions.select_related("post", "user").annotate(
-        score=Coalesce(
-            Sum("post__votes__value"),
-            Value(0),
-            output_field=IntegerField(),
-        )
-    )
-    if sort == "newest":
-        return submissions.order_by("-created_at")
-    return submissions.order_by("-score", "-created_at")
+    return annotated_submissions(challenge, sort)
 
 
 def _submission_list_context(request, challenge):
