@@ -2,6 +2,7 @@ from django.urls import path
 
 from . import api
 
+app_name = "posts_api"
 
 urlpatterns = [
     path("posts", api.PostListAPIView.as_view(), name="get_posts_json"),

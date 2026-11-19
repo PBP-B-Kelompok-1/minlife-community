@@ -56,4 +56,5 @@ Logs:
 - Sped-forward CRUD implementation, prevent updating weekly-challenge tagged posts: https://chatgpt.com/s/cx_6ae33fa3088881919dff00d41c665e61
 - Announcements button on frontpage: https://chatgpt.com/s/cx_6ae3684fc8108191aab5917d438a265c
 - Mobile hamburger navbar: https://chatgpt.com/s/cx_6ae36f9ffe188191b94a454652326fa3
-- Migration to Django REST Framework APIs: https://chatgpt.com/s/cx_6afe5b74cc808191b8d098e4f506ade1
+- Migration to Django REST Framework APIs, Swagger documentation: https://chatgpt.com/s/cx_6afe5b74cc808191b8d098e4f506ade1
+- Check permissions for REST API, Add create and update API: 

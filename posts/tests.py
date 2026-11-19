@@ -163,7 +163,7 @@ class FrontpageAndCreatePostTests(PostsTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "posts/frontpage.html")
         self.assertContains(response, 'id="posts"')
-        self.assertContains(response, reverse("api:get_posts_json"))
+        self.assertContains(response, reverse("posts_api:get_posts_json"))
         self.assertContains(response, reverse("posts:create_post"))
 
     def test_frontpage_shows_the_latest_announcement_and_links_to_it(self):
@@ -244,7 +244,7 @@ class UpdateAndDeletePostTests(PostsTestCase):
         super().setUp()
         self.post = self.create_post(title="Original", content="Original content")
         self.update_url = reverse("posts:update_post", kwargs={"post_id": self.post.pk})
-        self.delete_url = reverse("api:delete_post", kwargs={"post_id": self.post.pk})
+        self.delete_url = reverse("posts_api:delete_post", kwargs={"post_id": self.post.pk})
 
     def test_author_can_update_a_post(self):
         self.client.force_login(self.author)
@@ -365,7 +365,7 @@ class GetPostsJsonTests(PostsTestCase):
         Vote.objects.create(user=self.other_user, post=post, value=-1)
         self.client.force_login(self.author)
 
-        response = self.client.get(reverse("api:get_posts_json"))
+        response = self.client.get(reverse("posts_api:get_posts_json"))
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()["data"]
@@ -384,13 +384,13 @@ class GetPostsJsonTests(PostsTestCase):
         post = self.create_post()
         Vote.objects.create(user=self.author, post=post, value=1)
 
-        response = self.client.get(reverse("api:get_posts_json"))
+        response = self.client.get(reverse("posts_api:get_posts_json"))
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["data"][0]["user_vote_value"], 0)
 
     def test_get_posts_json_only_allows_get_requests(self):
-        response = self.client.post(reverse("api:get_posts_json"))
+        response = self.client.post(reverse("posts_api:get_posts_json"))
 
         self.assertEqual(response.status_code, 405)
 
@@ -414,7 +414,7 @@ class ShowPostAndGetPostJsonTests(PostsTestCase):
         self.client.force_login(self.other_user)
 
         response = self.client.get(
-            reverse("api:get_post_json", kwargs={"post_id": self.post.pk})
+            reverse("posts_api:get_post_json", kwargs={"post_id": self.post.pk})
         )
 
         self.assertEqual(response.status_code, 200)
@@ -426,7 +426,7 @@ class ShowPostAndGetPostJsonTests(PostsTestCase):
 
     def test_get_post_json_returns_not_found_for_an_unknown_post(self):
         response = self.client.get(
-            reverse("api:get_post_json", kwargs={"post_id": "00000000-0000-0000-0000-000000000001"})
+                reverse("posts_api:get_post_json", kwargs={"post_id": "00000000-0000-0000-0000-000000000001"})
         )
 
         self.assertEqual(response.status_code, 404)
@@ -436,7 +436,7 @@ class GetCommentsJsonTests(PostsTestCase):
     def setUp(self):
         super().setUp()
         self.post = self.create_post()
-        self.url = reverse("api:get_comments_json", kwargs={"post_id": self.post.pk})
+        self.url = reverse("posts_api:get_comments_json", kwargs={"post_id": self.post.pk})
 
     def test_returns_nested_comments_with_recursive_reply_counts_and_votes(self):
         root = Comment.objects.create(post=self.post, user=self.author, content="Root")
@@ -471,7 +471,7 @@ class VotePostTests(PostsTestCase):
     def setUp(self):
         super().setUp()
         self.post = self.create_post()
-        self.url = reverse("api:vote_post", kwargs={"post_id": self.post.pk})
+        self.url = reverse("posts_api:vote_post", kwargs={"post_id": self.post.pk})
 
     def vote(self, value):
         return self.client.post(
@@ -537,7 +537,7 @@ class VotePostTests(PostsTestCase):
     def test_authenticated_vote_for_missing_post_returns_not_found(self):
         self.client.force_login(self.other_user)
         response = self.client.post(
-            reverse("api:vote_post", kwargs={"post_id": "00000000-0000-0000-0000-000000000001"}),
+            reverse("posts_api:vote_post", kwargs={"post_id": "00000000-0000-0000-0000-000000000001"}),
             data=json.dumps({"vote_value": 1}),
             content_type="application/json",
         )
@@ -549,7 +549,7 @@ class CreateCommentTests(PostsTestCase):
     def setUp(self):
         super().setUp()
         self.post = self.create_post()
-        self.url = reverse("api:create_comment", kwargs={"post_id": self.post.pk})
+        self.url = reverse("posts_api:create_comment", kwargs={"post_id": self.post.pk})
 
     def test_creating_a_reply_sets_its_parent_comment(self):
         parent = Comment.objects.create(post=self.post, user=self.author, content="Parent")
@@ -604,7 +604,7 @@ class DeleteCommentTests(PostsTestCase):
         super().setUp()
         self.post = self.create_post()
         self.comment = Comment.objects.create(post=self.post, user=self.author, content="Remove me")
-        self.url = reverse("api:delete_comment", kwargs={"comment_id": self.comment.pk})
+        self.url = reverse("posts_api:delete_comment", kwargs={"comment_id": self.comment.pk})
 
     def test_author_can_delete_a_comment_via_api(self):
         self.client.force_login(self.author)
@@ -643,7 +643,7 @@ class DeleteCommentTests(PostsTestCase):
 
         self.client.post(self.url)
         response = self.client.get(
-            reverse("api:get_comments_json", kwargs={"post_id": self.post.pk})
+            reverse("posts_api:get_comments_json", kwargs={"post_id": self.post.pk})
         )
 
         self.comment.refresh_from_db()
@@ -662,7 +662,7 @@ class VoteCommentTests(PostsTestCase):
         super().setUp()
         self.post = self.create_post()
         self.comment = Comment.objects.create(post=self.post, user=self.author, content="Helpful")
-        self.url = reverse("api:vote_comment", kwargs={"comment_id": self.comment.pk})
+        self.url = reverse("posts_api:vote_comment", kwargs={"comment_id": self.comment.pk})
 
     def vote(self, value):
         return self.client.post(
