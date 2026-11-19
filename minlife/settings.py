@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'weeklychallenge',
     'tailwind',
     'tailwindtheme',
+    "rest_framework",
 ]
 
 MIDDLEWARE = [
