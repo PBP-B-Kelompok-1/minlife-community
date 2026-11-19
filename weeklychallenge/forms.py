@@ -1,9 +1,8 @@
-from datetime import timedelta
-
 from django import forms
 from django.forms import inlineformset_factory
 
 from .models import Challenge, ChallengeTask, MAX_TASKS_PER_CHALLENGE
+from .selectors import validate_no_overlap
 
 
 class ChallengeForm(forms.ModelForm):
@@ -31,15 +30,7 @@ class ChallengeForm(forms.ModelForm):
         if not week_start:
             return cleaned_data
 
-        window = timedelta(days=MAX_TASKS_PER_CHALLENGE - 1)
-        overlapping = Challenge.objects.filter(
-            week_start__gte=week_start - window,
-            week_start__lte=week_start + window,
-        )
-        if self.instance.pk:
-            overlapping = overlapping.exclude(pk=self.instance.pk)
-
-        if overlapping.exists():
+        if validate_no_overlap(week_start, self.instance.pk or None):
             self.add_error(
                 "week_start",
                 "Rentang tanggal challenge tidak boleh tumpang tindih dengan challenge lain.",
