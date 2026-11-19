@@ -33,6 +33,7 @@ urlpatterns = [
         name='firebase_messaging_service_worker',
     ),
     path("ckeditor5/", include('django_ckeditor_5.urls')),
+    path("api/v1/challenges/", include("weeklychallenge.api_urls")),
     path("api/", include('minlife.urls_api')),
     path('admin/', admin.site.urls),
     path('user/', include("users.urls")),
