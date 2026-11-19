@@ -353,6 +353,82 @@ class UpdateAndDeletePostTests(PostsTestCase):
         self.assertFalse(Post.objects.filter(pk=self.post.pk).exists())
 
 
+class CreateAndUpdatePostApiTests(PostsTestCase):
+    def setUp(self):
+        super().setUp()
+        self.post = self.create_post(title="Original", content="Original content")
+        self.create_url = reverse("posts_api:create_post")
+        self.update_url = reverse("posts_api:update_post", kwargs={"post_id": self.post.pk})
+
+    def test_create_post_api_requires_authentication(self):
+        response = self.client.post(self.create_url, {"title": "New post", "content": "Body"})
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["login_url"], reverse("login"))
+        self.assertFalse(Post.objects.filter(title="New post").exists())
+
+    def test_authenticated_user_can_create_a_tagged_post_via_api(self):
+        tag = Tag.objects.create(title="article")
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(
+            self.create_url,
+            {"title": "New post", "content": "<p>Body</p>", "tags": [tag.pk]},
+        )
+
+        self.assertEqual(response.status_code, 201)
+        post = Post.objects.get(title="New post")
+        self.assertEqual(post.author, self.other_user)
+        self.assertEqual(post.content, "<p>Body</p>")
+        self.assertQuerySetEqual(post.tags.all(), [tag])
+        self.assertEqual(response.json()["data"]["id"], str(post.pk))
+
+    def test_post_create_api_rejects_invalid_data(self):
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.create_url, {"title": "", "content": "Body"})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("title", response.json()["errors"])
+
+    def test_update_post_api_requires_authentication(self):
+        response = self.client.post(self.update_url, {"title": "Changed", "content": "Changed content"})
+
+        self.assertEqual(response.status_code, 401)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.title, "Original")
+
+    def test_author_can_update_a_post_via_api(self):
+        self.client.force_login(self.author)
+
+        response = self.client.post(self.update_url, {"title": "Changed", "content": "Changed content"})
+
+        self.assertEqual(response.status_code, 200)
+        self.post.refresh_from_db()
+        self.assertEqual((self.post.title, self.post.content), ("Changed", "Changed content"))
+        self.assertEqual(response.json()["data"]["id"], str(self.post.pk))
+
+    def test_other_user_cannot_update_a_post_via_api_without_permission(self):
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.update_url, {"title": "Changed", "content": "Changed content"})
+
+        self.assertEqual(response.status_code, 403)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.title, "Original")
+
+    def test_user_with_change_post_permission_can_update_another_users_post_via_api(self):
+        permission = Permission.objects.get(codename="change_post")
+        self.other_user.user_permissions.add(permission)
+        self.client.force_login(self.other_user)
+
+        response = self.client.post(self.update_url, {"title": "Moderated", "content": "Updated content"})
+
+        self.assertEqual(response.status_code, 200)
+        self.post.refresh_from_db()
+        self.assertEqual((self.post.title, self.post.content), ("Moderated", "Updated content"))
+
+
 class GetPostsJsonTests(PostsTestCase):
     def test_get_posts_json_includes_related_data_and_current_users_vote(self):
         older_post = self.create_post(title="Older")

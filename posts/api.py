@@ -11,7 +11,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_field
 
 from weeklychallenge.services import award_badge_if_eligible
 
-from .forms import CommentForm
+from .forms import CommentForm, PostForm
 from .models import Comment, Post, Vote
 
 
@@ -134,6 +134,13 @@ class PostDetailResponseSerializer(serializers.Serializer):
     data = PostSerializer()
 
 
+class PostWriteRequestSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=255)
+    content = serializers.CharField(required=False, allow_blank=True)
+    tags = serializers.ListField(child=serializers.UUIDField(), required=False)
+    challenge_image = serializers.ImageField(required=False)
+
+
 class CommentListResponseSerializer(serializers.Serializer):
     data = CommentSerializer(many=True)
 
@@ -193,6 +200,60 @@ class PostDetailAPIView(APIView):
     )
     def get(self, request, post_id):
         post = get_object_or_404(Post.objects.select_related("author").prefetch_related("tags"), pk=post_id)
+        return Response({"data": PostSerializer(post, context={"request": request}).data})
+
+
+class PostCreateAPIView(LoginRequiredAPIView):
+    @extend_schema(
+        operation_id="posts_create",
+        tags=["Posts"],
+        request=PostWriteRequestSerializer,
+        responses={201: PostDetailResponseSerializer, 400: ErrorResponseSerializer, 401: MessageResponseSerializer},
+    )
+    def post(self, request):
+        unauthenticated = self.require_authenticated_user(request)
+        if unauthenticated:
+            return unauthenticated
+
+        form = PostForm(request.data, request.FILES)
+        if not form.is_valid():
+            return Response(
+                {"message": "Please fill the fields as specified!", "errors": form.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        post = form.save(commit=False)
+        post.author = request.user
+        post.save()
+        form.save_m2m()
+        return Response(
+            {"data": PostSerializer(post, context={"request": request}).data},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PostUpdateAPIView(LoginRequiredAPIView):
+    @extend_schema(
+        operation_id="posts_update",
+        tags=["Posts"],
+        request=PostWriteRequestSerializer,
+        responses={200: PostDetailResponseSerializer, 400: ErrorResponseSerializer, 401: MessageResponseSerializer, 403: ErrorResponseSerializer},
+    )
+    def post(self, request, post_id):
+        unauthenticated = self.require_authenticated_user(request)
+        if unauthenticated:
+            return unauthenticated
+
+        post = get_object_or_404(Post, pk=post_id)
+        if request.user != post.author and not request.user.has_perm("posts.change_post"):
+            raise PermissionDenied
+
+        form = PostForm(request.data, request.FILES, instance=post)
+        if not form.is_valid():
+            return Response(
+                {"message": "Please fill the fields as specified!", "errors": form.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        post = form.save()
         return Response({"data": PostSerializer(post, context={"request": request}).data})
 
 

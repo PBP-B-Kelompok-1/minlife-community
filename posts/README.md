@@ -57,4 +57,4 @@ Logs:
 - Announcements button on frontpage: https://chatgpt.com/s/cx_6ae3684fc8108191aab5917d438a265c
 - Mobile hamburger navbar: https://chatgpt.com/s/cx_6ae36f9ffe188191b94a454652326fa3
 - Migration to Django REST Framework APIs, Swagger documentation: https://chatgpt.com/s/cx_6afe5b74cc808191b8d098e4f506ade1
-- Check permissions for REST API, Add create and update API: 
+- Check permissions for REST API, Add create and update API: https://chatgpt.com/s/cx_6afe9b805e4081919d42e35d5fade5c3
