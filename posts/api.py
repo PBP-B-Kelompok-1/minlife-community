@@ -7,6 +7,7 @@ from rest_framework import serializers, status
 from rest_framework.exceptions import ParseError
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema, extend_schema_field
 
 from weeklychallenge.services import award_badge_if_eligible
 
@@ -37,28 +38,36 @@ class PostSerializer(serializers.ModelSerializer):
             "can_update", "can_delete",
         )
 
+    @extend_schema_field(serializers.URLField(allow_null=True))
     def get_avatar_url(self, post):
         return post.author.avatar_url or post.author.avatar_src
 
+    @extend_schema_field(serializers.URLField(allow_null=True))
     def get_challenge_image_url(self, post):
         return post.challenge_image.url if post.challenge_image else None
 
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_tags(self, post):
         return [{"id": str(tag.pk), "title": tag.title} for tag in post.tags.all()]
 
+    @extend_schema_field(serializers.IntegerField())
     def get_vote_count(self, post):
         return post.get_vote_count()
 
+    @extend_schema_field(serializers.IntegerField())
     def get_user_vote_value(self, post):
         return post.get_user_vote_value(self.context["request"].user)
 
+    @extend_schema_field(serializers.IntegerField())
     def get_comment_count(self, post):
         return post.comments.count()
 
+    @extend_schema_field(serializers.BooleanField())
     def get_can_update(self, post):
         user = self.context["request"].user
         return user.is_authenticated and (user == post.author or user.has_perm("posts.change_post"))
 
+    @extend_schema_field(serializers.BooleanField())
     def get_can_delete(self, post):
         user = self.context["request"].user
         return user.is_authenticated and (user == post.author or user.has_perm("posts.delete_post"))
@@ -81,32 +90,76 @@ class CommentSerializer(serializers.ModelSerializer):
             "user_vote_value", "replies", "reply_count", "vote_count", "can_delete",
         )
 
+    @extend_schema_field(serializers.UUIDField(allow_null=True))
     def get_user_id(self, comment):
         return None if comment.is_deleted else comment.user_id
 
+    @extend_schema_field(serializers.CharField())
     def get_username(self, comment):
         return "[deleted comment]" if comment.is_deleted else comment.user.username
 
+    @extend_schema_field(serializers.URLField())
     def get_avatar_url(self, comment):
         return "" if comment.is_deleted else (comment.user.avatar_url or comment.user.avatar_src)
 
+    @extend_schema_field(serializers.IntegerField())
     def get_user_vote_value(self, comment):
         return comment.get_user_vote_value(self.context["request"].user)
 
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_replies(self, comment):
         return CommentSerializer(comment.replies.all(), many=True, context=self.context).data
 
+    @extend_schema_field(serializers.IntegerField())
     def get_reply_count(self, comment):
         return sum(1 + self.get_reply_count(reply) for reply in comment.replies.all())
 
+    @extend_schema_field(serializers.IntegerField())
     def get_vote_count(self, comment):
         return comment.get_vote_count()
 
+    @extend_schema_field(serializers.BooleanField())
     def get_can_delete(self, comment):
         user = self.context["request"].user
         return not comment.is_deleted and user.is_authenticated and (
             user == comment.user or user.has_perm("posts.delete_comment")
         )
+
+
+class PostListResponseSerializer(serializers.Serializer):
+    data = PostSerializer(many=True)
+
+
+class PostDetailResponseSerializer(serializers.Serializer):
+    data = PostSerializer()
+
+
+class CommentListResponseSerializer(serializers.Serializer):
+    data = CommentSerializer(many=True)
+
+
+class CommentCreateRequestSerializer(serializers.Serializer):
+    content = serializers.CharField()
+    replies_to_comment = serializers.UUIDField(required=False)
+
+
+class CommentCreateResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    comment_id = serializers.UUIDField()
+
+
+class VoteResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    vote_value = serializers.IntegerField()
+    vote_count = serializers.IntegerField()
+
+
+class MessageResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+
+
+class ErrorResponseSerializer(serializers.Serializer):
+    error = serializers.CharField()
 
 
 class LoginRequiredAPIView(APIView):
@@ -122,18 +175,34 @@ class LoginRequiredAPIView(APIView):
 
 
 class PostListAPIView(APIView):
+    @extend_schema(
+        operation_id="posts_list",
+        tags=["Posts"],
+        responses={200: PostListResponseSerializer},
+    )
     def get(self, request):
         posts = Post.objects.select_related("author").prefetch_related("tags")
         return Response({"data": PostSerializer(posts, many=True, context={"request": request}).data})
 
 
 class PostDetailAPIView(APIView):
+    @extend_schema(
+        operation_id="posts_retrieve",
+        tags=["Posts"],
+        responses={200: PostDetailResponseSerializer, 404: ErrorResponseSerializer},
+    )
     def get(self, request, post_id):
         post = get_object_or_404(Post.objects.select_related("author").prefetch_related("tags"), pk=post_id)
         return Response({"data": PostSerializer(post, context={"request": request}).data})
 
 
 class PostDeleteAPIView(LoginRequiredAPIView):
+    @extend_schema(
+        operation_id="posts_delete",
+        tags=["Posts"],
+        request=None,
+        responses={200: MessageResponseSerializer, 401: MessageResponseSerializer, 403: ErrorResponseSerializer},
+    )
     def post(self, request, post_id):
         unauthenticated = self.require_authenticated_user(request)
         if unauthenticated:
@@ -168,6 +237,12 @@ def get_vote_value(request):
 
 
 class PostVoteAPIView(LoginRequiredAPIView):
+    @extend_schema(
+        operation_id="posts_vote",
+        tags=["Posts"],
+        request=VoteSerializer,
+        responses={200: VoteResponseSerializer, 400: ErrorResponseSerializer, 401: MessageResponseSerializer},
+    )
     def post(self, request, post_id):
         unauthenticated = self.require_authenticated_user(request)
         if unauthenticated:
@@ -192,6 +267,11 @@ class PostVoteAPIView(LoginRequiredAPIView):
 
 
 class CommentListAPIView(APIView):
+    @extend_schema(
+        operation_id="posts_comments_list",
+        tags=["Posts"],
+        responses={200: CommentListResponseSerializer, 404: ErrorResponseSerializer},
+    )
     def get(self, request, post_id):
         post = get_object_or_404(Post, pk=post_id)
         comments = Comment.objects.filter(post=post, replies_to_comment__isnull=True).select_related("user")
@@ -199,6 +279,12 @@ class CommentListAPIView(APIView):
 
 
 class CommentCreateAPIView(LoginRequiredAPIView):
+    @extend_schema(
+        operation_id="posts_comments_create",
+        tags=["Posts"],
+        request=CommentCreateRequestSerializer,
+        responses={201: CommentCreateResponseSerializer, 400: ErrorResponseSerializer, 401: MessageResponseSerializer},
+    )
     def post(self, request, post_id):
         unauthenticated = self.require_authenticated_user(request)
         if unauthenticated:
@@ -221,6 +307,12 @@ class CommentCreateAPIView(LoginRequiredAPIView):
 
 
 class CommentDeleteAPIView(LoginRequiredAPIView):
+    @extend_schema(
+        operation_id="comments_delete",
+        tags=["Posts"],
+        request=None,
+        responses={200: MessageResponseSerializer, 401: MessageResponseSerializer, 403: ErrorResponseSerializer},
+    )
     def post(self, request, comment_id):
         unauthenticated = self.require_authenticated_user(request)
         if unauthenticated:
@@ -235,6 +327,12 @@ class CommentDeleteAPIView(LoginRequiredAPIView):
 
 
 class CommentVoteAPIView(LoginRequiredAPIView):
+    @extend_schema(
+        operation_id="comments_vote",
+        tags=["Posts"],
+        request=VoteSerializer,
+        responses={200: VoteResponseSerializer, 400: ErrorResponseSerializer, 401: MessageResponseSerializer},
+    )
     def post(self, request, comment_id):
         unauthenticated = self.require_authenticated_user(request)
         if unauthenticated:

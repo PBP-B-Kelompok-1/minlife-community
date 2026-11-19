@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     'tailwind',
     'tailwindtheme',
     "rest_framework",
+    "drf_spectacular",
+    'drf_spectacular_sidecar',
 ]
 
 MIDDLEWARE = [
@@ -206,4 +208,19 @@ CKEDITOR_5_CONFIGS = {
         }
     },
 
+}
+
+# REST Framework settings
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# drf_spectacular (API documentation)
+SPECTACULAR_SETTINGS = {
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'TITLE': 'Minlife Community API',
+    'DESCRIPTION': 'API docs.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
