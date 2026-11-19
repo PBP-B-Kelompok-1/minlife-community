@@ -1,18 +1,21 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from posts.models import Post, Vote
-from users.models import Badge
+from users.models import Badge, UserBadge
 
 from .models import Challenge, ChallengeSubmission, ChallengeTask
 
 
-class ChallengeReadAPITests(APITestCase):
+class ChallengeAPITestBase(APITestCase):
     def setUp(self):
         self.today = timezone.localdate()
         user_model = get_user_model()
@@ -126,6 +129,8 @@ class ChallengeReadAPITests(APITestCase):
 
         return reverse(f"weeklychallenge_api:{name}", args=args)
 
+
+class ChallengeReadAPITests(ChallengeAPITestBase):
     def test_list_has_paginated_shape_and_default_open_filter(self):
         response = self.client.get(self.url("challenge-list"))
 
@@ -355,7 +360,7 @@ class ChallengeReadAPITests(APITestCase):
         self.assertIsNone(second_page.data["results"][0]["post"]["image_url"])
 
 
-class ChallengeCreateAPITests(ChallengeReadAPITests):
+class ChallengeCreateAPITests(ChallengeAPITestBase):
     def create_payload(self, **overrides):
         payload = {
             "title": "New API challenge",
@@ -545,3 +550,234 @@ class ChallengeCreateAPITests(ChallengeReadAPITests):
         )
         self.assertEqual(accepted.status_code, 201)
         self.assertTrue(Challenge.objects.filter(title="CSRF challenge").exists())
+
+
+class ChallengeUpdateDeleteAPITests(ChallengeAPITestBase):
+    def test_patch_title_only_preserves_everything_else(self):
+        original = {
+            "background": self.open_challenge.background,
+            "description": self.open_challenge.description,
+            "goal": self.open_challenge.goal,
+            "upvote_threshold": self.open_challenge.upvote_threshold,
+            "week_start": self.open_challenge.week_start,
+            "task_ids": list(self.open_challenge.tasks.values_list("pk", flat=True)),
+        }
+        self.client.force_authenticate(user=self.moderator)
+
+        response = self.client.patch(
+            self.url("challenge-detail", self.open_challenge.pk),
+            {"title": "Patched title"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.open_challenge.refresh_from_db()
+        self.assertEqual(self.open_challenge.title, "Patched title")
+        self.assertEqual(self.open_challenge.background, original["background"])
+        self.assertEqual(self.open_challenge.description, original["description"])
+        self.assertEqual(self.open_challenge.goal, original["goal"])
+        self.assertEqual(
+            self.open_challenge.upvote_threshold,
+            original["upvote_threshold"],
+        )
+        self.assertEqual(self.open_challenge.week_start, original["week_start"])
+        self.assertEqual(
+            list(self.open_challenge.tasks.values_list("pk", flat=True)),
+            original["task_ids"],
+        )
+
+    def test_patch_with_tasks_replaces_the_task_list(self):
+        self.client.force_authenticate(user=self.moderator)
+
+        response = self.client.patch(
+            self.url("challenge-detail", self.open_challenge.pk),
+            {
+                "tasks": [
+                    {
+                        "day_number": 4,
+                        "title": "Replacement task",
+                        "description": "Replacement description",
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        tasks = list(
+            self.open_challenge.tasks.order_by("day_number").values(
+                "day_number", "title", "description"
+            )
+        )
+        self.assertEqual(
+            tasks,
+            [{
+                "day_number": 4,
+                "title": "Replacement task",
+                "description": "Replacement description",
+            }],
+        )
+
+    def test_patch_without_tasks_keeps_existing_tasks(self):
+        original_tasks = list(
+            self.open_challenge.tasks.values_list(
+                "day_number", "title", "description"
+            )
+        )
+        self.client.force_authenticate(user=self.moderator)
+
+        response = self.client.patch(
+            self.url("challenge-detail", self.open_challenge.pk),
+            {"title": "Task-preserving patch"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(
+                self.open_challenge.tasks.values_list(
+                    "day_number", "title", "description"
+                )
+            ),
+            original_tasks,
+        )
+
+    def test_put_missing_required_fields_returns_400(self):
+        self.client.force_authenticate(user=self.moderator)
+
+        response = self.client.put(
+            self.url("challenge-detail", self.open_challenge.pk),
+            {"title": "Incomplete PUT"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.open_challenge.refresh_from_db()
+        self.assertEqual(self.open_challenge.title, "Open challenge")
+
+    def test_update_never_changes_badge_or_creator(self):
+        original_badge = self.open_challenge.badge
+        original_creator = self.open_challenge.created_by
+        self.client.force_authenticate(user=self.moderator)
+
+        response = self.client.patch(
+            self.url("challenge-detail", self.open_challenge.pk),
+            {
+                "title": "Badge-preserving update",
+                "badge": {"id": 999999, "name": "Injected badge"},
+                "created_by": str(self.normal_user.pk),
+                "id": 999999,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.open_challenge.refresh_from_db()
+        self.assertEqual(self.open_challenge.badge, original_badge)
+        self.assertEqual(self.open_challenge.created_by, original_creator)
+        self.assertNotEqual(self.open_challenge.pk, 999999)
+
+    def test_update_week_start_excludes_self_but_rejects_other_overlap(self):
+        self.client.force_authenticate(user=self.moderator)
+
+        response = self.client.patch(
+            self.url("challenge-detail", self.open_challenge.pk),
+            {"week_start": self.open_challenge.week_start.isoformat()},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        overlapping_challenge = self.create_challenge(
+            title="Overlapping challenge",
+            week_start=self.open_challenge.week_start - timedelta(days=6),
+        )
+        response = self.client.patch(
+            self.url("challenge-detail", self.open_challenge.pk),
+            {"week_start": overlapping_challenge.week_start.isoformat()},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.open_challenge.refresh_from_db()
+        self.assertNotEqual(
+            self.open_challenge.week_start,
+            overlapping_challenge.week_start,
+        )
+
+    def test_delete_returns_204_empty_and_preserves_badge_history(self):
+        challenge_badge = self.open_challenge.badge
+        submission_user = self.first_submission.user
+        earned, _ = UserBadge.objects.get_or_create(
+            user=submission_user,
+            badge=challenge_badge,
+        )
+        challenge_pk = self.open_challenge.pk
+        badge_pk = challenge_badge.pk
+        earned_pk = earned.pk
+        self.client.force_authenticate(user=self.moderator)
+
+        response = self.client.delete(
+            self.url("challenge-detail", challenge_pk)
+        )
+
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.content, b"")
+        self.assertFalse(Challenge.objects.filter(pk=challenge_pk).exists())
+        self.assertFalse(
+            ChallengeSubmission.objects.filter(challenge_id=challenge_pk).exists()
+        )
+        self.assertTrue(Badge.objects.filter(pk=badge_pk).exists())
+        self.assertTrue(UserBadge.objects.filter(pk=earned_pk).exists())
+
+    @patch("weeklychallenge.api_views.Challenge.delete")
+    def test_delete_protected_error_returns_409(self, delete):
+        from django.db.models.deletion import ProtectedError
+
+        delete.side_effect = ProtectedError(
+            "protected",
+            {self.open_challenge},
+        )
+        self.client.force_authenticate(user=self.moderator)
+
+        response = self.client.delete(
+            self.url("challenge-detail", self.open_challenge.pk)
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            response.data,
+            {"detail": "Challenge tidak dapat dihapus karena masih digunakan."},
+        )
+
+    def test_normal_user_cannot_patch_or_delete(self):
+        self.client.force_authenticate(user=self.normal_user)
+
+        patch_response = self.client.patch(
+            self.url("challenge-detail", self.open_challenge.pk),
+            {"title": "Forbidden patch"},
+            format="json",
+        )
+        delete_response = self.client.delete(
+            self.url("challenge-detail", self.open_challenge.pk)
+        )
+
+        self.assertEqual(patch_response.status_code, 403)
+        self.assertEqual(delete_response.status_code, 403)
+        self.open_challenge.refresh_from_db()
+        self.assertEqual(self.open_challenge.title, "Open challenge")
+
+    def test_list_and_submissions_query_counts_do_not_grow_per_item(self):
+        with CaptureQueriesContext(connection) as list_queries:
+            list_response = self.client.get(
+                self.url("challenge-list"),
+                {"status": "all", "page_size": 50},
+            )
+        self.assertEqual(list_response.status_code, 200)
+        self.assertLessEqual(len(list_queries), 12)
+
+        with CaptureQueriesContext(connection) as submission_queries:
+            submission_response = self.client.get(
+                self.url("challenge-submissions", self.open_challenge.pk),
+                {"page_size": 50},
+            )
+        self.assertEqual(submission_response.status_code, 200)
+        self.assertLessEqual(len(submission_queries), 12)
