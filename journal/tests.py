@@ -134,3 +134,64 @@ class JournalTests(TestCase):
         self.client.logout()
         self.assertEqual(self.client.get(entry_url("2026-10-22")).status_code, 401)
         self.assertEqual(self.save("2026-10-22").status_code, 401)
+
+
+class JournalApiTests(TestCase):
+    def setUp(self):
+        self.alice = User.objects.create_user("alice", password="pass12345")
+        self.bob = User.objects.create_user("bob", password="pass12345")
+        self.client.login(username="alice", password="pass12345")
+
+    def test_month_api_needs_login(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("journal:api_month")).status_code, 401)
+
+    def test_month_api_only_own_entries_in_month(self):
+        JournalEntry.objects.create(user=self.alice, date=date(2026, 11, 20), content="<p>a</p>")
+        JournalEntry.objects.create(user=self.alice, date=date(2026, 10, 1), content="<p>lain bulan</p>")
+        JournalEntry.objects.create(user=self.bob, date=date(2026, 11, 21), content="<p>bob</p>")
+        data = self.client.get(reverse("journal:api_month"), {"year": 2026, "month": 11}).json()
+        self.assertEqual(data["count"], 1)
+        self.assertEqual([e["date"] for e in data["entries"]], ["2026-11-20"])
+
+    def test_month_api_bad_params_fall_back(self):
+        r = self.client.get(reverse("journal:api_month"), {"year": "abc", "month": "99"})
+        self.assertEqual(r.status_code, 200)
+
+    def test_entry_api_create_and_read(self):
+        url = reverse("journal:api_entry", args=["2026-11-20"])
+        r = self.client.post(url, data=json.dumps({"content": "<p>Halo</p>", "visibility": "public"}),
+                             content_type="application/json")
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(self.client.get(url).json()["visibility"], "public")
+
+    def test_entry_api_skips_csrf(self):
+        from django.test import Client
+        c = Client(enforce_csrf_checks=True)
+        c.login(username="alice", password="pass12345")
+        url = reverse("journal:api_entry", args=["2026-11-20"])
+        r = c.post(url, data=json.dumps({"content": "<p>Halo</p>"}), content_type="application/json")
+        self.assertEqual(r.status_code, 201)
+
+    def test_web_entry_still_enforces_csrf(self):
+        from django.test import Client
+        c = Client(enforce_csrf_checks=True)
+        c.login(username="alice", password="pass12345")
+        url = reverse("journal:entry", args=["2026-11-20"])
+        r = c.post(url, data=json.dumps({"content": "<p>Halo</p>"}), content_type="application/json")
+        self.assertEqual(r.status_code, 403)
+
+    def test_entry_delete_api(self):
+        JournalEntry.objects.create(user=self.alice, date=date(2026, 11, 20), content="<p>a</p>")
+        JournalEntry.objects.create(user=self.bob, date=date(2026, 11, 20), content="<p>b</p>")
+        url = reverse("journal:api_entry_delete", args=["2026-11-20"])
+        self.assertEqual(self.client.post(url).status_code, 200)
+        self.assertFalse(JournalEntry.objects.filter(user=self.alice).exists())
+        self.assertTrue(JournalEntry.objects.filter(user=self.bob).exists())
+        self.assertEqual(self.client.post(url).status_code, 404)
+
+    def test_entry_delete_api_needs_login_and_post(self):
+        url = reverse("journal:api_entry_delete", args=["2026-11-20"])
+        self.assertEqual(self.client.get(url).status_code, 405)
+        self.client.logout()
+        self.assertEqual(self.client.post(url).status_code, 401)

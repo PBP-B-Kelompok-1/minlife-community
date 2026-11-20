@@ -9,6 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from .models import JournalEntry
@@ -161,3 +162,47 @@ def entry_detail(request, date_str):
         defaults={"content": content, "visibility": visibility},
     )
     return JsonResponse(entry_detail_data(day, entry), status=201 if created else 200)
+
+
+# ---------------------------------------------------------------------------
+# API untuk aplikasi Flutter (JSON + session cookie)
+# ---------------------------------------------------------------------------
+def _unauthorized():
+    return JsonResponse({"error": "Sesi habis, silakan login lagi."}, status=401)
+
+
+def month_api(request):
+    """GET /journal/api/month/?year=2026&month=11 -> entry satu bulan penuh."""
+    if not request.user.is_authenticated:
+        return _unauthorized()
+    today = timezone.localdate()
+    year, month = read_month(request, today)
+    rows = JournalEntry.objects.filter(
+        user=request.user, date__year=year, date__month=month
+    )  # urutan -date dari Meta
+    return JsonResponse({
+        "year": year,
+        "month": month,
+        "count": rows.count(),
+        "entries": [entry_data(e) for e in rows],
+    })
+
+
+@csrf_exempt
+def entry_api(request, date_str):
+    """GET/POST (dan DELETE) entry per tanggal; logika sama dengan entry_detail.
+    csrf_exempt hanya untuk jalur Flutter, jalur web tetap kena CSRF."""
+    return entry_detail(request, date_str)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def entry_delete_api(request, date_str):
+    """POST /journal/api/entry/<YYYY-MM-DD>/delete/ (CookieRequest tidak punya DELETE)."""
+    if not request.user.is_authenticated:
+        return _unauthorized()
+    day = parse_date(date_str)
+    deleted, _ = JournalEntry.objects.filter(user=request.user, date=day).delete()
+    if not deleted:
+        return JsonResponse({"error": "Entry tidak ditemukan."}, status=404)
+    return JsonResponse(entry_detail_data(day, None))
