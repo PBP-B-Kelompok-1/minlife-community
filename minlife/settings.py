@@ -213,6 +213,7 @@ CKEDITOR_5_CONFIGS = {
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    "DEFAULT_AUTHENTICATION_CLASSES": ["users.authentication.CsrfExemptSessionAuthentication"],
 }
 
 # drf_spectacular (API documentation)
