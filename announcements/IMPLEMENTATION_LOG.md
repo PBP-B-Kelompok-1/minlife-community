@@ -727,3 +727,38 @@ Hasil aktual:
 | Red Checkpoint 6C - Pengiriman Push FCM | Selesai | `d431804 test(announcements): definisikan pengiriman push fcm` |
 | Green Checkpoint 6C - Pengiriman Push FCM | Selesai | `bb13e8d feat(announcements): tambahkan pengiriman push fcm` |
 | Dokumentasi Checkpoint 6C | Selesai | `13c959f docs(announcements): dokumentasikan pengiriman push fcm` |
+
+## 2026-11-20 - Mobile Checkpoint 1: Announcement DRF API
+
+- **Permintaan developer:** fokus backend web announcement dan notifications untuk
+  Checkpoint 1 mobile; implementasikan DRF dan jelaskan progres, pengecekan manual,
+  dokumentasi, serta waktu commit/PR. Repo Flutter dilanjutkan terpisah.
+- **Basis kode:** `feat/announcements-drf` sama dengan `origin/dev` pada `740549f`
+  setelah fetch. Dependency/configuration DRF sudah tersedia dari integrasi tim;
+  dependency tersebut dipasang pada virtual environment lokal.
+- **Implementasi Codex:** serializer, model permission per operasi, endpoint berversi
+  `/api/v1/announcements/`, CRUD, search/sort/pagination, capabilities, serta
+  subscribe/unsubscribe FID. Pola autentikasi/pagination mengikuti Weekly Challenge.
+- **Integrasi FCM:** create melalui API menjadwalkan sender existing dengan
+  `transaction.on_commit`. Kegagalan push dicatat dan tidak menggagalkan create.
+  Data creator/timestamps read-only; creator diambil dari session. Unsubscribe hanya
+  menghapus subscription user saat ini. Tidak ada perubahan model/migration.
+- **Verifikasi:** 26 test API baru lulus, mencakup permission, session/CSRF, validasi,
+  JSON, metadata read-only, pagination/query count, subscription ownership, scheduling
+  push, rollback, dan kegagalan Firebase. Baseline 70 test web sebelumnya lulus.
+  Suite seluruh proyek setelah implementasi lulus 338/338. Django check bersih,
+  migration check tidak menemukan perubahan, dan pip check lulus. Rincian pemeriksaan
+  akhir dicatat di [`API.md`](API.md).
+- **Smoke test HTTP lokal:** list 200 dengan 43 record existing, detail 200,
+  capabilities guest 200 dengan semua hak false, halaman web announcement 200.
+  Server sementara dihentikan setelah pengecekan read-only.
+- **Koreksi AI:** ekspektasi metode tidak didukung diperbaiki dari guest menjadi
+  moderator karena permission DRF berjalan sebelum pemeriksaan metode.
+- **Dokumentasi:** README root/modul dan `API.md` memuat kontrak, contoh payload,
+  alur mobile-PWS, session/CSRF, checklist manual, batas verifikasi, dan Git handoff.
+- **Belum diverifikasi:** deployment PWS, pengiriman Firebase nyata pada deployment
+  terbaru, integrasi Flutter, review rekan, dan pemeriksaan manual pemilik modul.
+  Test push menggunakan mock. Kontribusi manual tersebut tidak diklaim sudah selesai.
+- **Git:** perubahan disiapkan lokal untuk tiga commit (fitur, test, dokumentasi);
+  belum commit/push/PR pada sesi implementasi ini. PR berikutnya ditujukan ke `dev`
+  repo web setelah pemeriksaan pemilik modul dan push branch.

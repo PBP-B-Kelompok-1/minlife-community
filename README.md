@@ -62,6 +62,22 @@ detail announcement terkait.
 Dokumentasi teknis tersedia di
 [`announcements/README.md`](announcements/README.md).
 
+Untuk aplikasi Flutter, modul ini menyediakan API Django REST Framework di
+`/api/v1/announcements/`: list/detail publik, CRUD dengan model permission,
+capabilities, dan registrasi/unsubscribe Firebase Installation ID untuk user login.
+API memakai database Django yang sama dengan website, session authentication, dan
+CSRF untuk request yang mengubah data. Kontrak JSON, contoh request, serta langkah
+verifikasi dan integrasi mobile tersedia di [`announcements/API.md`](announcements/API.md).
+
+Integrasi layanan eksternal **Firebase Cloud Messaging (FCM)** menyediakan endpoint
+DRF `POST /api/v1/announcements/notifications/subscribe/` dan
+`POST /api/v1/announcements/notifications/unsubscribe/` untuk mengelola subscription
+perangkat milik user yang login. Setelah announcement dibuat melalui API dan transaksi
+database berhasil, Django memanggil Firebase Admin SDK untuk mengirim push melalui FCM.
+FCM tetap merupakan layanan eksternal; endpoint DRF tersebut merupakan API backend
+kelompok untuk mengelola subscription. Penerimaan notifikasi dan navigasi ke detail di
+Flutter, serta deployment API ini ke PWS, masih perlu diimplementasikan/diverifikasi.
+
 #### Personal goals (Qisthan Albani Fasyah - 2506621434)
 Setiap user mendapatkan sebuah menu jurnal berisi kalender. Setiap tanggal pada kalender dapat ditekan untuk memunculkan modal berisi text editor untuk dituliskan status hari ini.
 

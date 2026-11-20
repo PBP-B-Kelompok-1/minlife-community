@@ -14,7 +14,9 @@ untuk menerima system notification melalui Firebase Cloud Messaging (FCM).
 - Create, Update, dan Delete dengan `ModelForm` serta authorization server-side.
 - Read dan CRUD dinamis menggunakan HTMX tanpa full-page reload.
 - Halaman HTML biasa tetap tersedia sebagai fallback ketika HTMX tidak digunakan.
-- Endpoint JSON untuk list dan detail.
+- API Django REST Framework berversi untuk list/detail, CRUD, capabilities, dan
+  subscribe/unsubscribe notifications, dengan pagination dan session authentication.
+- Endpoint JSON lama untuk list/detail tetap tersedia bagi client web sebelumnya.
 - Opt-in/opt-out push notification per browser.
 - System notification pada foreground maupun background.
 - Klik notifikasi membuka detail announcement terkait.
@@ -55,6 +57,32 @@ hanya dapat dimiliki satu user aktif. Subscription dihapus ketika user dihapus.
 | `GET` | `/firebase-messaging-sw.js` | Publik | Root-scoped Firebase service worker. |
 | `GET` | `/api/announcements` | Publik | JSON list dengan search/sort. |
 | `GET` | `/api/announcement/<uuid>` | Publik | JSON detail. |
+
+### API Django REST Framework untuk mobile
+
+Base path: `/api/v1/announcements/`. Endpoint HTML/HTMX dan JSON lama di atas
+tetap tersedia. Flutter memakai API DRF berikut:
+
+| Method | URL relatif terhadap base path | Akses | Fungsi |
+| --- | --- | --- | --- |
+| `GET` | (base path) | Publik | List, search `q`, sort `newest/oldest`, pagination. |
+| `POST` | (base path) | Permission add | Membuat announcement dan menjadwalkan push setelah commit. |
+| `GET` | `<uuid>/` | Publik | Detail announcement. |
+| `PUT/PATCH` | `<uuid>/` | Permission change | Mengubah announcement. |
+| `DELETE` | `<uuid>/` | Permission delete | Menghapus announcement. |
+| `GET` | `capabilities/` | Publik | Hak create/change/delete user saat ini. |
+| `POST` | `notifications/subscribe/` | Login | Mendaftarkan Firebase Installation ID. |
+| `POST` | `notifications/unsubscribe/` | Login | Menghapus subscription milik user saat ini. |
+
+List memakai bentuk `count`, `next`, `previous`, `results`, sesuai pola API Weekly
+Challenge. Default 10 item per halaman, maksimum 50 dengan `page_size`. Detail dan
+hasil create/update adalah objek langsung. API memakai `SessionAuthentication`;
+request POST/PUT/PATCH/DELETE wajib membawa cookie session dan CSRF yang valid.
+User tanpa izin menerima JSON 403, bukan redirect halaman login.
+
+Dokumentasi kontrak, contoh JSON, checklist manual, dan handoff ke Flutter tersedia
+di [`API.md`](API.md). API ini belum membuktikan integrasi Flutter atau deployment
+PWS: keduanya harus diuji pada aplikasi dan server yang sebenarnya.
 
 ## Authorization
 
@@ -147,12 +175,13 @@ subscription localhost tidak otomatis berlaku pada origin PWS.
 
 ```powershell
 python manage.py test announcements
+python manage.py test announcements.tests_api
 python manage.py test announcements.tests.FCMWebClientTests announcements.tests.AnnouncementNotificationSendTests
 python manage.py check
 python manage.py makemigrations --check --dry-run
 ```
 
-Hasil verifikasi final:
+Hasil verifikasi web sebelumnya (sebelum penambahan API DRF):
 
 - 70/70 test Announcements lulus.
 - 14 test FCM client/server terfokus lulus.
@@ -160,6 +189,8 @@ Hasil verifikasi final:
 - Tidak ada perubahan model setelah migration `0002_fcmsubscription`.
 - Real Firebase send dan system-notification smoke test dua browser berhasil.
 - Creator tidak menerima push buatannya sendiri dan klik notifikasi membuka detail.
+
+Hasil verifikasi API DRF terbaru dicatat pada bagian Hasil verifikasi lokal di [`API.md`](API.md).
 
 ## Deployment
 
@@ -174,7 +205,7 @@ Hasil verifikasi final:
 ## Penggunaan AI
 
 OpenAI Codex digunakan untuk membantu audit referensi, penyusunan test, implementasi
-Django/HTMX/FCM, debugging, dan dokumentasi. Developer menentukan kebutuhan produk,
+Django/HTMX/FCM dan API DRF, debugging, dan dokumentasi. Developer menentukan kebutuhan produk,
 menyiapkan Firebase dan environment, menjalankan migration/test, melakukan smoke test
 dua akun/browser, mereview perubahan, serta menangani Git flow dan deployment.
 
