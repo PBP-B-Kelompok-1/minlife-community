@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserCreationForm
 from django.core.files.uploadedfile import UploadedFile
 from django.forms.models import BaseInlineFormSet, inlineformset_factory
+from django.forms import TextInput
 
 from .models import SocialLink, SocialPlatform
 
@@ -26,6 +27,11 @@ class RegisterForm(AvatarValidationMixin, UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = User
         fields = ("username", "email", "first_name", "last_name", "avatar", "bio")
+        
+        widgets = {"username": TextInput(attrs={"placeholder": "unique_username01"}),
+                   "email": TextInput(attrs={"placeholder": "markzookerburg@gmail.com"}),
+                   "first_name": TextInput(attrs={"placeholder": "John"}),
+                   "last_name": TextInput(attrs={"placeholder": "Doe"}),}
 
     def clean_username(self):
         username = self.cleaned_data["username"]
