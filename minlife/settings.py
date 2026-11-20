@@ -53,7 +53,12 @@ INSTALLED_APPS = [
     'weeklychallenge',
     'tailwind',
     'tailwindtheme',
+    "rest_framework",
 ]
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": ["users.authentication.CsrfExemptSessionAuthentication"],
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
