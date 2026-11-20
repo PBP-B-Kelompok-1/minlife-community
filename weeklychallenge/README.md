@@ -300,6 +300,241 @@ confirmation page or modal, and only the confirmed POST deletes the challenge.
 If another protected relationship prevents deletion, the view returns an
 understandable error instead of silently reporting success.
 
+## REST API contract
+
+The API is mounted at `/api/v1/challenges/`. It uses Django REST Framework
+function-based views, `SessionAuthentication`, and the existing Django user
+session. Clients must include a valid CSRF token for write requests; the API
+does not disable CSRF protection.
+
+### Endpoints
+
+| Method | Endpoint | Purpose | Access |
+| --- | --- | --- | --- |
+| GET | `/api/v1/challenges/` | Paginated list. Query: `status=open\|upcoming\|past\|all`, `q`, `page`, `page_size` (maximum 50). Invalid `status` uses `open`. | Everyone |
+| POST | `/api/v1/challenges/` | Create a challenge and nested tasks. A Badge is created atomically. | `weeklychallenge.add_challenge` |
+| GET | `/api/v1/challenges/current/` | Return the active challenge, or 404 when none is active. | Everyone |
+| GET | `/api/v1/challenges/capabilities/` | Return create/change/delete capabilities for the current user. | Everyone |
+| GET | `/api/v1/challenges/<id>/` | Return challenge detail. | Everyone |
+| PUT | `/api/v1/challenges/<id>/` | Replace writable challenge fields and the complete task list. | `weeklychallenge.change_challenge` |
+| PATCH | `/api/v1/challenges/<id>/` | Partially update writable fields. Tasks are replaced only when supplied. | `weeklychallenge.change_challenge` |
+| DELETE | `/api/v1/challenges/<id>/` | Delete a challenge. | `weeklychallenge.delete_challenge` |
+| GET | `/api/v1/challenges/<id>/submissions/` | Paginated leaderboard. Query: `sort=score\|newest`, `page`, `page_size`. | Everyone; upcoming submissions are hidden from non-managers |
+
+List and submission responses use DRF's pagination shape:
+
+```json
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": []
+}
+```
+
+### Challenge responses
+
+A normal list item contains:
+
+```json
+{
+  "id": 1,
+  "title": "Digital reset",
+  "week_start": "2026-11-16",
+  "week_end": "2026-11-22",
+  "status": "open",
+  "upvote_threshold": 10,
+  "submission_count": 3,
+  "badge": {
+    "id": 4,
+    "name": "Digital reset Badge",
+    "description": "Selesaikan challenge: Digital reset",
+    "icon_url": ""
+  }
+}
+```
+
+`status` is `open` when today is within the seven-day window, `upcoming`
+when `week_start` is in the future, and `past` otherwise.
+
+A normal detail response contains the list fields plus `background`,
+`description`, `goal`, `created_by`, `created_at`, `current_day`,
+`has_submitted`, `is_teaser`, and `tasks`:
+
+```json
+{
+  "id": 1,
+  "title": "Digital reset",
+  "week_start": "2026-11-16",
+  "week_end": "2026-11-22",
+  "status": "open",
+  "upvote_threshold": 10,
+  "submission_count": 3,
+  "badge": {
+    "id": 4,
+    "name": "Digital reset Badge",
+    "description": "Selesaikan challenge: Digital reset",
+    "icon_url": ""
+  },
+  "background": "A short context",
+  "description": "What to do",
+  "goal": "What participants should achieve",
+  "created_by": {"id": "uuid", "username": "moderator"},
+  "created_at": "2026-11-16T08:00:00+07:00",
+  "current_day": 3,
+  "has_submitted": false,
+  "is_teaser": false,
+  "tasks": [
+    {
+      "id": 1,
+      "day_number": 1,
+      "date": "2026-11-16",
+      "title": "Clear one drawer",
+      "description": "Keep only useful items."
+    }
+  ]
+}
+```
+
+For ordinary users, an open challenge reveals tasks cumulatively through the
+current day. A past challenge reveals all tasks. Users with
+`weeklychallenge.change_challenge` can see all tasks, including upcoming tasks.
+
+Upcoming challenges are teasers for users without
+`weeklychallenge.change_challenge`. Both list and detail responses contain
+**only**:
+
+```json
+{
+  "id": 2,
+  "title": "Future reset",
+  "week_start": "2026-11-23",
+  "status": "upcoming",
+  "is_teaser": true
+}
+```
+
+The teaser hides `week_end`, `background`, `description`, `goal`,
+`upvote_threshold`, `badge`, `submission_count`, `created_by`, `created_at`,
+`current_day`, `has_submitted`, and `tasks`. The submissions endpoint returns
+404 for an upcoming challenge when the requester cannot change challenges.
+
+### Write payload
+
+`POST`, `PUT`, and `PATCH` accept:
+
+```json
+{
+  "title": "Digital reset",
+  "background": "A short context",
+  "description": "What to do",
+  "goal": "What participants should achieve",
+  "upvote_threshold": 10,
+  "week_start": "2026-11-23",
+  "tasks": [
+    {
+      "day_number": 1,
+      "title": "Clear one drawer",
+      "description": "Keep only useful items."
+    }
+  ]
+}
+```
+
+Text fields are stripped of HTML tags and surrounding whitespace. The title and
+task titles cannot be blank after cleaning. Task day numbers must be unique and
+between 1 and 7, with no more than seven tasks. Challenge date windows cannot
+overlap another challenge, and `upvote_threshold` must be at least 1.
+
+`badge`, `created_by`, `id`, `created_at`, computed fields, and unknown fields
+are ignored and never saved. `PUT` requires the full writable payload.
+`PATCH` may update selected fields; supplying `tasks` replaces the whole task
+list.
+
+### Submission response
+
+```json
+{
+  "id": 1,
+  "score": 5,
+  "created_at": "2026-11-18T10:00:00+07:00",
+  "user": {"id": "uuid", "username": "participant"},
+  "post": {
+    "id": "uuid",
+    "title": "My progress",
+    "image_url": "https://example.com/media/challenge_images/progress.jpg"
+  }
+}
+```
+
+`score` is the sum of the Post's Vote values. `post.image_url` is an absolute
+URL when the submission has a challenge image, otherwise it is `null`.
+
+The capabilities endpoint returns:
+
+```json
+{
+  "can_create": false,
+  "can_change": false,
+  "can_delete": false
+}
+```
+
+All three values are false for anonymous users. Each value reflects the
+corresponding Django model permission for an authenticated user.
+
+### Status codes
+
+- `200 OK`: successful read or update.
+- `201 Created`: successful challenge creation.
+- `204 No Content`: successful deletion; the body is empty.
+- `400 Bad Request`: validation failure. Field errors are returned as a flat
+  object, with nested task errors under `tasks`.
+- `403 Forbidden`: the requester lacks the required write permission.
+- `404 Not Found`: missing challenge, no active challenge, or hidden upcoming
+  submissions. When no challenge is active, the body is
+  `{"detail": "No active challenge."}`.
+- `405 Method Not Allowed`: unsupported HTTP method, such as `DELETE` on the
+  list endpoint.
+- `409 Conflict`: deletion was blocked by a protected relationship. The body is
+  `{"detail": "Challenge tidak dapat dihapus karena masih digunakan."}`.
+
+### Examples
+
+Use the deployed host or `http://localhost:8000` as `BASE_URL`.
+
+```bash
+# List open challenges
+curl "BASE_URL/api/v1/challenges/?status=open&page_size=10"
+
+# Get the current challenge
+curl "BASE_URL/api/v1/challenges/current/"
+
+# Get challenge detail
+curl "BASE_URL/api/v1/challenges/1/"
+
+# Get the leaderboard
+curl "BASE_URL/api/v1/challenges/1/submissions/?sort=score&page_size=10"
+```
+
+Authenticated writes must use the existing Django session and include that
+session's CSRF token. The Posts module, not this API, creates submissions:
+
+```text
+Client -> existing Django session -> Posts create flow
+  -> tagged Post with challenge_image -> Weekly Challenge submission signal
+```
+
+### Dependencies on other modules
+
+- **Posts:** owns submission creation. A regular Post becomes a challenge
+  submission when it uses the shared `Weekly Challenge` tag, includes
+  `challenge_image`, and is saved while a challenge is active. The leaderboard
+  reads the Post title, image, author, and Vote score.
+- **Users:** owns the UUID-based User model, Django session login/logout, Badge,
+  UserBadge, and the `Moderator` group with Weekly Challenge model permissions.
+  Flutter login and CSRF handling are not defined by this module.
+
 ## Important design choices
 
 ### One shared tag instead of one tag per challenge
@@ -386,3 +621,8 @@ deployed environments.
   Post.
 - Manual browser checks are still needed for responsive layout, keyboard focus,
   screen readers, JavaScript-disabled fallback, and deployment.
+
+## Questions for teammates
+
+- Flutter login and CSRF handling are pending confirmation from the Users module
+  owner. The Django API currently uses DRF `SessionAuthentication`.

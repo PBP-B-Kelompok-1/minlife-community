@@ -96,3 +96,29 @@ demonstration.
 - [ ] Challenge overlap is protected by form validation but not by a database-level
       exclusion constraint against concurrent creation.
 - [x] Challenge deletion preserves protected Badges and permanent UserBadge history.
+
+## Checkpoint 1 API and Flutter handoff
+
+### Django REST API
+
+- [x] Add DRF and mount the API at `/api/v1/challenges/`.
+- [x] Implement public list, current, capabilities, detail, and submissions endpoints.
+- [x] Implement moderator-only create, update, and delete permissions.
+- [x] Add nested task serialization, validation parity, overlap checks, and atomic writes.
+- [x] Implement cumulative task reveal and upcoming-challenge teaser responses.
+- [x] Add pagination, filtering, search, leaderboard sorting, and absolute image URLs.
+- [x] Preserve CSRF protection with DRF `SessionAuthentication`.
+- [x] Add read, create, validation, CSRF, update, delete, and query-count API tests.
+- [x] Document the REST API contract, examples, dependencies, and open auth question.
+
+### Flutter work deferred to the next round
+
+- [ ] Add the Weekly Challenge main page under `lib/weeklychallenge/` using the existing
+      authenticated HTTP client.
+- [ ] Load the current challenge from `/api/v1/challenges/current/` with loading, retry,
+      and no-active-challenge states.
+- [ ] Add the challenge list with open/upcoming/past/all filters, debounced search,
+      pagination, and load-more behavior.
+- [ ] Add a drawer or bottom-navigation entry for Weekly Challenge.
+- [ ] Add Flutter model and widget tests using real API response shapes.
+- [ ] Add the Weekly Challenge section to the Flutter README.
