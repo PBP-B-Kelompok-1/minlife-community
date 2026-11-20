@@ -1,4 +1,4 @@
-from django.contrib.auth import logout
+from django.contrib.auth import authenticate, login, logout
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions
@@ -7,12 +7,19 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .forms import RegisterForm
 from .models import Follow, User
-from .serializers import UpdateProfileSerializer, UserDetailSerializer, UserSummarySerializer
+from .serializers import (
+    SocialLinkSerializer,
+    UpdateProfileSerializer,
+    UserDetailSerializer,
+    UserSummarySerializer,
+)
 
 
 class FollowingContextMixin:
     """Gives serializers the ids the viewer follows (for the is_following flag)."""
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         user = self.request.user
@@ -22,6 +29,65 @@ class FollowingContextMixin:
         return context
 
 
+# ---------------------------------------------------------------------------
+# Authentication (session based, for the Flutter app's CookieRequest)
+# ---------------------------------------------------------------------------
+class LoginView(APIView):
+    """POST /api/users/login/  {"username", "password"}"""
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        user = authenticate(
+            request,
+            username=request.data.get("username", ""),
+            password=request.data.get("password", ""),
+        )
+        if user is None:
+            return Response({"status": False, "message": "Invalid username or password."}, status=401)
+        login(request, user)
+        return Response({
+            "status": True,
+            "message": "Login successful.",
+            "id": str(user.id),
+            "username": user.username,
+            "is_moderator": user.groups.filter(name="Moderator").exists(),
+        })
+
+
+class RegisterView(APIView):
+    """POST /api/users/register/  {"username", "password1", "password2", + optional email, names, bio}"""
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        form = RegisterForm(request.data, request.FILES)
+        if not form.is_valid():
+            return Response({
+                "status": False,
+                "message": "Registration failed.",
+                "errors": {field: list(errors) for field, errors in form.errors.items()},
+            }, status=400)
+        user = form.save()
+        return Response(
+            {"status": True, "message": "Account created. Please log in.", "username": user.username},
+            status=201,
+        )
+
+
+class LogoutView(APIView):
+    """POST /api/users/logout/  (always succeeds, even with an expired session)"""
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        logout(request)
+        return Response({"status": True, "message": "Logged out."})
+
+
+# ---------------------------------------------------------------------------
+# Profiles
+# ---------------------------------------------------------------------------
 class UserDetailView(FollowingContextMixin, generics.RetrieveAPIView):
     """GET /api/users/<id>/  public profile"""
     queryset = User.objects.filter(is_active=True)
@@ -64,6 +130,9 @@ class UserSearchView(FollowingContextMixin, generics.ListAPIView):
         )
 
 
+# ---------------------------------------------------------------------------
+# Following
+# ---------------------------------------------------------------------------
 class FollowView(APIView):
     """POST /api/users/<id>/follow/ follows, DELETE unfollows (both are idempotent)"""
     permission_classes = [permissions.IsAuthenticated]
@@ -108,3 +177,27 @@ class FollowersListView(FollowingContextMixin, generics.ListAPIView):
         if profile_user != self.request.user:
             raise PermissionDenied("Only the profile owner can see followers.")
         return profile_user.followers.filter(is_active=True).order_by("username")
+
+
+# ---------------------------------------------------------------------------
+# Social links (always the logged-in user's own)
+# ---------------------------------------------------------------------------
+class SocialLinkListCreateView(generics.ListCreateAPIView):
+    """GET / POST /api/users/me/social-links/"""
+    serializer_class = SocialLinkSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return self.request.user.social_links.all()
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class SocialLinkDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET / PUT / PATCH / DELETE /api/users/me/social-links/<id>/"""
+    serializer_class = SocialLinkSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return self.request.user.social_links.all()   # someone else's link -> 404

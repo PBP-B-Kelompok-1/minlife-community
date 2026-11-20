@@ -42,10 +42,6 @@ class User(AbstractUser):
         blank=True,
     )
     
-    first_name = models.TextField(
-        blank=False,
-    )
-    
     @property
     def avatar_src(self):
         """URL of the uploaded profile picture, or an empty string if none."""
