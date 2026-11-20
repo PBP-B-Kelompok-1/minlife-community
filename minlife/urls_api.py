@@ -2,7 +2,6 @@ from django.urls import path
 from posts.views import get_posts_json, get_post_json, vote_post, delete_post,\
     get_comments_json, create_comment, vote_comment, delete_comment
 from announcements.views import get_announcements_json, get_announcement_json
-from django.urls import include, path
 
 app_name = "api"
 
@@ -21,5 +20,4 @@ urlpatterns = [
     path("comment/<uuid:comment_id>/delete", delete_comment, name="delete_comment"),
     path("post/<uuid:post_id>/vote", vote_post, name="vote_post"),
     path("comment/<uuid:comment_id>/vote", vote_comment, name="vote_comment"),
-    path("users/", include("users.api_urls")),
 ]

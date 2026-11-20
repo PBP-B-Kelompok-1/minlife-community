@@ -45,7 +45,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',
     'django_ckeditor_5',
     'users',
     'posts',
@@ -54,11 +53,10 @@ INSTALLED_APPS = [
     'weeklychallenge',
     'tailwind',
     'tailwindtheme',
+    "rest_framework",
+    "drf_spectacular",
+    'drf_spectacular_sidecar',
 ]
-
-REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["users.authentication.CsrfExemptSessionAuthentication"],
-}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -210,4 +208,20 @@ CKEDITOR_5_CONFIGS = {
         }
     },
 
+}
+
+# REST Framework settings
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    "DEFAULT_AUTHENTICATION_CLASSES": ["users.authentication.CsrfExemptSessionAuthentication"],
+}
+
+# drf_spectacular (API documentation)
+SPECTACULAR_SETTINGS = {
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'TITLE': 'Minlife Community API',
+    'DESCRIPTION': 'API docs.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }

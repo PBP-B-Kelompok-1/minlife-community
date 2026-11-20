@@ -208,7 +208,7 @@ function generatePostElem(post, show_links=true) {
     });
     postElem.querySelector(".post__actions__share").addEventListener("click", (e) => {
         e.preventDefault();
-        copy_post_url_to_clipboard(e.target);
+        copy_post_url_to_clipboard(e.currentTarget);
     });
     postElem.querySelector(".post__kebab-btn").addEventListener("click", (event) => {
         event.preventDefault();
@@ -379,6 +379,7 @@ async function vote_post(vote_button, vote_value) {
             method: "POST",
             headers: {
                 "Accept": "application/json",
+                "Content-Type": "application/json",
                 "X-CSRFToken": CSRF_TOKEN || getCookie("csrftoken")
             },
             body: JSON.stringify({"vote_value": vote_value})
@@ -709,6 +710,7 @@ async function vote_comment(vote_button, vote_value) {
             method: "POST",
             headers: {
                 "Accept": "application/json",
+                "Content-Type": "application/json",
                 "X-CSRFToken": CSRF_TOKEN || getCookie("csrftoken")
             },
             body: JSON.stringify({"vote_value": vote_value})
@@ -754,12 +756,10 @@ async function vote_comment(vote_button, vote_value) {
     }
 }
 
-function copy_post_url_to_clipboard(share_btn) {
+async function copy_post_url_to_clipboard(share_btn) {
     try {
-        const location_str = String(document.location);
-        const location_str_trimmed = location_str.endsWith('/') ? location_str.slice(0, -1) : str;
-        const show_post_url = location_str_trimmed + share_btn.dataset.showPostUrl;
-        navigator.clipboard.writeText(show_post_url);
+        const show_post_url = new URL(share_btn.dataset.showPostUrl, window.location.origin).href;
+        await write_to_clipboard(show_post_url);
         toast.fire({
             icon: "success",
             title: "Copied to clipboard!"
@@ -771,6 +771,26 @@ function copy_post_url_to_clipboard(share_btn) {
         });
         console.error(`An error occured while copying: ${error}`)
     }
+}
+
+async function write_to_clipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+    }
+
+    // Clipboard access is restricted outside a secure context. This fallback
+    // keeps sharing functional on local HTTP development servers as well.
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    const copied = document.execCommand("copy");
+    textarea.remove();
+    if (!copied) throw new Error("Clipboard write was rejected");
 }
 
 async function showQuote() {

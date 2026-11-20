@@ -59,7 +59,7 @@ class ApiTestCase(APITestCase):
 
     # url helpers
     def url(self, name, **kwargs):
-        return reverse(f"api:{name}", kwargs=kwargs or None)
+        return reverse(f"users_api:{name}", kwargs=kwargs or None)
 
     def detail_url(self, user):
         return self.url("user_detail", user_id=user.id)
