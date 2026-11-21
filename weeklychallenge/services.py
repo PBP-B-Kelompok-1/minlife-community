@@ -3,6 +3,15 @@ from django.db import transaction
 from .models import Challenge, ChallengeSubmission
 
 
+def _create_badge(title):
+    from users.models import Badge
+
+    return Badge.objects.create(
+        name=f"{title} Badge",
+        description=f"Selesaikan challenge: {title}",
+    )
+
+
 def get_current_challenge(today=None):
     """Return the challenge whose date range includes today, if one exists."""
     return Challenge.objects.current(today).first()
@@ -22,18 +31,45 @@ def user_has_submitted(user, challenge):
 @transaction.atomic
 def create_challenge(*, form, formset, user):
     """Create a challenge, its badge, and validated task formset atomically."""
-    from users.models import Badge
-
     challenge = form.save(commit=False)
-    challenge.badge = Badge.objects.create(
-        name=f"{challenge.title} Badge",
-        description=f"Selesaikan challenge: {challenge.title}",
-    )
+    challenge.badge = _create_badge(challenge.title)
     challenge.created_by = user
     challenge.save()
 
     formset.instance = challenge
     formset.save()
+    return challenge
+
+
+@transaction.atomic
+def create_challenge_from_data(*, validated_data, tasks_data, user):
+    challenge = Challenge(
+        **validated_data,
+        badge=_create_badge(validated_data["title"]),
+        created_by=user,
+    )
+    challenge.save()
+    from .models import ChallengeTask
+
+    ChallengeTask.objects.bulk_create(
+        [ChallengeTask(challenge=challenge, **task) for task in tasks_data]
+    )
+    return challenge
+
+
+@transaction.atomic
+def update_challenge_from_data(*, challenge, validated_data, tasks_data=None):
+    for field, value in validated_data.items():
+        setattr(challenge, field, value)
+    challenge.save()
+
+    if tasks_data is not None:
+        from .models import ChallengeTask
+
+        challenge.tasks.all().delete()
+        ChallengeTask.objects.bulk_create(
+            [ChallengeTask(challenge=challenge, **task) for task in tasks_data]
+        )
     return challenge
 
 
