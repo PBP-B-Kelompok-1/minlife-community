@@ -172,7 +172,7 @@ def _unauthorized():
 
 
 def month_api(request):
-    """GET /journal/api/month/?year=2026&month=11 -> entry satu bulan penuh."""
+    """GET /api/v1/journal/month/?year=2026&month=11 -> entry satu bulan penuh."""
     if not request.user.is_authenticated:
         return _unauthorized()
     today = timezone.localdate()
@@ -198,7 +198,7 @@ def entry_api(request, date_str):
 @csrf_exempt
 @require_http_methods(["POST"])
 def entry_delete_api(request, date_str):
-    """POST /journal/api/entry/<YYYY-MM-DD>/delete/ (CookieRequest tidak punya DELETE)."""
+    """POST /api/v1/journal/entry/<YYYY-MM-DD>/delete/ (CookieRequest tidak punya DELETE)."""
     if not request.user.is_authenticated:
         return _unauthorized()
     day = parse_date(date_str)
