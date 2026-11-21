@@ -14,4 +14,5 @@ urlpatterns = [
     path("challenges/", include("weeklychallenge.api_urls")),
     path("announcements/", include("announcements.api_urls")),
     path("users/", include("users.api_urls")),
+    path("journal/", include("journal.api_urls")),
 ]
